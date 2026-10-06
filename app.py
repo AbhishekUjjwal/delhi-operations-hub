@@ -87,7 +87,7 @@ font-weight: 600 !important;
 }
 </style>
 """, unsafe_allow_html=True)
-​with st.sidebar:
+with st.sidebar:
 st.title("🏛️ Delhi Operations Hub")
 st.divider()
 ​st.markdown("""

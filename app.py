@@ -1,14 +1,19 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import pymupdf as fitz
 import re
 import io
+import json
 import zipfile
 from datetime import datetime
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 import barcode
 from barcode.writer import ImageWriter
 
-# Page Configuration
+# Page Configuration - Enterprise Wide Layout
 st.set_page_config(
     page_title="Delhi Operations Hub",
     page_icon="🏛️",
@@ -16,7 +21,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Universal CSS: Both Light Mode and Dark Mode support
+# Universal CSS: Light & Dark Mode Support + Romsons Branding Watermark
 st.markdown("""
     <style>
     /* Metric Cards */
@@ -27,11 +32,28 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.2);
     }
     
+    /* Background Watermark */
+    .stApp::before {
+        content: "Romsons";
+        position: fixed;
+        top: 50%;
+        left: 55%;
+        transform: translate(-50%, -50%) rotate(-12deg);
+        font-family: 'Brush Script MT', 'Lucida Handwriting', cursive, sans-serif;
+        font-size: 14vw;
+        font-weight: 900;
+        color: rgba(11, 79, 59, 0.035);
+        pointer-events: none;
+        z-index: 0;
+        white-space: nowrap;
+        user-select: none;
+    }
+
     /* Logo Container in Sidebar */
     .brand-logo-card {
         background: #ffffff;
         border-radius: 10px;
-        padding: 14px 10px;
+        padding: 12px 10px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -41,7 +63,7 @@ st.markdown("""
     }
     .brand-logo-card .logo-title {
         font-family: 'Brush Script MT', 'Lucida Handwriting', cursive, sans-serif;
-        font-size: 34px;
+        font-size: 32px;
         font-weight: 900;
         color: #0b4f3b;
         letter-spacing: -0.5px;
@@ -50,15 +72,15 @@ st.markdown("""
     }
     .brand-logo-card .logo-tagline {
         font-family: Arial, Helvetica, sans-serif;
-        font-size: 10.5px;
+        font-size: 10px;
         font-weight: 700;
         color: #222222;
         letter-spacing: 0.5px;
-        margin-top: 5px;
+        margin-top: 4px;
         text-transform: none;
     }
 
-    /* Force Visible Radio Nav Buttons in Light and Dark systems */
+    /* High Visibility Radio Nav Buttons */
     div[data-testid="stRadio"] > div {
         gap: 6px;
     }
@@ -324,7 +346,7 @@ if selected_module == "📑 Amazon Invoice Editor":
             progress_bar.empty()
 
             st.balloons()
-            st.success(f"🎉 **{len(processed_files)} File(s) Processed Successfully!**")
+            st.success(f"🎉 **Total {len(processed_files)} File(s) Processed Successfully!**")
 
             if len(processed_files) > 1:
                 zip_buffer = io.BytesIO()
@@ -357,58 +379,98 @@ if selected_module == "📑 Amazon Invoice Editor":
                     )
 
 # =========================================================================
-# MODULE 2: BLINKIT E-INVOICE TOOL
+# MODULE 2: BLINKIT E-INVOICE TOOL (UNIVERSAL OPERATIONS & E-INVOICE SUITE)
 # =========================================================================
 elif selected_module == "⚡ Blinkit e-Invoice Tool":
-    st.subheader("⚡ Blinkit Bulk Invoice Gateway")
+    st.subheader("⚡ Blinkit Bulk Invoice Gateway & e-Invoice Engine")
 
-    uploaded_invoices = st.file_uploader(
-        "Upload Blinkit Invoices (PDF)",
-        type=["pdf"],
-        accept_multiple_files=True,
-        key="blinkit_uploader"
-    )
+    uploaded_invoices = st.file_uploader("Upload Blinkit Invoices (PDF) - Single ya Bulk", type=["pdf"], accept_multiple_files=True, key="blinkit_uploader")
 
-    def overwrite_area(page, rect, new_text, font_size=7):
-        pad_rect = fitz.Rect(rect.x0 - 2, rect.y0 - 1, rect.x1 + 2, rect.y1 + 1)
-        page.draw_rect(pad_rect, color=None, fill=(1, 1, 1))
-        page.insert_text(
-            (rect.x0, rect.y1 - 1.2),
-            str(new_text),
-            fontsize=font_size,
-            fontname="helv",
-            color=(0, 0, 0)
-        )
+    STATE_CODE_MAP = {
+        "01": "JAMMU AND KASHMIR", "02": "HIMACHAL PRADESH", "03": "PUNJAB", "04": "CHANDIGARH",
+        "05": "UTTARAKHAND", "06": "HARYANA", "07": "DELHI", "08": "RAJASTHAN",
+        "09": "UTTAR PRADESH", "10": "BIHAR", "11": "SIKKIM", "12": "ARUNACHAL PRADESH",
+        "13": "NAGALAND", "14": "MANIPUR", "15": "MIZORAM", "16": "TRIPURA",
+        "17": "MEGHALAYA", "18": "ASSAM", "19": "WEST BENGAL", "20": "JHARKHAND",
+        "21": "ODISHA", "22": "CHATTISGARH", "23": "MADHYA PRADESH", "24": "GUJARAT",
+        "26": "DADRA AND NAGAR HAVELI AND DAMAN AND DIU", "27": "MAHARASHTRA", "29": "KARNATAKA",
+        "30": "GOA", "31": "LAKSHADWEEP", "32": "KERALA", "33": "TAMIL NADU",
+        "34": "PUDUCHERRY", "35": "ANDAMAN AND NICOBAR ISLANDS", "36": "TELANGANA", "37": "ANDHRA PRADESH",
+        "38": "LADAKH"
+    }
 
-    def extract_metadata(doc):
+    STATE_NAME_TO_CODE = {v.upper(): k for k, v in STATE_CODE_MAP.items()}
+
+    MAJOR_CITIES = [
+        "New Delhi", "Delhi", "Varanasi", "Lucknow", "Jaipur", "Gurgaon", "Gurugram", 
+        "Noida", "Ghaziabad", "Kanpur", "Bengaluru", "Bangalore", "Mumbai", "Pune", 
+        "Kolkata", "Ahmedabad", "Patna", "Ranchi", "Chandigarh", "Faridabad", "Agra", "Meerut"
+    ]
+
+    def clean_extracted_city(text, state_name):
+        m = re.search(r"([A-Za-z\s]+),\s*(?:[A-Za-z\s]+)[\-\s]*[0-9]{6}", text)
+        if m:
+            c_cand = m.group(1).strip()
+            parts = [p.strip() for p in c_cand.split(",") if p.strip()]
+            last_p = parts[-1]
+            if len(last_p) > 2 and not re.search(r"(road|street|nagar|colony|floor|block|house|marg)", last_p, re.I):
+                return last_p.title()
+
+        for city in MAJOR_CITIES:
+            if re.search(rf"\b{city}\b", text, re.I):
+                return city
+
+        return state_name.title() if state_name else "Delhi"
+
+    def fmt_dec(val):
+        try:
+            f = float(str(val).replace(",", "").strip())
+            return f"{f:.2f}"
+        except (ValueError, TypeError):
+            return "0.00"
+
+    def clean_description_completely(desc, hsn_code=None):
+        if not desc:
+            return ""
+        if hsn_code:
+            desc = re.sub(rf"\b{re.escape(str(hsn_code))}\b", "", desc)
+        desc = re.sub(r"\b\d{6,8}\b", "", desc)
+        desc = re.sub(r'(\b[A-Za-z]+)\s+([a-z]{1,4}\b)', lambda m: m.group(1) + m.group(2) if (m.group(1)+m.group(2)).lower() in ["three", "cock", "valve", "dispo", "cannula", "piece", "stopcock"] else m.group(0), desc)
+        desc = re.sub(r"\s+", " ", desc).strip()
+        return desc
+
+    def extract_metadata_from_doc(doc):
         full_text = ""
-        for page in doc:
-            full_text += page.get_text() + "\n"
+        for p in doc:
+            full_text += p.get_text() + "\n"
+
+        page0 = doc[0]
+        words = page0.get_text("words")
 
         ext_order_id = None
-        ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\s]{8,25})", full_text, re.IGNORECASE)
+        ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\sA-Za-z\-]+?)(?=\n|Invoice|Date|$)", full_text, re.IGNORECASE)
         if ext_match:
             ext_order_id = "".join(ext_match.group(1).split())
-
         if not ext_order_id:
             digits_match = re.findall(r"\b(49\d{8,14}|5\d{8,14}|\d{12,18})\b", full_text)
             if digits_match:
                 ext_order_id = digits_match[0]
-
         if not ext_order_id:
             ext_order_id = "ExtOrder"
 
-        inv_match = re.search(r"Invoice\s*No\s*[:\s]*([A-Za-z0-9\-_]+)", full_text, re.IGNORECASE)
-        invoice_no = inv_match.group(1).strip() if inv_match else "Invoice"
+        inv_match = re.search(r"Invoice\s*No\s*[:\s]*([A-Za-z0-9\-_/]+)", full_text, re.IGNORECASE)
+        invoice_no = inv_match.group(1).strip() if inv_match else "INV-001"
 
-        date_match = re.search(r"Invoice\s*Date\s*[:\s]*([A-Za-z0-9,\s\.\-\/]+?)(?=\n|Ship\s*Date|$)", full_text, re.IGNORECASE)
+        date_match = re.search(r"Invoice\s*Date\s*[:\s]*([A-Za-z0-9,\s\.\-\/]+?)(?=\n|Ship\s*Date|Order|$)", full_text, re.IGNORECASE)
         raw_date = date_match.group(1).strip() if date_match else "Date"
 
         clean_date = raw_date
+        std_date_for_json = datetime.now().strftime("%d/%m/%Y")
         for fmt in ("%b %d, %Y", "%B %d, %Y", "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
             try:
                 d_obj = datetime.strptime(raw_date, fmt)
                 clean_date = d_obj.strftime("%d-%m-%Y")
+                std_date_for_json = d_obj.strftime("%d/%m/%Y")
                 break
             except ValueError:
                 pass
@@ -416,134 +478,18 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
         clean_ext = re.sub(r'[^A-Za-z0-9\-_]', '', ext_order_id)
         clean_inv = re.sub(r'[^A-Za-z0-9\-_]', '', invoice_no)
         clean_dt = re.sub(r'[^A-Za-z0-9\-_]', '', clean_date)
+        pdf_filename = f"{clean_ext}_{clean_inv}_{clean_dt}.pdf"
 
-        return f"{clean_ext}_{clean_inv}_{clean_dt}.pdf"
+        sold_header = [w for w in words if "sold" in w[4].lower()]
+        bill_header = [w for w in words if "billing" in w[4].lower()]
+        table_header = [w for w in words if w[4].lower() in ["s.no", "sl.no", "item", "hsn"]]
 
-    def process_universal_blinkit_invoice(pdf_bytes):
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        download_filename = extract_metadata(doc)
+        y_sold = sold_header[0][1] if sold_header else 80
+        y_bill = bill_header[0][1] if bill_header else 215
+        y_table = table_header[0][1] if table_header else 340
+        split_x = 300
 
-        for page in doc:
-            words = page.get_text("words")
-            
-            qty_box = None
-            price_box = None
-
-            for w in words:
-                w_txt = w[4].strip().lower()
-                if w_txt == "qty":
-                    qty_box = (w[0] - 15, w[2] + 25)
-                elif w_txt == "price" or "unit" in w_txt:
-                    if not price_box:
-                        price_box = (w[0] - 15, w[2] + 40)
-
-            if not qty_box:
-                qty_box = (320, 390)
-            if not price_box:
-                price_box = (390, 480)
-
-            product_rows = []
-            for w in words:
-                text = w[4].upper()
-                if "DISPO" in text:
-                    product_rows.append({"factor": 50, "y": (w[1] + w[3]) / 2})
-                elif "COMFIT" in text:
-                    product_rows.append({"factor": 25, "y": (w[1] + w[3]) / 2})
-
-            for prod in product_rows:
-                factor = prod["factor"]
-                row_y = prod["y"]
-                row_words = [w for w in words if abs(((w[1] + w[3]) / 2) - row_y) <= 25]
-
-                for w in row_words:
-                    val = w[4].replace(",", "").strip()
-                    rect = fitz.Rect(w[0], w[1], w[2], w[3])
-
-                    if qty_box[0] <= w[0] <= qty_box[1]:
-                        if val.isdigit() and len(val) != 8:
-                            orig_q = int(val)
-                            if orig_q >= factor:
-                                new_q = orig_q // factor
-                                overwrite_area(page, rect, f"{new_q}")
-
-                for w in row_words:
-                    val = w[4].replace(",", "").strip()
-                    rect = fitz.Rect(w[0], w[1], w[2], w[3])
-
-                    if price_box[0] <= w[0] <= price_box[1]:
-                        if re.match(r"^\d+\.\d{2}$", val):
-                            orig_p = float(val)
-                            if orig_p > 0.00:
-                                new_p = round(orig_p * factor, 2)
-                                overwrite_area(page, rect, f"{new_p:.2f}")
-
-            for target in ["UOM-PC", "UOM-IBOX", "UOM-PCS", "UOM-BOX"]:
-                for inst in page.search_for(target):
-                    overwrite_area(page, inst, "UOM-BOX")
-
-            for s_inst in page.search_for("S"):
-                if 140 <= s_inst.x0 <= 260:
-                    page.draw_rect(s_inst, color=None, fill=(1, 1, 1))
-
-        out_buffer = io.BytesIO()
-        doc.save(out_buffer)
-        doc.close()
-        out_buffer.seek(0)
-        return out_buffer, download_filename
-
-    if uploaded_invoices:
-        if len(uploaded_invoices) == 1:
-            file = uploaded_invoices[0]
-            try:
-                with st.spinner("Processing..."):
-                    updated_pdf_buffer, out_filename = process_universal_blinkit_invoice(file.read())
-                st.download_button(
-                    label=f"📥 Download {out_filename}",
-                    data=updated_pdf_buffer,
-                    file_name=out_filename,
-                    mime="application/pdf",
-                    type="primary"
-                )
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
-        else:
-            zip_buffer = io.BytesIO()
-            processed_files = []
-
-            with st.spinner("Processing Batch..."):
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    for file in uploaded_invoices:
-                        try:
-                            pdf_buf, out_fname = process_universal_blinkit_invoice(file.read())
-                            if out_fname in processed_files:
-                                out_fname = f"{len(processed_files)+1}_{out_fname}"
-                            zip_file.writestr(out_fname, pdf_buf.getvalue())
-                            processed_files.append(out_fname)
-                        except Exception as e:
-                            st.error(f"Error in {file.name}: {str(e)}")
-
-            zip_buffer.seek(0)
-            st.balloons()
-            st.download_button(
-                label=f"📦 Download All Invoices ({len(processed_files)} Files - ZIP)",
-                data=zip_buffer,
-                file_name=f"Blinkit_Processed_{datetime.now().strftime('%d-%m-%Y')}.zip",
-                mime="application/zip",
-                type="primary"
-            )
-
-# =========================================================================
-# MODULE 3: LABEL EDITOR
-# =========================================================================
-elif selected_module == "🏷️ Label Editor":
-    st.subheader("🏷️ Shipping & Product Label Editor")
-    st.file_uploader("Upload Labels (PDF)", type=["pdf"], key="label_uploader")
-
-# =========================================================================
-# MODULE 4: SETTINGS & REPORTS
-# =========================================================================
-elif selected_module == "⚙️ Unit Settings":
-    st.subheader("⚙️ Unit Settings")
-    st.write("**Active PAN:** `AALCR5906L` (Romsons Prime Pvt Ltd)")
-    st.write("**Amazon Matching Engine:** Full Description Jaccard Search")
-    st.write("**Blinkit Multiplier Factors:** DISPO=50, COMFIT=25")
+        seller_rect = fitz.Rect(20, y_sold, split_x, y_bill)
+        seller_text = page0.get_text("text", clip=seller_rect).strip()
+        s_lines = [l.strip() for l in seller_text.split("\n") if l.strip() and not re.search(r"sold\s*by", l, re.I)]
+        seller_name = s_lines[0] if s_lines else "ROMSONS PRIME PRIVATE

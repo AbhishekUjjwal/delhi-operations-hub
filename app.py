@@ -124,7 +124,7 @@ s = re.sub(r'^[="']+|["']+$', '', s)
 return s.strip()
 def clean_alphanumeric(text):
 return re.sub(r'[^a-zA-Z0-9]', '', str(text)).lower()
-​def get_token_words(text):
+def get_token_words(text):
 words = re.findall(r'[a-zA-Z0-9]+', str(text).lower())
 stop_words = {'the', 'and', 'for', 'with', 'pcs', 'piece', 'pieces', 'only', 'total', 'hsn', 'gst', 'rs', 'inr'}
 return set([w for w in words if len(w) >= 2 and w not in stop_words])
@@ -134,7 +134,7 @@ code128 = barcode.get_barcode_class('code128')
 writer = ImageWriter()
 writer.font_path = None
 barcode_instance = code128(code_text, writer=writer)
-​buffer = io.BytesIO()
+buffer = io.BytesIO()
 barcode_instance.write(
 buffer,
 options={

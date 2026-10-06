@@ -12,14 +12,14 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import barcode
 from barcode.writer import ImageWriter
-​#Page Configuration - Wide Enterprise Layout
+​Page Configuration
 ​st.set_page_config(
 page_title="Delhi Operations Hub",
 page_icon="🏛️",
 layout="wide",
 initial_sidebar_state="expanded"
 )
-​Styling & Background Watermark
+​Universal CSS: Light & Dark Mode Support + Romsons Branding Watermark
 ​st.markdown("""
 <style>
 .stMetric {
@@ -28,7 +28,7 @@ padding: 10px;
 border-radius: 8px;
 border: 1px solid rgba(148, 163, 184, 0.2);
 }
-.stApp::before {
+​.stApp::before {
 content: "Romsons";
 position: fixed;
 top: 50%;
@@ -43,7 +43,7 @@ z-index: 0;
 white-space: nowrap;
 user-select: none;
 }
-.brand-logo-card {
+​.brand-logo-card {
 background: #ffffff;
 border-radius: 10px;
 padding: 12px 10px;
@@ -72,7 +72,7 @@ letter-spacing: 0.5px;
 margin-top: 4px;
 text-transform: none;
 }
-div[data-testid="stRadio"] > div {
+​div[data-testid="stRadio"] > div {
 gap: 6px;
 }
 div[data-testid="stRadio"] label {
@@ -108,15 +108,15 @@ options=[
 "🏷️ Label Editor",
 "⚙️ Unit Settings"
 ],
-index=1,
+index=0,
 label_visibility="collapsed"
 )
 ​=========================================================================
-​MODULE 1: AMAZON INVOICE EDITOR
+​MODULE 1: AMAZON INVOICE EDITOR (FROZEN & VERIFIED)
 ​=========================================================================
 ​if selected_module == "📑 Amazon Invoice Editor":
 st.subheader("📑 Amazon Invoice Editor")
-TARGET_PAN = "aalcr5906l"
+​TARGET_PAN = "aalcr5906l"
 ​col_u1, col_u2 = st.columns(2)
 with col_u1:
 uploaded_csv = st.file_uploader("Upload Shipment Report (CSV / Excel)", type=["csv", "xlsx", "xls"], key="amz_csv")
@@ -321,7 +321,7 @@ key=f"dl_btn_{idx}",
 use_container_width=True
 )
 ​=========================================================================
-​MODULE 2: BLINKIT E-INVOICE TOOL (UNIVERSAL SUITE: PDF + EXCEL + JSON + HTML)
+​MODULE 2: BLINKIT E-INVOICE TOOL (UNIVERSAL SUITE)
 ​=========================================================================
 ​elif selected_module == "⚡ Blinkit e-Invoice Tool":
 st.subheader("⚡ Blinkit Bulk Invoice Gateway & e-Invoice Engine")
@@ -1261,7 +1261,7 @@ ship_status = "⚠️ Different (Shipping Details Filled)" if meta["shipping_is_
 with c1:
 st.download_button(
 label=f"📥 Download Processed PDF",
-data=pdf_buf.getvalue>,
+data=pdf_buf.getvalue(),
 file_name=pdf_name,
 mime="application/pdf",
 use_container_width=True
@@ -1328,18 +1328,3 @@ curr_meta = processed_docs[i]['meta']
 calc_height = 560 + (len(curr_meta['line_items']) * 36)
 p_html = render_exact_government_einvoice_preview(curr_meta)
 components.html(p_html, height=calc_height, scrolling=True)
-​=========================================================================
-​MODULE 3: LABEL EDITOR
-​=========================================================================
-​elif selected_module == "🏷️ Label Editor":
-st.subheader("🏷️ Shipping & Product Label Editor")
-st.file_uploader("Upload Labels (PDF)", type=["pdf"], key="label_uploader")
-​=========================================================================
-​MODULE 4: SETTINGS & REPORTS
-​=========================================================================
-​elif selected_module == "⚙️ Unit Settings":
-st.subheader("⚙️️ Unit Settings")
-st.write("Active PAN: AALCR5906L (Romsons Prime Pvt Ltd)")
-st.write("Amazon Matching Engine: Full Description Jaccard Search")
-st.write("Blinkit Multiplier Factors: DISPO=50, COMFIT=25")
-st.write("Official e-Invoice Schema: NIC v1.01 (Gross = Taxable + Discount | Pre-Tax Col AR Blank)")

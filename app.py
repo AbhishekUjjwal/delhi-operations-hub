@@ -8,119 +8,105 @@ from datetime import datetime
 import barcode
 from barcode.writer import ImageWriter
 
-# Page Configuration - Enterprise Wide Layout
+# Page Configuration
 st.set_page_config(
-    page_title="Delhi Operations Hub | Central Portal",
+    page_title="Delhi Operations Hub",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Sleek ERP / Enterprise Dashboard
+# Universal CSS: Both Light Mode and Dark Mode support
 st.markdown("""
     <style>
-    .main { background-color: #0b132b; color: #f8fafc; }
-    
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] {
-        background-color: #1c2541;
-        border-right: 1px solid #3a506b;
-    }
-    
-    /* Metrics card */
+    /* Metric Cards */
     .stMetric {
-        background-color: #1c2541;
-        padding: 12px;
+        background-color: rgba(28, 37, 65, 0.08);
+        padding: 10px;
         border-radius: 8px;
-        border: 1px solid #3a506b;
+        border: 1px solid rgba(148, 163, 184, 0.2);
     }
     
     /* Unit badge card */
     .unit-card {
         background: linear-gradient(135deg, #1c2541 0%, #0b132b 100%);
-        border: 1px solid #48cae4;
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 12px;
+        border: 1px solid #38bdf8;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 10px;
     }
     .unit-badge {
-        background-color: #f77f00;
-        color: #fff;
-        font-weight: bold;
+        background-color: #f59e0b;
+        color: #000;
+        font-weight: 700;
         font-size: 11px;
-        padding: 3px 8px;
+        padding: 2px 6px;
         border-radius: 4px;
         display: inline-block;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
     }
-    
-    /* ERP Side Nav Buttons */
+
+    /* Force Visible Radio Nav Buttons in Light and Dark systems */
     div[data-testid="stRadio"] > div {
         gap: 6px;
     }
     div[data-testid="stRadio"] label {
-        background-color: #1c2541;
         padding: 10px 14px;
         border-radius: 8px;
-        border: 1px solid #3a506b;
+        border: 1px solid rgba(148, 163, 184, 0.4);
         cursor: pointer;
+        font-weight: 600;
         transition: all 0.2s ease-in-out;
     }
-    div[data-testid="stRadio"] label:hover {
-        border-color: #48cae4;
-        background-color: #24325a;
+    div[data-testid="stRadio"] label p {
+        font-size: 14px !important;
+        font-weight: 600 !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ----------------- SIDEBAR NAVIGATION -----------------
 with st.sidebar:
-    st.title("🏛️️ Delhi Operations Hub")
-    st.caption("Enterprise E-Commerce Operations Portal")
+    st.title("🏛️ Delhi Operations Hub")
+    st.caption("Operations Automation Portal")
     st.divider()
 
-    st.markdown("**Active Unit Config:**")
     st.markdown("""
         <div class="unit-card">
             <span class="unit-badge">🏷️ AMZ-ED</span>
-            <div style="font-weight: 600; font-size: 14px; color: #48cae4;">Amazon & Blinkit Operations</div>
-            <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">🎯 <b>Target PAN:</b> <code>AALCR5906L</code></div>
-            <div style="font-size: 12px; color: #cbd5e1;">🏢 <b>Seller:</b> Romsons Prime Pvt Ltd</div>
+            <div style="font-weight: 600; font-size: 13px; color: #38bdf8;">Amazon & Blinkit Unit</div>
+            <div style="font-size: 11px; color: #cbd5e1; margin-top: 3px;">🎯 <b>PAN:</b> <code>AALCR5906L</code></div>
+            <div style="font-size: 11px; color: #cbd5e1;">🏢 <b>Seller:</b> Romsons Prime Pvt Ltd</div>
         </div>
     """, unsafe_allow_html=True)
 
     st.divider()
-    st.markdown("### 🧭 Module Navigation")
     
     selected_module = st.radio(
-        label="Select Tool / Workspace",
+        label="Select Workspace",
         options=[
             "📑 Amazon Invoice Editor",
             "⚡ Blinkit e-Invoice Tool",
             "🏷️ Label Editor",
-            "⚙️ Unit Settings & Reports"
+            "⚙️ Unit Settings"
         ],
         index=0,
         label_visibility="collapsed"
     )
-    
-    st.divider()
-    st.caption("System Version: v3.4 Enterprise")
 
 # =========================================================================
 # MODULE 1: AMAZON INVOICE EDITOR
 # =========================================================================
 if selected_module == "📑 Amazon Invoice Editor":
-    st.subheader("📑 Amazon Invoice Editor & Barcode Stamper")
-    st.caption("Shipment Report aur multiple Invoice PDFs upload karein. Automatic PAN filter (AALCR5906L) + **Full Product Description Matching** apply hogi.")
+    st.subheader("📑 Amazon Invoice Editor")
 
     TARGET_PAN = "aalcr5906l"
 
     col_u1, col_u2 = st.columns(2)
     with col_u1:
-        uploaded_csv = st.file_uploader("1. Upload Shipment Report (CSV / Excel)", type=["csv", "xlsx", "xls"], key="amz_csv")
+        uploaded_csv = st.file_uploader("Upload Shipment Report (CSV / Excel)", type=["csv", "xlsx", "xls"], key="amz_csv")
     with col_u2:
-        uploaded_pdfs = st.file_uploader("2. Upload Invoice PDF(s) [Multiple Files Allowed]", type=["pdf"], accept_multiple_files=True, key="amz_pdf")
+        uploaded_pdfs = st.file_uploader("Upload Invoice PDF(s)", type=["pdf"], accept_multiple_files=True, key="amz_pdf")
 
     def clean_val(v):
         if pd.isna(v):
@@ -180,11 +166,6 @@ if selected_module == "📑 Amazon Invoice Editor":
         title_col = next((col_mapping[c] for c in col_mapping if any(k in c for k in ["title", "item-name", "item_name", "product", "desc"])), None)
         sku_col = next((col_mapping[c] for c in col_mapping if "sku" in c or "msku" in c), None)
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Order Column", str(order_col))
-        m2.metric("Product Description Column", str(title_col if title_col else sku_col))
-        m3.metric("Tracking Column", str(tracking_col))
-
         if not (order_col and tracking_col):
             st.error("CSV me Order ID aur Tracking ID column hona zaroori hai!")
             st.stop()
@@ -214,9 +195,7 @@ if selected_module == "📑 Amazon Invoice Editor":
                     "used": False
                 })
 
-        st.info(f"📊 Unique Orders in CSV: **{len(order_records_map)}** | Selected PDFs: **{len(uploaded_pdfs)} file(s)**")
-
-        if st.button("🚀 Process & Generate Stamped Invoices", type="primary", use_container_width=True):
+        if st.button("🚀 Process Invoices", type="primary", use_container_width=True):
             progress_bar = st.progress(0)
             status_text = st.empty()
 
@@ -224,7 +203,7 @@ if selected_module == "📑 Amazon Invoice Editor":
             total_files = len(uploaded_pdfs)
 
             for file_idx, pdf_file in enumerate(uploaded_pdfs):
-                status_text.text(f"Processing File {file_idx+1}/{total_files}: {pdf_file.name}...")
+                status_text.text(f"Processing File {file_idx+1}/{total_files}...")
 
                 pdf_bytes = pdf_file.read()
                 doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -335,7 +314,7 @@ if selected_module == "📑 Amazon Invoice Editor":
             progress_bar.empty()
 
             st.balloons()
-            st.success(f"🎉 **Total {len(processed_files)} File(s) Processed Successfully!**")
+            st.success(f"🎉 **{len(processed_files)} File(s) Processed Successfully!**")
 
             if len(processed_files) > 1:
                 zip_buffer = io.BytesIO()
@@ -353,11 +332,10 @@ if selected_module == "📑 Amazon Invoice Editor":
                 )
 
             st.write("---")
-            st.subheader("📄 Individual Download Files:")
             for idx, item in enumerate(processed_files):
                 d_col1, d_col2 = st.columns([3, 1])
                 with d_col1:
-                    st.write(f"📁 **{item['original_name']}** — `{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | `{item['removed']} Non-PAN Filtered`")
+                    st.write(f"📁 **{item['original_name']}** — `{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | `{item['removed']} Filtered`")
                 with d_col2:
                     st.download_button(
                         label="📥 Download PDF",
@@ -373,10 +351,9 @@ if selected_module == "📑 Amazon Invoice Editor":
 # =========================================================================
 elif selected_module == "⚡ Blinkit e-Invoice Tool":
     st.subheader("⚡ Blinkit Bulk Invoice Gateway")
-    st.caption("Universal Dynamic Reconciliation Engine (Batch Mode)")
 
     uploaded_invoices = st.file_uploader(
-        "Upload Blinkit Invoices (Single ya Multiple PDFs)",
+        "Upload Blinkit Invoices (PDF)",
         type=["pdf"],
         accept_multiple_files=True,
         key="blinkit_uploader"
@@ -468,7 +445,6 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
                 row_y = prod["y"]
                 row_words = [w for w in words if abs(((w[1] + w[3]) / 2) - row_y) <= 25]
 
-                # Qty update
                 for w in row_words:
                     val = w[4].replace(",", "").strip()
                     rect = fitz.Rect(w[0], w[1], w[2], w[3])
@@ -480,7 +456,6 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
                                 new_q = orig_q // factor
                                 overwrite_area(page, rect, f"{new_q}")
 
-                # Unit Price update
                 for w in row_words:
                     val = w[4].replace(",", "").strip()
                     rect = fitz.Rect(w[0], w[1], w[2], w[3])
@@ -492,7 +467,6 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
                                 new_p = round(orig_p * factor, 2)
                                 overwrite_area(page, rect, f"{new_p:.2f}")
 
-            # UOM Updates
             for target in ["UOM-PC", "UOM-IBOX", "UOM-PCS", "UOM-BOX"]:
                 for inst in page.search_for(target):
                     overwrite_area(page, inst, "UOM-BOX")
@@ -511,9 +485,8 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
         if len(uploaded_invoices) == 1:
             file = uploaded_invoices[0]
             try:
-                with st.spinner("Processing Blinkit Invoice..."):
+                with st.spinner("Processing..."):
                     updated_pdf_buffer, out_filename = process_universal_blinkit_invoice(file.read())
-                st.success("Invoice Reconciled Successfully!")
                 st.download_button(
                     label=f"📥 Download {out_filename}",
                     data=updated_pdf_buffer,
@@ -522,12 +495,12 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
                     type="primary"
                 )
             except Exception as e:
-                st.error(f"Error processing {file.name}: {str(e)}")
+                st.error(f"Error: {str(e)}")
         else:
             zip_buffer = io.BytesIO()
             processed_files = []
 
-            with st.spinner(f"Processing {len(uploaded_invoices)} Invoices in Batch..."):
+            with st.spinner("Processing Batch..."):
                 with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                     for file in uploaded_invoices:
                         try:
@@ -541,11 +514,10 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
 
             zip_buffer.seek(0)
             st.balloons()
-            st.success(f"🎉 **Batch Completed!** Total {len(processed_files)} Blinkit invoices processed.")
             st.download_button(
                 label=f"📦 Download All Invoices ({len(processed_files)} Files - ZIP)",
                 data=zip_buffer,
-                file_name=f"Blinkit_Processed_Invoices_{datetime.now().strftime('%d-%m-%Y')}.zip",
+                file_name=f"Blinkit_Processed_{datetime.now().strftime('%d-%m-%Y')}.zip",
                 mime="application/zip",
                 type="primary"
             )
@@ -555,17 +527,13 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
 # =========================================================================
 elif selected_module == "🏷️ Label Editor":
     st.subheader("🏷️ Shipping & Product Label Editor")
-    st.caption("Bulk crop, resize, rotate aur customize thermal shipping labels.")
-    st.info("Label Editor module structure ready hai. Label cropping ya thermal printer formatting ka code batayein, yahan live kar diya jayega.")
+    st.file_uploader("Upload Labels (PDF)", type=["pdf"], key="label_uploader")
 
 # =========================================================================
 # MODULE 4: SETTINGS & REPORTS
 # =========================================================================
-elif selected_module == "⚙️ Unit Settings & Reports":
-    st.subheader("⚙️ System Operations & Units Configuration")
-    st.markdown("""
-    - **Current Active GSTIN/PAN:** `AALCR5906L` (Romsons Prime Pvt Ltd)
-    - **Amazon Matching Engine:** Multi-Token Overlap & Full Description Jaccard Search
-    - **Blinkit Reconciliation:** Universal Dynamic Batch Mode (Factors: DISPO=50, COMFIT=25)
-    - **Barcoding Engine:** Code128 Vector Standard (DPI 300)
-    """)
+elif selected_module == "⚙️ Unit Settings":
+    st.subheader("⚙️ Unit Settings")
+    st.write("**Active PAN:** `AALCR5906L` (Romsons Prime Pvt Ltd)")
+    st.write("**Amazon Matching Engine:** Full Description Jaccard Search")
+    st.write("**Blinkit Multiplier Factors:** DISPO=50, COMFIT=25")

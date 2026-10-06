@@ -412,9 +412,10 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
         if m:
             c_cand = m.group(1).strip()
             parts = [p.strip() for p in c_cand.split(",") if p.strip()]
-            last_p = parts[-1]
-            if len(last_p) > 2 and not re.search(r"(road|street|nagar|colony|floor|block|house|marg)", last_p, re.I):
-                return last_p.title()
+            if parts:
+                last_p = parts[-1]
+                if len(last_p) > 2 and not re.search(r"(road|street|nagar|colony|floor|block|house|marg)", last_p, re.I):
+                    return last_p.title()
 
         for city in MAJOR_CITIES:
             if re.search(rf"\b{city}\b", text, re.I):
@@ -435,61 +436,4 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
         if hsn_code:
             desc = re.sub(rf"\b{re.escape(str(hsn_code))}\b", "", desc)
         desc = re.sub(r"\b\d{6,8}\b", "", desc)
-        desc = re.sub(r'(\b[A-Za-z]+)\s+([a-z]{1,4}\b)', lambda m: m.group(1) + m.group(2) if (m.group(1)+m.group(2)).lower() in ["three", "cock", "valve", "dispo", "cannula", "piece", "stopcock"] else m.group(0), desc)
-        desc = re.sub(r"\s+", " ", desc).strip()
-        return desc
-
-    def extract_metadata_from_doc(doc):
-        full_text = ""
-        for p in doc:
-            full_text += p.get_text() + "\n"
-
-        page0 = doc[0]
-        words = page0.get_text("words")
-
-        ext_order_id = None
-        ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\sA-Za-z\-]+?)(?=\n|Invoice|Date|$)", full_text, re.IGNORECASE)
-        if ext_match:
-            ext_order_id = "".join(ext_match.group(1).split())
-        if not ext_order_id:
-            digits_match = re.findall(r"\b(49\d{8,14}|5\d{8,14}|\d{12,18})\b", full_text)
-            if digits_match:
-                ext_order_id = digits_match[0]
-        if not ext_order_id:
-            ext_order_id = "ExtOrder"
-
-        inv_match = re.search(r"Invoice\s*No\s*[:\s]*([A-Za-z0-9\-_/]+)", full_text, re.IGNORECASE)
-        invoice_no = inv_match.group(1).strip() if inv_match else "INV-001"
-
-        date_match = re.search(r"Invoice\s*Date\s*[:\s]*([A-Za-z0-9,\s\.\-\/]+?)(?=\n|Ship\s*Date|Order|$)", full_text, re.IGNORECASE)
-        raw_date = date_match.group(1).strip() if date_match else "Date"
-
-        clean_date = raw_date
-        std_date_for_json = datetime.now().strftime("%d/%m/%Y")
-        for fmt in ("%b %d, %Y", "%B %d, %Y", "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
-            try:
-                d_obj = datetime.strptime(raw_date, fmt)
-                clean_date = d_obj.strftime("%d-%m-%Y")
-                std_date_for_json = d_obj.strftime("%d/%m/%Y")
-                break
-            except ValueError:
-                pass
-
-        clean_ext = re.sub(r'[^A-Za-z0-9\-_]', '', ext_order_id)
-        clean_inv = re.sub(r'[^A-Za-z0-9\-_]', '', invoice_no)
-        clean_dt = re.sub(r'[^A-Za-z0-9\-_]', '', clean_date)
-        pdf_filename = f"{clean_ext}_{clean_inv}_{clean_dt}.pdf"
-
-        sold_header = [w for w in words if "sold" in w[4].lower()]
-        bill_header = [w for w in words if "billing" in w[4].lower()]
-        table_header = [w for w in words if w[4].lower() in ["s.no", "sl.no", "item", "hsn"]]
-
-        y_sold = sold_header[0][1] if sold_header else 80
-        y_bill = bill_header[0][1] if bill_header else 215
-        y_table = table_header[0][1] if table_header else 340
-        split_x = 300
-
-        seller_rect = fitz.Rect(20, y_sold, split_x, y_bill)
-        seller_text = page0.get_text("text", clip=seller_rect).strip()
-        s_lines = [l.strip() for l in seller_text.split("\n") if l.strip() and not re.search(r"sold\s*by", l, re.I)]
-        seller_name = s_lines[0] if s_lines else "ROMSONS PRIME PRIVATE
+        desc = re.sub(r'(\b[A-Za-z]+)\s+([a-z]{1,4}\b)', lambda m: m.group

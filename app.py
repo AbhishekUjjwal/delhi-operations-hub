@@ -12,16 +12,16 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import barcode
 from barcode.writer import ImageWriter
-​# Page Configuration
-​st.set_page_config(
-page_title="Delhi Operations Hub",
-page_icon="🏛️",
-layout="wide",
-initial_sidebar_state="expanded"
+
+st.set_page_config(
+    page_title="Delhi Operations Hub",
+    page_icon="🏛️",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
-​# Universal CSS: Light & Dark Mode Support + Romsons Branding Watermark
-​st.markdown("""
-<style>
+
+st.markdown("""
+    <style>
 .stMetric {
 background-color: rgba(28, 37, 65, 0.08);
 padding: 10px;

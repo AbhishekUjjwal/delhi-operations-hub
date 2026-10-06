@@ -12,7 +12,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import barcode
 from barcode.writer import ImageWriter
-​Page Configuration - Wide Enterprise Layout
+​#Page Configuration - Wide Enterprise Layout
 ​st.set_page_config(
 page_title="Delhi Operations Hub",
 page_icon="🏛️",

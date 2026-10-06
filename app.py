@@ -96,7 +96,7 @@ st.markdown("""
 <div class="logo-tagline">Sustaining the life force</div>
 </div>
 """, unsafe_allow_html=True)
-​st.divider()
+st.divider()
 ​selected_module = st.radio(
 label="Select Workspace",
 options=[

@@ -90,7 +90,7 @@ font-weight: 600 !important;
 with st.sidebar:
 st.title("🏛️ Delhi Operations Hub")
 st.divider()
-​st.markdown("""
+st.markdown("""
 <div class="brand-logo-card">
 <div class="logo-title">Romsons</div>
 <div class="logo-tagline">Sustaining the life force</div>

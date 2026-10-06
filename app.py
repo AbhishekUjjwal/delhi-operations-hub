@@ -1,9 +1,15 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import pymupdf as fitz
 import re
 import io
+import json
 import zipfile
+from datetime import datetime
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 import barcode
 from barcode.writer import ImageWriter
 
@@ -91,7 +97,6 @@ with st.sidebar:
     st.divider()
     st.markdown("### 🧭 Module Navigation")
     
-    # Modern ERP Side Navigation Menu
     selected_module = st.radio(
         label="Select Tool / Workspace",
         options=[
@@ -239,12 +244,10 @@ if selected_module == "📑 Amazon Invoice Editor":
                     raw_text = page.get_text()
                     text_lower = raw_text.lower()
 
-                    # Rule 1: Strict PAN Filter
                     if TARGET_PAN not in text_lower:
                         file_removed_pan += 1
                         continue
 
-                    # Extract 17-digit Order Number
                     order_clean = None
                     order_match = re.search(r'(\d{3})\s*[-–—]\s*(\d{7})\s*[-–—]\s*(\d{7})', raw_text)
                     if order_match:
@@ -287,7 +290,6 @@ if selected_module == "📑 Amazon Invoice Editor":
                                 else:
                                     target_tracking_id = matching_rows[0]["track"]
 
-                    # Stamping Barcode and Tracking ID
                     if target_tracking_id:
                         barcode_rect = fitz.Rect(40, 58, 235, 82)
                         page.draw_rect(barcode_rect, color=(1.0, 1.0, 1.0), fill=(1.0, 1.0, 1.0), width=0)
@@ -362,54 +364,4 @@ if selected_module == "📑 Amazon Invoice Editor":
                 with d_col1:
                     st.write(f"📁 **{item['original_name']}** — `{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | `{item['removed']} Non-PAN Filtered`")
                 with d_col2:
-                    st.download_button(
-                        label="📥 Download PDF",
-                        data=item["data"],
-                        file_name=item["file_name"],
-                        mime="application/pdf",
-                        key=f"dl_btn_{idx}",
-                        use_container_width=True
-                    )
-
-# =========================================================================
-# MODULE 2: BLINKIT E-INVOICE TOOL
-# =========================================================================
-elif selected_module == "⚡ Blinkit e-Invoice Tool":
-    st.subheader("⚡ Blinkit e-Invoice Management Tool")
-    st.caption("Blinkit Purchase Orders (PO), ASN Generation & E-Invoicing System")
-
-    st.markdown("""
-        <div style="background-color: #1c2541; padding: 18px; border-radius: 8px; border-left: 4px solid #f77f00;">
-            <h4 style="margin: 0; color: #f77f00;">⚡ Blinkit Automation Ready</h4>
-            <p style="margin: 6px 0 0 0; font-size: 13px; color: #cbd5e1;">
-                Aapke purane Blinkit e-invoice tool ka script / code share karein. Hum use yahan seamlessly integrate kar denge taaki PO upload, IRN generation, ya tax invoice creation isi dashboard se ho sake.
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.write("")
-    b_col1, b_col2 = st.columns(2)
-    with b_col1:
-        st.file_uploader("Upload Blinkit PO / Data Sheet (Excel/CSV)", type=["xlsx", "xls", "csv"], key="blinkit_data")
-    with b_col2:
-        st.file_uploader("Upload Master Template / Supporting PDF (Optional)", type=["pdf", "json"], key="blinkit_template")
-
-# =========================================================================
-# MODULE 3: LABEL EDITOR
-# =========================================================================
-elif selected_module == "🏷️ Label Editor":
-    st.subheader("🏷️ Shipping & Product Label Editor")
-    st.caption("Bulk crop, resize, rotate aur customize thermal shipping labels.")
-    
-    st.info("Label Editor module ready hai. Isme aapko thermal label crop (4x6 format), rotation, ya barcode adding jo bhi requirement ho, batayein.")
-
-# =========================================================================
-# MODULE 4: SETTINGS & REPORTS
-# =========================================================================
-elif selected_module == "⚙️ Unit Settings & Reports":
-    st.subheader("⚙️ System Operations & Units Configuration")
-    st.markdown("""
-    - **Current Active GSTIN/PAN:** `AALCR5906L` (Romsons Prime Pvt Ltd)
-    - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
-    - **Engine Status:** Online & Healthy
-    """)
+                    st

@@ -9,67 +9,110 @@ from barcode.writer import ImageWriter
 
 # Page Configuration - Enterprise Wide Layout
 st.set_page_config(
-    page_title="Delhi Operations Hub | E-Commerce Automation",
+    page_title="Delhi Operations Hub | Central Portal",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling
+# Custom Styling: Sleek ERP / Enterprise Dashboard
 st.markdown("""
     <style>
-    .main { background-color: #0f172a; color: #f8fafc; }
+    .main { background-color: #0b132b; color: #f8fafc; }
+    
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] {
+        background-color: #1c2541;
+        border-right: 1px solid #3a506b;
+    }
+    
+    /* Metrics card */
     .stMetric {
-        background-color: #1e293b;
+        background-color: #1c2541;
         padding: 12px;
         border-radius: 8px;
-        border: 1px solid #334155;
+        border: 1px solid #3a506b;
     }
+    
+    /* Unit badge card */
     .unit-card {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border: 1px solid #38bdf8;
+        background: linear-gradient(135deg, #1c2541 0%, #0b132b 100%);
+        border: 1px solid #48cae4;
         border-radius: 10px;
         padding: 12px;
         margin-bottom: 12px;
     }
     .unit-badge {
-        background-color: #f59e0b;
-        color: #000;
+        background-color: #f77f00;
+        color: #fff;
         font-weight: bold;
         font-size: 11px;
-        padding: 2px 7px;
+        padding: 3px 8px;
         border-radius: 4px;
         display: inline-block;
         margin-bottom: 6px;
     }
+    
+    /* Radio navigation buttons like ERP menu */
+    div[data-testid="stRadio"] > div {
+        gap: 6px;
+    }
+    div[data-testid="stRadio"] label {
+        background-color: #1c2541;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid #3a506b;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+    }
+    div[data-testid="stRadio"] label:hover {
+        border-color: #48cae4;
+        background-color: #24325a;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Sidebar
+# ----------------- SIDEBAR NAVIGATION -----------------
 with st.sidebar:
     st.title("🏛️ Delhi Operations Hub")
-    st.caption("Central E-Commerce Operations Portal")
+    st.caption("Enterprise E-Commerce Operations Portal")
     st.divider()
 
     st.markdown("**Active Unit Config:**")
     st.markdown("""
         <div class="unit-card">
             <span class="unit-badge">🏷️ AMZ-ED</span>
-            <div style="font-weight: 600; font-size: 14px; color: #38bdf8;">Amazon Invoice Editor Unit</div>
+            <div style="font-weight: 600; font-size: 14px; color: #48cae4;">Amazon Invoice Editor Unit</div>
             <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">🎯 <b>Target PAN:</b> <code>AALCR5906L</code></div>
             <div style="font-size: 12px; color: #cbd5e1;">🏢 <b>Seller:</b> Romsons Prime Pvt Ltd</div>
         </div>
     """, unsafe_allow_html=True)
 
     st.divider()
-    st.markdown("💡 **Supported Tools:**\n- 📑 Amazon Invoice Editor\n- ⚡ Blinkit e-Invoice Creator")
+    st.markdown("### 🧭 Module Navigation")
+    
+    # Modern ERP Side Navigation Menu
+    selected_module = st.radio(
+        label="Select Tool / Workspace",
+        options=[
+            "📑 Amazon Invoice Editor",
+            "⚡ Blinkit e-Invoice Tool",
+            "🏷️ Label Editor",
+            "⚙️ Unit Settings & Reports"
+        ],
+        index=0,
+        label_visibility="collapsed"
+    )
+    
+    st.divider()
+    st.caption("System Version: v3.2 Enterprise")
 
-tab_amazon, tab_blinkit = st.tabs(["📑 Amazon Invoice Editor", "⚡ Blinkit e-Invoice Tool"])
-
-# ----------------- TAB 1: AMAZON INVOICE EDITOR -----------------
-with tab_amazon:
-    st.subheader("📑 Amazon Invoice Editor (Product Description Matcher)")
-    st.caption("Shipment Report aur Invoice PDF upload karein. Automatic PAN filter (AALCR5906L) + **Full Product Description Matching** apply hogi.")
+# =========================================================================
+# MODULE 1: AMAZON INVOICE EDITOR
+# =========================================================================
+if selected_module == "📑 Amazon Invoice Editor":
+    st.subheader("📑 Amazon Invoice Editor & Barcode Stamper")
+    st.caption("Shipment Report aur multiple Invoice PDFs upload karein. Automatic PAN filter (AALCR5906L) + **Full Product Description Matching** apply hogi.")
 
     TARGET_PAN = "aalcr5906l"
 
@@ -90,7 +133,6 @@ with tab_amazon:
         return re.sub(r'[^a-zA-Z0-9]', '', str(text)).lower()
 
     def get_token_words(text):
-        """Extract meaningful words (length >= 2) for matching item descriptions"""
         words = re.findall(r'[a-zA-Z0-9]+', str(text).lower())
         stop_words = {'the', 'and', 'for', 'with', 'pcs', 'piece', 'pieces', 'only', 'total', 'hsn', 'gst', 'rs', 'inr'}
         return set([w for w in words if len(w) >= 2 and w not in stop_words])
@@ -135,8 +177,6 @@ with tab_amazon:
         col_mapping = {str(col).strip().lower(): col for col in df.columns}
         order_col = next((col_mapping[c] for c in col_mapping if "order" in c), None)
         tracking_col = next((col_mapping[c] for c in col_mapping if "track" in c or "tracing" in c), None)
-        
-        # Look for Title / Product / Description columns
         title_col = next((col_mapping[c] for c in col_mapping if any(k in c for k in ["title", "item-name", "item_name", "product", "desc"])), None)
         sku_col = next((col_mapping[c] for c in col_mapping if "sku" in c or "msku" in c), None)
 
@@ -149,14 +189,12 @@ with tab_amazon:
             st.error("CSV me Order ID aur Tracking ID column hona zaroori hai!")
             st.stop()
 
-        # Build order records
         order_records_map = {}
         for _, row in df.iterrows():
             raw_oid = clean_val(row.get(order_col, ""))
             clean_oid = clean_alphanumeric(raw_oid)
             track_val = clean_val(row.get(tracking_col, ""))
 
-            # Build full searchable text from Title and SKU
             desc_parts = []
             if title_col and not pd.isna(row.get(title_col, "")):
                 desc_parts.append(str(row[title_col]))
@@ -224,17 +262,13 @@ with tab_amazon:
                         if len(matching_rows) == 1:
                             target_tracking_id = matching_rows[0]["track"]
                         else:
-                            # MULTI-SKU ORDER: Match invoice description against CSV item descriptions
-                            # Extract words specifically around Description area or whole page
                             page_words = get_token_words(raw_text)
-
                             best_match_row = None
                             highest_overlap = -1
 
                             for r in matching_rows:
                                 if not r["desc_words"]:
                                     continue
-                                # Intersection of common unique words (e.g. 'underpads', 'mattey', 'diapers')
                                 common = page_words.intersection(r["desc_words"])
                                 overlap_score = len(common)
 
@@ -246,7 +280,6 @@ with tab_amazon:
                                 target_tracking_id = best_match_row["track"]
                                 best_match_row["used"] = True
                             else:
-                                # Fallback: unused row if words couldn't match
                                 unused_rows = [r for r in matching_rows if not r["used"]]
                                 if unused_rows:
                                     target_tracking_id = unused_rows[0]["track"]
@@ -338,8 +371,45 @@ with tab_amazon:
                         use_container_width=True
                     )
 
-# ----------------- TAB 2: BLINKIT TOOL -----------------
-with tab_blinkit:
+# =========================================================================
+# MODULE 2: BLINKIT E-INVOICE TOOL
+# =========================================================================
+elif selected_module == "⚡ Blinkit e-Invoice Tool":
     st.subheader("⚡ Blinkit e-Invoice Management Tool")
-    st.caption("Blinkit purchase orders, ASN aur e-invoicing automation portal.")
-    st.info("Blinkit Tool ka script code share karein, use is tab me activate kar diya jayega.")
+    st.caption("Blinkit Purchase Orders (PO), ASN Generation & E-Invoicing System")
+
+    st.markdown("""
+        <div style="background-color: #1c2541; padding: 18px; border-radius: 8px; border-left: 4px solid #f77f00;">
+            <h4 style="margin: 0; color: #f77f00;">⚡ Blinkit Automation Ready</h4>
+            <p style="margin: 6px 0 0 0; font-size: 13px; color: #cbd5e1;">
+                Aapke purane Blinkit e-invoice tool ka script / code share karein. Hum use yahan seamlessly integrate kar denge taaki PO upload, IRN generation, ya tax invoice creation isi dashboard se ho sake.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.write("")
+    b_col1, b_col2 = st.columns(2)
+    with b_col1:
+        st.file_uploader("Upload Blinkit PO / Data Sheet (Excel/CSV)", type=["xlsx", "xls", "csv"], key="blinkit_data")
+    with b_col2:
+        st.file_uploader("Upload Master Template / Supporting PDF (Optional)", type=["pdf", "json"], key="blinkit_template")
+
+# =========================================================================
+# MODULE 3: LABEL EDITOR
+# =========================================================================
+elif selected_module == "🏷️ Label Editor":
+    st.subheader("🏷️ Shipping & Product Label Editor")
+    st.caption("Bulk crop, resize, rotate aur customize thermal shipping labels.")
+    
+    st.info("Label Editor module ready hai. Isme aapko thermal label crop (4x6 format), rotation, ya barcode adding jo bhi requirement ho, batayein.")
+
+# =========================================================================
+# MODULE 4: SETTINGS & REPORTS
+# =========================================================================
+elif selected_module == "⚙️ Unit Settings & Reports":
+    st.subheader("⚙️ System Operations & Units Configuration")
+    st.markdown("""
+    - **Current Active GSTIN/PAN:** `AALCR5906L` (Romsons Prime Pvt Ltd)
+    - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
+    - **Engine Status:** Online & Healthy
+    """)

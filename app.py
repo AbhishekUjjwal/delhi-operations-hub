@@ -111,9 +111,6 @@ options=[
 index=0,
 label_visibility="collapsed"
 )
-​=========================================================================
-​MODULE 1: AMAZON INVOICE EDITOR (FROZEN & VERIFIED)
-​=========================================================================
 ​if selected_module == "📑 Amazon Invoice Editor":
 st.subheader("📑 Amazon Invoice Editor")
 ​TARGET_PAN = "aalcr5906l"
@@ -320,9 +317,6 @@ mime="application/pdf",
 key=f"dl_btn_{idx}",
 use_container_width=True
 )
-​=========================================================================
-​MODULE 2: BLINKIT E-INVOICE TOOL (UNIVERSAL SUITE)
-​=========================================================================
 ​elif selected_module == "⚡ Blinkit e-Invoice Tool":
 st.subheader("⚡ Blinkit Bulk Invoice Gateway & e-Invoice Engine")
 ​uploaded_invoices = st.file_uploader("Upload Blinkit Invoices (PDF) - Single ya Bulk", type=["pdf"], accept_multiple_files=True, key="blinkit_uploader")

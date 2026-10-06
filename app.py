@@ -27,23 +27,35 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.2);
     }
     
-    /* Unit badge card */
-    .unit-card {
-        background: linear-gradient(135deg, #1c2541 0%, #0b132b 100%);
-        border: 1px solid #38bdf8;
-        border-radius: 8px;
-        padding: 10px;
-        margin-bottom: 10px;
+    /* Logo Container in Sidebar */
+    .brand-logo-card {
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 14px 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        margin-bottom: 12px;
     }
-    .unit-badge {
-        background-color: #f59e0b;
-        color: #000;
+    .brand-logo-card .logo-title {
+        font-family: 'Brush Script MT', 'Lucida Handwriting', cursive, sans-serif;
+        font-size: 34px;
+        font-weight: 900;
+        color: #0b4f3b;
+        letter-spacing: -0.5px;
+        margin: 0;
+        line-height: 1;
+    }
+    .brand-logo-card .logo-tagline {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10.5px;
         font-weight: 700;
-        font-size: 11px;
-        padding: 2px 6px;
-        border-radius: 4px;
-        display: inline-block;
-        margin-bottom: 4px;
+        color: #222222;
+        letter-spacing: 0.5px;
+        margin-top: 5px;
+        text-transform: none;
     }
 
     /* Force Visible Radio Nav Buttons in Light and Dark systems */
@@ -68,15 +80,13 @@ st.markdown("""
 # ----------------- SIDEBAR NAVIGATION -----------------
 with st.sidebar:
     st.title("🏛️ Delhi Operations Hub")
-    st.caption("Operations Automation Portal")
     st.divider()
 
+    # Romsons Brand Logo Header
     st.markdown("""
-        <div class="unit-card">
-            <span class="unit-badge">🏷️ AMZ-ED</span>
-            <div style="font-weight: 600; font-size: 13px; color: #38bdf8;">Amazon & Blinkit Unit</div>
-            <div style="font-size: 11px; color: #cbd5e1; margin-top: 3px;">🎯 <b>PAN:</b> <code>AALCR5906L</code></div>
-            <div style="font-size: 11px; color: #cbd5e1;">🏢 <b>Seller:</b> Romsons Prime Pvt Ltd</div>
+        <div class="brand-logo-card">
+            <div class="logo-title">Romsons</div>
+            <div class="logo-tagline">Sustaining the life force</div>
         </div>
     """, unsafe_allow_html=True)
 

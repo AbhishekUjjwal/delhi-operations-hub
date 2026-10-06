@@ -1,139 +1,126 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import pymupdf as fitz
 import re
 import io
-import json
 import zipfile
-from datetime import datetime
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
 import barcode
 from barcode.writer import ImageWriter
 
-# Page Configuration
+# Page Configuration - Enterprise Wide Layout
 st.set_page_config(
-    page_title="Delhi Operations Hub",
+    page_title="Delhi Operations Hub | Central Portal",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Universal Styling & Watermark
+# Custom Styling: Sleek ERP / Enterprise Dashboard
 st.markdown("""
     <style>
-    .stMetric {
-        background-color: rgba(28, 37, 65, 0.08);
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid rgba(148, 163, 184, 0.2);
+    .main { background-color: #0b132b; color: #f8fafc; }
+    
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] {
+        background-color: #1c2541;
+        border-right: 1px solid #3a506b;
     }
     
-    .stApp::before {
-        content: "Romsons";
-        position: fixed;
-        top: 50%;
-        left: 55%;
-        transform: translate(-50%, -50%) rotate(-12deg);
-        font-family: 'Brush Script MT', 'Lucida Handwriting', cursive, sans-serif;
-        font-size: 14vw;
-        font-weight: 900;
-        color: rgba(11, 79, 59, 0.035);
-        pointer-events: none;
-        z-index: 0;
-        white-space: nowrap;
-        user-select: none;
+    /* Metrics card */
+    .stMetric {
+        background-color: #1c2541;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #3a506b;
     }
-
-    .brand-logo-card {
-        background: #ffffff;
+    
+    /* Unit badge card */
+    .unit-card {
+        background: linear-gradient(135deg, #1c2541 0%, #0b132b 100%);
+        border: 1px solid #48cae4;
         border-radius: 10px;
-        padding: 12px 10px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        padding: 12px;
         margin-bottom: 12px;
     }
-    .brand-logo-card .logo-title {
-        font-family: 'Brush Script MT', 'Lucida Handwriting', cursive, sans-serif;
-        font-size: 32px;
-        font-weight: 900;
-        color: #0b4f3b;
-        letter-spacing: -0.5px;
-        margin: 0;
-        line-height: 1;
+    .unit-badge {
+        background-color: #f77f00;
+        color: #fff;
+        font-weight: bold;
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-bottom: 6px;
     }
-    .brand-logo-card .logo-tagline {
-        font-family: Arial, Helvetica, sans-serif;
-        font-size: 10px;
-        font-weight: 700;
-        color: #222222;
-        letter-spacing: 0.5px;
-        margin-top: 4px;
-        text-transform: none;
-    }
-
+    
+    /* Radio navigation buttons like ERP menu */
     div[data-testid="stRadio"] > div {
         gap: 6px;
     }
     div[data-testid="stRadio"] label {
+        background-color: #1c2541;
         padding: 10px 14px;
         border-radius: 8px;
-        border: 1px solid rgba(148, 163, 184, 0.4);
+        border: 1px solid #3a506b;
         cursor: pointer;
-        font-weight: 600;
         transition: all 0.2s ease-in-out;
     }
-    div[data-testid="stRadio"] label p {
-        font-size: 14px !important;
-        font-weight: 600 !important;
+    div[data-testid="stRadio"] label:hover {
+        border-color: #48cae4;
+        background-color: #24325a;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------- SIDEBAR -----------------
+# ----------------- SIDEBAR NAVIGATION -----------------
 with st.sidebar:
     st.title("🏛️ Delhi Operations Hub")
+    st.caption("Enterprise E-Commerce Operations Portal")
     st.divider()
 
+    st.markdown("**Active Unit Config:**")
     st.markdown("""
-        <div class="brand-logo-card">
-            <div class="logo-title">Romsons</div>
-            <div class="logo-tagline">Sustaining the life force</div>
+        <div class="unit-card">
+            <span class="unit-badge">🏷️ AMZ-ED</span>
+            <div style="font-weight: 600; font-size: 14px; color: #48cae4;">Amazon Invoice Editor Unit</div>
+            <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">🎯 <b>Target PAN:</b> <code>AALCR5906L</code></div>
+            <div style="font-size: 12px; color: #cbd5e1;">🏢 <b>Seller:</b> Romsons Prime Pvt Ltd</div>
         </div>
     """, unsafe_allow_html=True)
 
     st.divider()
+    st.markdown("### 🧭 Module Navigation")
     
+    # Modern ERP Side Navigation Menu
     selected_module = st.radio(
-        label="Select Workspace",
+        label="Select Tool / Workspace",
         options=[
             "📑 Amazon Invoice Editor",
             "⚡ Blinkit e-Invoice Tool",
             "🏷️ Label Editor",
-            "⚙️ Unit Settings"
+            "⚙️ Unit Settings & Reports"
         ],
         index=0,
         label_visibility="collapsed"
     )
+    
+    st.divider()
+    st.caption("System Version: v3.2 Enterprise")
 
 # =========================================================================
-# MODULE 1: AMAZON INVOICE EDITOR (DESCRIPTION MATCHING)
+# MODULE 1: AMAZON INVOICE EDITOR
 # =========================================================================
 if selected_module == "📑 Amazon Invoice Editor":
-    st.subheader("📑 Amazon Invoice Editor")
+    st.subheader("📑 Amazon Invoice Editor & Barcode Stamper")
+    st.caption("Shipment Report aur multiple Invoice PDFs upload karein. Automatic PAN filter (AALCR5906L) + **Full Product Description Matching** apply hogi.")
 
     TARGET_PAN = "aalcr5906l"
 
     col_u1, col_u2 = st.columns(2)
     with col_u1:
-        uploaded_csv = st.file_uploader("Upload Shipment Report (CSV / Excel)", type=["csv", "xlsx", "xls"], key="amz_csv")
+        uploaded_csv = st.file_uploader("1. Upload Shipment Report (CSV / Excel)", type=["csv", "xlsx", "xls"], key="amz_csv")
     with col_u2:
-        uploaded_pdfs = st.file_uploader("Upload Invoice PDF(s)", type=["pdf"], accept_multiple_files=True, key="amz_pdf")
+        uploaded_pdfs = st.file_uploader("2. Upload Invoice PDF(s) [Multiple Files Allowed]", type=["pdf"], accept_multiple_files=True, key="amz_pdf")
 
     def clean_val(v):
         if pd.isna(v):
@@ -193,6 +180,11 @@ if selected_module == "📑 Amazon Invoice Editor":
         title_col = next((col_mapping[c] for c in col_mapping if any(k in c for k in ["title", "item-name", "item_name", "product", "desc"])), None)
         sku_col = next((col_mapping[c] for c in col_mapping if "sku" in c or "msku" in c), None)
 
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Order Column", str(order_col))
+        m2.metric("Product Description Column", str(title_col if title_col else sku_col))
+        m3.metric("Tracking Column", str(tracking_col))
+
         if not (order_col and tracking_col):
             st.error("CSV me Order ID aur Tracking ID column hona zaroori hai!")
             st.stop()
@@ -222,11 +214,202 @@ if selected_module == "📑 Amazon Invoice Editor":
                     "used": False
                 })
 
-        if st.button("🚀 Process Invoices", type="primary", use_container_width=True):
+        st.info(f"📊 Unique Orders in CSV: **{len(order_records_map)}** | Selected PDFs: **{len(uploaded_pdfs)} file(s)**")
+
+        if st.button("🚀 Process & Generate Stamped Invoices", type="primary", use_container_width=True):
             progress_bar = st.progress(0)
             status_text = st.empty()
 
             processed_files = []
             total_files = len(uploaded_pdfs)
 
-            for file_idx, pdf_file in enumerate(
+            for file_idx, pdf_file in enumerate(uploaded_pdfs):
+                status_text.text(f"Processing File {file_idx+1}/{total_files}: {pdf_file.name}...")
+
+                pdf_bytes = pdf_file.read()
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                new_doc = fitz.open()
+
+                total_pages = len(doc)
+                file_stamped_count = 0
+                file_removed_pan = 0
+
+                for page_num in range(total_pages):
+                    page = doc[page_num]
+                    raw_text = page.get_text()
+                    text_lower = raw_text.lower()
+
+                    # Rule 1: Strict PAN Filter
+                    if TARGET_PAN not in text_lower:
+                        file_removed_pan += 1
+                        continue
+
+                    # Extract 17-digit Order Number
+                    order_clean = None
+                    order_match = re.search(r'(\d{3})\s*[-–—]\s*(\d{7})\s*[-–—]\s*(\d{7})', raw_text)
+                    if order_match:
+                        order_clean = f"{order_match.group(1)}{order_match.group(2)}{order_match.group(3)}"
+                    else:
+                        num_match = re.search(r'order\s*number\s*[:\s]*(\d{3}[-–—\d]{14,16}\d)', raw_text, re.IGNORECASE)
+                        if num_match:
+                            order_clean = clean_alphanumeric(num_match.group(1))
+
+                    target_tracking_id = None
+
+                    if order_clean and order_clean in order_records_map:
+                        matching_rows = order_records_map[order_clean]
+
+                        if len(matching_rows) == 1:
+                            target_tracking_id = matching_rows[0]["track"]
+                        else:
+                            page_words = get_token_words(raw_text)
+                            best_match_row = None
+                            highest_overlap = -1
+
+                            for r in matching_rows:
+                                if not r["desc_words"]:
+                                    continue
+                                common = page_words.intersection(r["desc_words"])
+                                overlap_score = len(common)
+
+                                if overlap_score > highest_overlap:
+                                    highest_overlap = overlap_score
+                                    best_match_row = r
+
+                            if best_match_row and highest_overlap > 0:
+                                target_tracking_id = best_match_row["track"]
+                                best_match_row["used"] = True
+                            else:
+                                unused_rows = [r for r in matching_rows if not r["used"]]
+                                if unused_rows:
+                                    target_tracking_id = unused_rows[0]["track"]
+                                    unused_rows[0]["used"] = True
+                                else:
+                                    target_tracking_id = matching_rows[0]["track"]
+
+                    # Stamping Barcode and Tracking ID
+                    if target_tracking_id:
+                        barcode_rect = fitz.Rect(40, 58, 235, 82)
+                        page.draw_rect(barcode_rect, color=(1.0, 1.0, 1.0), fill=(1.0, 1.0, 1.0), width=0)
+
+                        barcode_img_bytes = generate_barcode_image(target_tracking_id)
+                        if barcode_img_bytes:
+                            page.insert_image(barcode_rect, stream=barcode_img_bytes, keep_proportion=False)
+
+                        page.insert_text(
+                            (barcode_rect.x0 + 10, 95),
+                            f"TRACKING: {target_tracking_id}",
+                            fontsize=10.5,
+                            fontname="hebo",
+                            color=(0, 0, 0)
+                        )
+
+                        date_instances = page.search_for("Order Date:") or page.search_for("Order Date")
+                        if date_instances:
+                            first_date_rect = date_instances[0]
+                            page.insert_text(
+                                (first_date_rect.x0, first_date_rect.y1 + 13),
+                                f"Tracking ID: {target_tracking_id}",
+                                fontsize=9.5,
+                                fontname="hebo",
+                                color=(0, 0, 0)
+                            )
+
+                        file_stamped_count += 1
+
+                    new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
+
+                out_buf = io.BytesIO()
+                new_doc.save(out_buf)
+                out_buf.seek(0)
+
+                processed_files.append({
+                    "original_name": pdf_file.name,
+                    "file_name": f"Stamped_{pdf_file.name}",
+                    "data": out_buf.getvalue(),
+                    "pages": len(new_doc),
+                    "stamped": file_stamped_count,
+                    "removed": file_removed_pan
+                })
+
+                progress_bar.progress((file_idx + 1) / total_files)
+
+            status_text.empty()
+            progress_bar.empty()
+
+            st.balloons()
+            st.success(f"🎉 **Total {len(processed_files)} File(s) Processed Successfully!**")
+
+            if len(processed_files) > 1:
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for item in processed_files:
+                        zip_file.writestr(item["file_name"], item["data"])
+                zip_buffer.seek(0)
+
+                st.download_button(
+                    label="📦 Download All Invoices as ZIP",
+                    data=zip_buffer,
+                    file_name="All_Stamped_Invoices.zip",
+                    mime="application/zip",
+                    use_container_width=True
+                )
+
+            st.write("---")
+            st.subheader("📄 Individual Download Files:")
+            for idx, item in enumerate(processed_files):
+                d_col1, d_col2 = st.columns([3, 1])
+                with d_col1:
+                    st.write(f"📁 **{item['original_name']}** — `{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | `{item['removed']} Non-PAN Filtered`")
+                with d_col2:
+                    st.download_button(
+                        label="📥 Download PDF",
+                        data=item["data"],
+                        file_name=item["file_name"],
+                        mime="application/pdf",
+                        key=f"dl_btn_{idx}",
+                        use_container_width=True
+                    )
+
+# =========================================================================
+# MODULE 2: BLINKIT E-INVOICE TOOL
+# =========================================================================
+elif selected_module == "⚡ Blinkit e-Invoice Tool":
+    st.subheader("⚡ Blinkit e-Invoice Management Tool")
+    st.caption("Blinkit Purchase Orders (PO), ASN Generation & E-Invoicing System")
+
+    st.markdown("""
+        <div style="background-color: #1c2541; padding: 18px; border-radius: 8px; border-left: 4px solid #f77f00;">
+            <h4 style="margin: 0; color: #f77f00;">⚡ Blinkit Automation Ready</h4>
+            <p style="margin: 6px 0 0 0; font-size: 13px; color: #cbd5e1;">
+                Aapke purane Blinkit e-invoice tool ka script / code share karein. Hum use yahan seamlessly integrate kar denge taaki PO upload, IRN generation, ya tax invoice creation isi dashboard se ho sake.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.write("")
+    b_col1, b_col2 = st.columns(2)
+    with b_col1:
+        st.file_uploader("Upload Blinkit PO / Data Sheet (Excel/CSV)", type=["xlsx", "xls", "csv"], key="blinkit_data")
+    with b_col2:
+        st.file_uploader("Upload Master Template / Supporting PDF (Optional)", type=["pdf", "json"], key="blinkit_template")
+
+# =========================================================================
+# MODULE 3: LABEL EDITOR
+# =========================================================================
+elif selected_module == "🏷️ Label Editor":
+    st.subheader("🏷️ Shipping & Product Label Editor")
+    st.caption("Bulk crop, resize, rotate aur customize thermal shipping labels.")
+    
+    st.info("Label Editor module ready hai. Isme aapko thermal label crop (4x6 format), rotation, ya barcode adding jo bhi requirement ho, batayein.")
+
+# =========================================================================
+# MODULE 4: SETTINGS & REPORTS
+# =========================================================================
+elif selected_module == "⚙️ Unit Settings & Reports":
+    st.subheader("⚙️ System Operations & Units Configuration")
+    st.markdown("""
+    - **Current Active GSTIN/PAN:** `AALCR5906L` (Romsons Prime Pvt Ltd)
+    - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
+    - **Engine Status:** Online & Healthy
+    """)

@@ -97,7 +97,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 st.divider()
-​selected_module = st.radio(
+selected_module = st.radio(
 label="Select Workspace",
 options=[
 "📑 Amazon Invoice Editor",
@@ -108,10 +108,10 @@ options=[
 index=0,
 label_visibility="collapsed"
 )
-​if selected_module == "📑 Amazon Invoice Editor":
+if selected_module == "📑 Amazon Invoice Editor":
 st.subheader("📑 Amazon Invoice Editor")
-​TARGET_PAN = "aalcr5906l"
-​col_u1, col_u2 = st.columns(2)
+TARGET_PAN = "aalcr5906l"
+col_u1, col_u2 = st.columns(2)
 with col_u1:
 uploaded_csv = st.file_uploader("Upload Shipment Report (CSV / Excel)", type=["csv", "xlsx", "xls"], key="amz_csv")
 with col_u2:

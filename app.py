@@ -116,19 +116,19 @@ with col_u1:
 uploaded_csv = st.file_uploader("Upload Shipment Report (CSV / Excel)", type=["csv", "xlsx", "xls"], key="amz_csv")
 with col_u2:
 uploaded_pdfs = st.file_uploader("Upload Invoice PDF(s)", type=["pdf"], accept_multiple_files=True, key="amz_pdf")
-​def clean_val(v):
+def clean_val(v):
 if pd.isna(v):
 return ""
 s = str(v).strip()
 s = re.sub(r'^[="']+|["']+$', '', s)
 return s.strip()
-​def clean_alphanumeric(text):
+def clean_alphanumeric(text):
 return re.sub(r'[^a-zA-Z0-9]', '', str(text)).lower()
 ​def get_token_words(text):
 words = re.findall(r'[a-zA-Z0-9]+', str(text).lower())
 stop_words = {'the', 'and', 'for', 'with', 'pcs', 'piece', 'pieces', 'only', 'total', 'hsn', 'gst', 'rs', 'inr'}
 return set([w for w in words if len(w) >= 2 and w not in stop_words])
-​def generate_barcode_image(code_text):
+def generate_barcode_image(code_text):
 try:
 code128 = barcode.get_barcode_class('code128')
 writer = ImageWriter()

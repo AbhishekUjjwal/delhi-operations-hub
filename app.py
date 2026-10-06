@@ -18,7 +18,7 @@ page_icon="🏛️",
 layout="wide",
 initial_sidebar_state="expanded"
 )
-​st.markdown("""
+st.markdown("""
 <style>
 .stMetric {
 background-color: rgba(28, 37, 65, 0.08);

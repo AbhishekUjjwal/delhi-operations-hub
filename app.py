@@ -1646,4 +1646,153 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     "meta": meta
                 })
             except Exception as e:
-                st.error
+                st.error(f"Error processing {file.name}: {str(e)}")
+
+        if processed_docs:
+            st.success(f"✅ Successfully processed {len(processed_docs)} Invoices!")
+            parsed_invoices = [doc["meta"] for doc in processed_docs]
+            excel_raw_bytes = generate_official_nic_v101_excel_bytes(parsed_invoices)
+
+            if len(processed_docs) == 1:
+                doc = processed_docs[0]
+                meta = doc["meta"]
+                pdf_buf = doc["pdf_buf"]
+                json_payload = build_einvoice_json_v101(meta)
+                inv_no = meta["invoice_no"]
+                pdf_name = meta["pdf_filename"]
+                is_blinkit = meta["is_blinkit"]
+
+                channel_badge = "🟢 Blinkit Conversion Active (50x/25x Box Fix)" if is_blinkit else "🔵 Standard Buyer"
+                ship_status = "⚠️ Different (Shipping Details Filled)" if meta["shipping_is_different"] else "✅ Same (Shipping Blank in Excel)"
+
+                st.markdown(f"""
+                    <div style="background-color: #1e293b; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'};">
+                        <b>Buyer Name:</b> <code>{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Rule:</b> <code>{channel_badge}</code><br>
+                        <b>City:</b> <code>{meta['buyer_loc']}</code> ({meta['buyer_pin']}) &nbsp;|&nbsp; <b>Shipping Status:</b> <code>{ship_status}</code><br>
+                        <b>Seller:</b> {meta['seller_name']} ({meta['seller_gstin']})
+                    </div>
+                """, unsafe_allow_html=True)
+
+                hist_item = {
+                    "original_name": doc["original_name"],
+                    "file_name": pdf_name,
+                    "data": pdf_buf.getvalue(),
+                    "pages": 1,
+                    "stamped": len(meta["line_items"]),
+                    "location": st.session_state.selected_wh,
+                    "module": "BLNK",
+                    "time": datetime.now().strftime("%d-%b %H:%M")
+                }
+
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.download_button(
+                        label="📥 Download Processed PDF",
+                        data=pdf_buf.getvalue(),
+                        file_name=pdf_name,
+                        mime="application/pdf",
+                        on_click=record_to_history,
+                        args=(hist_item,),
+                        key="dl_blnk_single_pdf"
+                    )
+                with c2:
+                    st.download_button(
+                        label="📊 Download eInvoice.xlsx (Exact Template)",
+                        data=excel_raw_bytes,
+                        file_name=f"{inv_no}_eInvoice.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_blnk_single_xlsx"
+                    )
+                with c3:
+                    st.download_button(
+                        label="🧾 Download e-Invoice JSON (v1.01)",
+                        data=json.dumps(json_payload, indent=4),
+                        file_name=f"{inv_no}_eInvoice_v1.01.json",
+                        mime="application/json",
+                        key="dl_blnk_single_json"
+                    )
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("### 📄 Official Government e-Invoice Live Preview")
+                calc_height = 560 + (len(meta['line_items']) * 36)
+                preview_html = render_exact_government_einvoice_preview(meta)
+                components.html(preview_html, height=calc_height, scrolling=True)
+
+            else:
+                zip_buffer = io.BytesIO()
+                batch_hist = []
+                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for idx, doc in enumerate(processed_docs, 1):
+                        pdf_name = doc["meta"]["pdf_filename"]
+                        raw_data = doc["pdf_buf"].getvalue()
+                        zip_file.writestr(pdf_name, raw_data)
+                        batch_hist.append({
+                            "original_name": doc["original_name"],
+                            "file_name": pdf_name,
+                            "data": raw_data,
+                            "pages": 1,
+                            "stamped": len(doc["meta"]["line_items"]),
+                            "location": st.session_state.selected_wh,
+                            "module": "BLNK",
+                            "time": datetime.now().strftime("%d-%b %H:%M")
+                        })
+                zip_buffer.seek(0)
+
+                bulk_json = [build_einvoice_json_v101(d["meta"]) for d in processed_docs]
+                date_str = datetime.now().strftime('%d-%m-%Y')
+
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.download_button(
+                        label=f"📦 Download All Processed PDFs ({len(processed_docs)} Files - ZIP)",
+                        data=zip_buffer.getvalue(),
+                        file_name=f"Invoices_Processed_{date_str}.zip",
+                        mime="application/zip",
+                        on_click=record_batch_to_history,
+                        args=(batch_hist,),
+                        key="dl_blnk_bulk_zip"
+                    )
+                with c2:
+                    st.download_button(
+                        label=f"📊 Download Bulk eInvoice.xlsx ({len(processed_docs)} Invoices)",
+                        data=excel_raw_bytes,
+                        file_name=f"Bulk_eInvoice_{date_str}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_blnk_bulk_xlsx"
+                    )
+                with c3:
+                    st.download_button(
+                        label=f"🧾 Download Bulk e-Invoice JSON ({len(bulk_json)} Invoices)",
+                        data=json.dumps(bulk_json, indent=4),
+                        file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
+                        mime="application/json",
+                        key="dl_blnk_bulk_json"
+                    )
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("### 📄 Invoices Official e-Invoice Preview")
+                preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
+                for i, tab in enumerate(preview_tabs):
+                    with tab:
+                        curr_meta = processed_docs[i]['meta']
+                        calc_height = 560 + (len(curr_meta['line_items']) * 36)
+                        p_html = render_exact_government_einvoice_preview(curr_meta)
+                        components.html(p_html, height=calc_height, scrolling=True)
+
+# =========================================================================
+# MODULE 4: LABEL EDITOR
+# =========================================================================
+elif st.session_state.active_tab == "LBL":
+    st.subheader("🏷️ Shipping & Product Label Editor")
+    st.info("No files")
+
+# =========================================================================
+# MODULE 5: SETTINGS & REPORTS
+# =========================================================================
+elif st.session_state.active_tab == "CONF":
+    st.subheader("⚙️ System Operations & Units Configuration")
+    st.markdown(f"""
+    - **Active Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`
+    - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
+    - **Engine Status:** Online & Healthy
+    """)

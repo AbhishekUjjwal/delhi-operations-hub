@@ -8,15 +8,10 @@ import json
 import zipfile
 import barcode
 from barcode.writer import ImageWriter
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-
-# IST TIME HELPER (Exact Indian Standard Time)
-IST = timezone(timedelta(hours=5, minutes=30))
-def get_current_ist_str():
-    return datetime.now(IST).strftime("%d-%b %I:%M %p")
 
 # Page Configuration
 st.set_page_config(
@@ -234,7 +229,7 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP LAYOUT -----------------
+# ----------------- TOP LAYOUT: LEFT TABS & RIGHT CONTROLS -----------------
 header_left, header_right = st.columns([7.8, 2.2])
 
 with header_left:
@@ -256,6 +251,7 @@ with header_left:
 with header_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     
+    # Row 1: Refresh Button + Location Dropdown
     loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
     with loc_sub1:
         if st.button("🔄", key="btn_refresh_pinned", help="Click to unpin all extra tabs", use_container_width=True):
@@ -269,6 +265,7 @@ with header_right:
         )
         st.session_state.selected_wh = selected_display
 
+    # Row 2: History & Reset
     loc_history = get_current_location_history()
     hist_col, reset_col = st.columns([1.2, 0.8])
     with hist_col:
@@ -285,7 +282,7 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (EXACT IST TIMEZONE)
+# HISTORY VIEW
 # =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
@@ -613,7 +610,7 @@ elif st.session_state.active_tab == "AMZ":
                     "removed_desc": file_removed_desc,
                     "location": st.session_state.selected_wh,
                     "module": "AMZ",
-                    "time": get_current_ist_str()
+                    "time": datetime.now().strftime("%d-%b %H:%M")
                 })
 
                 progress_bar.progress((file_idx + 1) / total_files)
@@ -698,7 +695,7 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL (PERFECT LABEL & NO RESIDUAL TEXT)
+# MODULE 3: BLINKIT E-INVOICE TOOL (ACCURATE MASKING & EXT ORDER REPAIR)
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
@@ -757,7 +754,9 @@ elif st.session_state.active_tab == "BLNK":
         desc = re.sub(r"\s+", " ", desc).strip()
         return desc
 
+    # EXACT RECT OVERWRITE (NO BORDER LINE OVERFLOW)
     def overwrite_exact_area(page, rect, new_text, font_size=7.2):
+        # Precise boundary without cutting horizontal/vertical table borders
         safe_rect = fitz.Rect(rect.x0, rect.y0 + 0.3, rect.x1, rect.y1 - 0.3)
         page.draw_rect(safe_rect, color=None, fill=(1, 1, 1))
         page.insert_text((safe_rect.x0 + 0.5, safe_rect.y1 - 1.0), str(new_text), fontsize=font_size, fontname="helv", color=(0, 0, 0))
@@ -770,26 +769,26 @@ elif st.session_state.active_tab == "BLNK":
         page0 = doc[0]
         words = page0.get_text("words")
 
-        # 1. CLEAN EXTERNAL ORDER EXTRACTION (DIGITS ONLY + STRIP TRAILING DOT)
+        # SMART EXTERNAL ORDER EXTRACTION (COMBINES WRAPPED NUMBERS E.G., 5192561000664 + 6)
         ext_order_id = None
         ext_matches = [w for w in words if "extern" in w[4].lower()]
         if ext_matches:
             anchor = ext_matches[0]
-            # Capture words on the right or immediate line below that are strictly digits
+            # Capture words on the right or immediately below in the same block
             num_words = [
                 w for w in words 
-                if (anchor[1] - 4 <= w[1] <= anchor[3] + 11.5) 
-                and (anchor[0] + 45 <= w[0] <= 445)
-                and w[4].strip().rstrip('.').isdigit()
+                if (anchor[1] - 4 <= w[1] <= anchor[3] + 16) 
+                and (anchor[0] + 50 <= w[0] <= 320)
+                and re.search(r'\d', w[4])
             ]
             num_words.sort(key=lambda w: (round(w[1] / 6) * 6, w[0]))
             if num_words:
-                ext_order_id = "".join([w[4].strip().rstrip('.') for w in num_words])
+                ext_order_id = "".join([re.sub(r'[^\w\-]', '', w[4]) for w in num_words])
 
         if not ext_order_id:
-            ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\s]+?)(?=\n\s*[A-Za-z]|Invoice|Date|$)", full_text, re.IGNORECASE)
+            ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\sA-Za-z\-]+?)(?=\n\s*[A-Za-z]|Invoice|Date|$)", full_text, re.IGNORECASE)
             if ext_match:
-                ext_order_id = "".join(ext_match.group(1).split()).rstrip('.')
+                ext_order_id = "".join(ext_match.group(1).split())
         if not ext_order_id:
             digits_match = re.findall(r"\b(49\d{8,14}|5\d{8,14}|\d{12,18})\b", full_text)
             if digits_match:
@@ -797,10 +796,6 @@ elif st.session_state.active_tab == "BLNK":
         if not ext_order_id:
             ext_order_id = "ExtOrder"
 
-        # REMOVE ANY TRAILING DOT OR SPACES
-        ext_order_id = re.sub(r'[\.\s]+$', '', str(ext_order_id))
-
-        # 2. INVOICE NO EXTRACTION
         inv_match = re.search(r"Invoice\s*No\s*[:\s]*([A-Za-z0-9\-_/]+)", full_text, re.IGNORECASE)
         invoice_no = inv_match.group(1).strip() if inv_match else "INV-001"
 
@@ -808,7 +803,7 @@ elif st.session_state.active_tab == "BLNK":
         raw_date = date_match.group(1).strip() if date_match else "Date"
 
         clean_date = raw_date
-        std_date_for_json = datetime.now(IST).strftime("%d/%m/%Y")
+        std_date_for_json = datetime.now().strftime("%d/%m/%Y")
         for fmt in ("%b %d, %Y", "%B %d, %Y", "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
             try:
                 d_obj = datetime.strptime(raw_date, fmt)
@@ -977,28 +972,32 @@ elif st.session_state.active_tab == "BLNK":
         for p_idx, page in enumerate(doc):
             words = page.get_text("words")
 
-            # PERFECT EXTERNAL ORDER OVERWRITE (PRESERVES LABEL & CLEANS ENTIRE ORIGINAL NUMBER)
+            # FIX: Clean and unite multi-line External Order ID in PDF Page 1
             if p_idx == 0 and ext_order_str and ext_order_str != "ExtOrder":
                 ext_matches = [w for w in words if "extern" in w[4].lower()]
                 if ext_matches:
                     anchor = ext_matches[0]
-                    # Find where 'Extern Order No :' label finishes (around x ~ 370)
-                    colon_words = [w for w in words if abs(w[1] - anchor[1]) < 5 and w[0] > anchor[0] and (":" in w[4] or "no" in w[4].lower())]
-                    start_x = max([w[2] for w in colon_words]) + 4 if colon_words else 370.0
-                    end_x = 444.0  # Safe right boundary before 'Invoice Date' column (x: 448)
-
-                    # Entire box covering the old number + any hanging digit line
-                    full_number_box = fitz.Rect(start_x, anchor[1] - 0.5, end_x, anchor[3] + 10.5)
-                    page.draw_rect(full_number_box, color=None, fill=(1, 1, 1))
-
-                    # Clean single-line print directly after 'Extern Order No :'
-                    page.insert_text(
-                        (start_x + 1.0, anchor[3] - 1.0), 
-                        str(ext_order_str), 
-                        fontsize=7.2, 
-                        fontname="helv", 
-                        color=(0, 0, 0)
-                    )
+                    # Clean out previous split digits
+                    num_rects = [
+                        fitz.Rect(w[0], w[1], w[2], w[3]) 
+                        for w in words 
+                        if (anchor[1] - 3 <= w[1] <= anchor[3] + 16) 
+                        and (anchor[0] + 45 <= w[0] <= 320)
+                        and re.search(r'\d', w[4])
+                    ]
+                    if num_rects:
+                        comb_rect = num_rects[0]
+                        for nr in num_rects[1:]:
+                            comb_rect |= nr
+                        # Whiteout only that narrow box and print unified number on one line
+                        page.draw_rect(comb_rect, color=None, fill=(1, 1, 1))
+                        page.insert_text(
+                            (num_rects[0].x0, anchor[3] - 1.2), 
+                            str(ext_order_str), 
+                            fontsize=8.5, 
+                            fontname="helv", 
+                            color=(0, 0, 0)
+                        )
 
             table_header_bottom_y = 200
             y_groups = {}
@@ -1137,13 +1136,15 @@ elif st.session_state.active_tab == "BLNK":
                             "gst_rate": 5.0
                         })
 
-                    # SAFE IN-LINE UOM UPDATE
+                    # SAFE IN-LINE UOM UPDATE (NO HIDING ADJACENT TEXT OR BORDERS)
                     if is_blinkit and factor > 1:
+                        # Find UOM line strictly inside this item's row boundaries
                         uom_in_row = [
                             w for w in row_words 
                             if "UOM" in w[4].upper() and 30 <= w[0] <= 180
                         ]
                         for uw in uom_in_row:
+                            # Also check if S is hanging on newline
                             hanging_s = [
                                 w for w in row_words 
                                 if w[4].strip() == "S" and abs(w[0] - uw[0]) < 15 and 0 < (w[1] - uw[1]) < 12
@@ -1515,7 +1516,7 @@ elif st.session_state.active_tab == "BLNK":
         exact_total = round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
         grand_total = round(exact_total)
         round_off = round(grand_total - exact_total, 2)
-        ack_date_str = f"{meta['clean_date']} 17:00:00"
+        ack_date_str = f"{meta['clean_date']} 17:0:00"
 
         table_rows = ""
         for idx, it in enumerate(meta['line_items'], 1):
@@ -1735,7 +1736,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     "stamped": len(meta["line_items"]),
                     "location": st.session_state.selected_wh,
                     "module": "BLNK",
-                    "time": get_current_ist_str()
+                    "time": datetime.now().strftime("%d-%b %H:%M")
                 }
 
                 c1, c2, c3 = st.columns(3)
@@ -1788,12 +1789,12 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                             "stamped": len(doc["meta"]["line_items"]),
                             "location": st.session_state.selected_wh,
                             "module": "BLNK",
-                            "time": get_current_ist_str()
+                            "time": datetime.now().strftime("%d-%b %H:%M")
                         })
                 zip_buffer.seek(0)
 
                 bulk_json = [build_einvoice_json_v101(d["meta"]) for d in processed_docs]
-                date_str = datetime.now(IST).strftime('%d-%m-%Y')
+                date_str = datetime.now().strftime('%d-%m-%Y')
 
                 c1, c2, c3 = st.columns(3)
                 with c1:

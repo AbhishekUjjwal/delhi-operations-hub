@@ -294,74 +294,94 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* ----------------- CLEAN EXACT TOOL CARD STYLING ----------------- */
-    .dashboard-tool-container div[data-testid="stButton"] {
-        width: 100% !important;
-        margin-bottom: 18px !important;
+    /* ----------------- UNIVERSAL THEME-AWARE TOOL CARDS ----------------- */
+    .dashboard-tool-container {
+        width: 100%;
     }
 
-    /* POORA CARD BUTTON HE BAN GAYA HAI */
+    .dashboard-tool-container div[data-testid="stButton"] {
+        width: 100% !important;
+        margin-bottom: 22px !important;
+        position: relative !important;
+    }
+
+    /* BASE BUTTON AS THE CONTAINER */
     .dashboard-tool-container div[data-testid="stButton"] button {
         width: 100% !important;
-        min-height: 165px !important;
-        height: 165px !important;
-        background: #ffffff !important;
-        border: 2px solid #e2e8f0 !important;
+        min-height: 175px !important;
+        height: 175px !important;
+        background: #ffffff !important; /* Default Light */
+        border: 2px solid #cbd5e1 !important;
         border-radius: 28px !important;
         padding: 24px 28px !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: flex-start !important;
         justify-content: space-between !important;
-        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
         cursor: pointer !important;
-        transition: all 0.22s ease-in-out !important;
+        transition: all 0.25s ease-in-out !important;
     }
 
-    /* Streamlit ke button ke default text ko hide karke HTML structure render karenge */
+    /* DARK THEME ADAPTATION */
+    @media (prefers-color-scheme: dark) {
+        .dashboard-tool-container div[data-testid="stButton"] button {
+            background: #1e293b !important;
+            border-color: rgba(148, 163, 184, 0.25) !important;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+        }
+        .card-title-heading {
+            color: #ffffff !important;
+        }
+    }
+
+    /* Force button's raw text completely transparent so it never shows */
     .dashboard-tool-container div[data-testid="stButton"] button p {
+        color: transparent !important;
+        font-size: 0px !important;
+        line-height: 0 !important;
         display: none !important;
     }
 
-    /* CARD HOVER HIGHLIGHTS */
+    /* DYNAMIC HIGHLIGHT BORDER ON HOVER */
     .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {
-        border-color: #2563eb !important;
-        box-shadow: 0 10px 26px rgba(37, 99, 235, 0.18) !important;
+        border-color: #38bdf8 !important;
+        box-shadow: 0 10px 28px rgba(56, 189, 248, 0.28) !important;
         transform: translateY(-4px) !important;
     }
     .dashboard-tool-container .card-blnk-po div[data-testid="stButton"] button:hover {
-        border-color: #059669 !important;
-        box-shadow: 0 10px 26px rgba(5, 150, 105, 0.18) !important;
+        border-color: #10b981 !important;
+        box-shadow: 0 10px 28px rgba(16, 185, 129, 0.28) !important;
         transform: translateY(-4px) !important;
     }
     .dashboard-tool-container .card-blnk div[data-testid="stButton"] button:hover {
-        border-color: #d97706 !important;
-        box-shadow: 0 10px 26px rgba(217, 119, 6, 0.18) !important;
+        border-color: #f59e0b !important;
+        box-shadow: 0 10px 28px rgba(245, 158, 11, 0.28) !important;
         transform: translateY(-4px) !important;
     }
     .dashboard-tool-container .card-lbl div[data-testid="stButton"] button:hover {
-        border-color: #7c3aed !important;
-        box-shadow: 0 10px 26px rgba(124, 58, 237, 0.18) !important;
+        border-color: #a855f7 !important;
+        box-shadow: 0 10px 28px rgba(168, 85, 247, 0.28) !important;
         transform: translateY(-4px) !important;
     }
     .dashboard-tool-container .card-conf div[data-testid="stButton"] button:hover {
-        border-color: #475569 !important;
-        box-shadow: 0 10px 26px rgba(71, 85, 105, 0.18) !important;
+        border-color: #94a3b8 !important;
+        box-shadow: 0 10px 28px rgba(148, 163, 184, 0.28) !important;
         transform: translateY(-4px) !important;
     }
 
-    /* INTERNAL VISUAL CARD STRUCTURE */
+    /* INTERNAL VISUAL LAYER OVER THE BUTTON */
     .card-face-wrapper {
         position: relative;
         width: 100%;
-        margin-bottom: -165px;
+        margin-bottom: -175px;
         pointer-events: none;
         z-index: 2;
         padding: 24px 28px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        height: 165px;
+        height: 175px;
     }
 
     .card-top-row {
@@ -372,31 +392,32 @@ st.markdown("""
     }
 
     .card-icon-box {
-        width: 48px;
-        height: 48px;
-        border-radius: 14px;
+        width: 52px;
+        height: 52px;
+        border-radius: 15px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 24px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        font-size: 26px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
     }
 
     .card-badge-pill {
-        font-size: 11.5px;
+        font-size: 12px;
         font-weight: 800;
-        padding: 4px 14px;
+        padding: 5px 14px;
         border-radius: 20px;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.6px;
     }
 
+    /* BADA AUR SPASHT TITLE LATTER */
     .card-title-heading {
-        font-size: 20px;
-        font-weight: 800;
+        font-size: 24px;
+        font-weight: 900;
         color: #0f172a;
-        margin-top: 18px;
-        margin-bottom: 2px;
-        letter-spacing: -0.3px;
+        margin-top: 20px;
+        margin-bottom: 4px;
+        letter-spacing: -0.4px;
         text-align: left;
     }
     </style>
@@ -755,9 +776,9 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ----------------- CLEAN BOX DESIGN: CLICK ANYWHERE ON WHITE AREA TO OPEN -----------------
+# ----------------- CLEAN BOX DESIGN: CLICK ANYWHERE ON BOX TO OPEN -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
-    st.markdown('<div style="font-size: 13px; font-weight: 800; color: #94a3b8; margin-bottom: 16px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size: 13.5px; font-weight: 800; color: #94a3b8; margin-bottom: 18px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="dashboard-tool-container">', unsafe_allow_html=True)
     keys = list(AVAILABLE_MODULES.keys())
@@ -770,7 +791,7 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
             with col_obj:
                 st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Card Face: Icon + Module Badge + Name (Clean & Spaced)
+                # Card Face: Large Icon + Badge + Big Bold Title
                 st.markdown(f"""
                     <div class="card-face-wrapper">
                         <div class="card-top-row">
@@ -785,8 +806,8 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # Single clickable button that covers the entire white box surface
-                if st.button(f"{m_key}_trigger", key=f"main_box_{m_key}", use_container_width=True):
+                # Invisible full-card trigger button
+                if st.button(" ", key=f"main_box_{m_key}", use_container_width=True):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key

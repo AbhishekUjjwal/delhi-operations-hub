@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Zero Top Padding, Hide Bottom Badges & Compact Layout
+# Custom Styling: Zero Top Padding, Compact Actions & Snappy Layout
 st.markdown("""
     <style>
     /* 1. HIDE TOP-RIGHT FORK, GITHUB LOGO & STREAMLIT HEADER */
@@ -36,17 +36,18 @@ st.markdown("""
     div[class*="manage-app"] {display: none !important;}
     div[class*="floating"] {display: none !important;}
 
-    /* 3. REDUCE TOP BLANK SPACE (CONTENT MOVED UP) */
+    /* 3. ZERO EXTRA TOP GAP (CONTENT SHIFTED MAXIMUM UP) */
     .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 1rem !important;
-        padding-left: 1.5rem !important;
-        padding-right: 1.5rem !important;
+        padding-top: 0.2rem !important;
+        padding-bottom: 0.8rem !important;
+        padding-left: 1.2rem !important;
+        padding-right: 1.2rem !important;
     }
 
     hr {
-        margin-top: 8px !important;
-        margin-bottom: 10px !important;
+        margin-top: 4px !important;
+        margin-bottom: 6px !important;
+        border-color: rgba(58, 80, 107, 0.4) !important;
     }
 
     /* 4. TIGHT LETTER-FIT BUTTONS */
@@ -57,7 +58,7 @@ st.markdown("""
         border-radius: 16px !important;
         font-size: 12px !important;
         font-weight: 600 !important;
-        padding: 4px 10px !important;
+        padding: 3px 10px !important;
         min-height: 28px !important;
         height: 28px !important;
         line-height: 1 !important;
@@ -74,11 +75,11 @@ st.markdown("""
         color: #38bdf8 !important;
     }
 
-    /* 5. RIGHT STACK ACTION BUTTONS FULL WIDTH IN BOX */
-    .right-stack-col div[data-testid="stButton"] {
+    /* 5. RIGHT STACK ACTION ROW BUTTONS */
+    .right-action-cluster div[data-testid="stButton"] {
         width: 100% !important;
     }
-    .right-stack-col div[data-testid="stButton"] button {
+    .right-action-cluster div[data-testid="stButton"] button {
         width: 100% !important;
     }
 
@@ -98,7 +99,14 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }
 
-    /* 7. SIDEBAR TITLE */
+    /* 7. HEADINGS SPACING COMPACT */
+    h2, h3, h4 {
+        margin-top: 0px !important;
+        margin-bottom: 4px !important;
+        padding-top: 0px !important;
+    }
+
+    /* 8. SIDEBAR TITLE */
     .hub-title {
         font-size: 18px;
         font-weight: 800;
@@ -116,9 +124,9 @@ st.markdown("""
         background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.25) 100%);
         border: 1px solid rgba(52, 211, 153, 0.5);
         border-radius: 10px;
-        padding: 14px 18px;
+        padding: 12px 16px;
         color: #ecfdf5;
-        margin: 12px 0px;
+        margin: 8px 0px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -195,11 +203,11 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP LAYOUT: LEFT TABS & RIGHT 3 BOXES -----------------
-header_left, header_right = st.columns([8.2, 1.8])
+# ----------------- TOP LAYOUT: LEFT TABS & RIGHT CONTROLS -----------------
+header_left, header_right = st.columns([7.8, 2.2])
 
 with header_left:
-    tab_cols = st.columns([0.8] * len(st.session_state.open_tabs) + [4.0])
+    tab_cols = st.columns([0.8] * len(st.session_state.open_tabs) + [3.8])
     for idx, t_key in enumerate(st.session_state.open_tabs):
         info = AVAILABLE_MODULES[t_key]
         is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
@@ -215,12 +223,12 @@ with header_left:
                 st.rerun()
 
 with header_right:
-    st.markdown('<div class="right-stack-col">', unsafe_allow_html=True)
+    st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     
-    # 1. Box 1: Refresh Button (Left) + Location Dropdown (Right)
-    loc_sub1, loc_sub2 = st.columns([0.45, 1.55])
+    # Row 1: Refresh Button (Left) + Location Dropdown (Right)
+    loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
     with loc_sub1:
-        if st.button("🔄", key="btn_refresh_pinned", help="Click to unpin all extra tabs"):
+        if st.button("🔄", key="btn_refresh_pinned", help="Click to unpin all extra tabs", use_container_width=True):
             clear_all_pinned_tabs()
     with loc_sub2:
         selected_display = st.selectbox(
@@ -231,15 +239,16 @@ with header_right:
         )
         st.session_state.selected_wh = selected_display
 
-    # 2. Box 2: History (Bich me)
+    # Row 2: History (Left) aur uske theek Right side me Reset Button
     loc_history = get_current_location_history()
-    if st.button(f"🕒 History ({len(loc_history)})", key="top_hist_btn", type="primary" if st.session_state.show_history else "secondary", use_container_width=True):
-        st.session_state.show_history = not st.session_state.show_history
-        st.rerun()
-
-    # 3. Box 3: Reset (Neeche)
-    if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset upload area", use_container_width=True):
-        reset_current_workspace()
+    hist_col, reset_col = st.columns([1.2, 0.8])
+    with hist_col:
+        if st.button(f"🕒 History ({len(loc_history)})", key="top_hist_btn", type="primary" if st.session_state.show_history else "secondary", use_container_width=True):
+            st.session_state.show_history = not st.session_state.show_history
+            st.rerun()
+    with reset_col:
+        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset upload area", use_container_width=True):
+            reset_current_workspace()
         
     st.markdown('</div>', unsafe_allow_html=True)
 

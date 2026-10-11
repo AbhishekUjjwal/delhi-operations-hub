@@ -905,8 +905,7 @@ elif st.session_state.active_tab == "BLNK":
             s = l.strip()
             if not s:
                 continue
-            # Remove any unwanted header keywords or tags
-            if re.search(r"(@|contact|phone|mob|gstin|pan|india|cgst|sgst|ugst|igst|s\.no|item code)", s, re.I):
+            if re.search(r"(@|contact|phone|mob|gstin|pan|india|cgst|sgst|ugst|igst|s\.no|item code|tax invoice|billing address|shipping address)", s, re.I):
                 continue
             s = re.sub(rf"\b{re.escape(str(pincode))}\b", "", s).strip()
             s = re.sub(rf"\b{re.escape(str(city))}\b", "", s, flags=re.I).strip()
@@ -915,7 +914,7 @@ elif st.session_state.active_tab == "BLNK":
             if len(s) > 2:
                 clean_parts.append(s)
 
-        full_addr = ", ".join(clean_parts) if clean_parts else "Warehouse Facility"
+        full_addr = ", ".join(clean_parts) if clean_parts else "Commercial Facility"
         full_addr = re.sub(r"\s+", " ", full_addr).strip()
 
         if len(full_addr) <= 100:
@@ -1018,8 +1017,8 @@ elif st.session_state.active_tab == "BLNK":
         y_sold = sold_header[0][1] if sold_header else 80
         y_bill = bill_header[0][1] if bill_header else 200
         
-        # Stop shipping box safely before the table header
-        y_table = table_header[0][1] - 4 if table_header else 285
+        # Stop shipping box cleanly before table header
+        y_table = (table_header[0][1] - 4) if table_header else 285
         split_x = 295
 
         seller_rect = fitz.Rect(20, y_sold, split_x, y_bill)
@@ -1044,6 +1043,7 @@ elif st.session_state.active_tab == "BLNK":
         b_lines = [l.strip() for l in billing_text.split("\n") if l.strip() and not re.search(r"billing\s*addr", l, re.I)]
 
         buyer_name = b_lines[0] if b_lines else "BLINK COMMERCE PRIVATE LIMITED"
+        buyer_name = re.sub(r"\s+", " ", buyer_name).strip()
 
         em_m = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", billing_text)
         buyer_email = em_m.group(0).strip() if em_m else ""
@@ -1073,6 +1073,7 @@ elif st.session_state.active_tab == "BLNK":
         shp_lines = [l.strip() for l in shipping_text.split("\n") if l.strip() and not re.search(r"shipping\s*addr", l, re.I)]
 
         ship_name = shp_lines[0] if shp_lines else buyer_name
+        ship_name = re.sub(r"\s+", " ", ship_name).strip()
 
         shp_gst_m = re.search(r"GSTIN\s*[:\s]*([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})", shipping_text, re.IGNORECASE)
         ship_gstin = shp_gst_m.group(1).strip() if shp_gst_m else buyer_gstin
@@ -1085,12 +1086,18 @@ elif st.session_state.active_tab == "BLNK":
 
         ship_addr1, ship_addr2 = format_best_address(shp_lines[1:], ship_pin, ship_loc, ship_state_name)
 
-        # Compare clean address contents to check if shipping is genuinely different
-        clean_b_str = re.sub(r'[^A-Za-z0-9]', '', f"{buyer_name}{buyer_addr1}{buyer_pin}").lower()
-        clean_s_str = re.sub(r'[^A-Za-z0-9]', '', f"{ship_name}{ship_addr1}{ship_pin}").lower()
+        is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
+
+        # USER LOGIC: If Buyer GSTIN == Shipping GSTIN or if Blinkit -> SHIPPING DETAILS ARE BLANK!
+        clean_b_gst = buyer_gstin.strip().upper()
+        clean_s_gst = ship_gstin.strip().upper()
         
-        # Check if shipping is actually different
-        shipping_is_different = (clean_b_str != clean_s_str) and (buyer_pin != ship_pin or buyer_addr1 != ship_addr1 or buyer_name.lower() != ship_name.lower())
+        if is_blinkit or (clean_b_gst == clean_s_gst and clean_b_gst != ""):
+            shipping_is_different = False
+        else:
+            clean_b_str = re.sub(r'[^A-Za-z0-9]', '', f"{buyer_name}{buyer_addr1}{buyer_pin}").lower()
+            clean_s_str = re.sub(r'[^A-Za-z0-9]', '', f"{ship_name}{ship_addr1}{ship_pin}").lower()
+            shipping_is_different = (clean_b_str != clean_s_str)
 
         pos_match = re.search(r"Place\s*of\s*Supply\s*[:\s]*([A-Za-z0-9\s\-]+?)(?=\n|GST|State|$)", full_text, re.IGNORECASE)
         pos_raw = pos_match.group(1).strip() if pos_match else ""
@@ -1109,13 +1116,12 @@ elif st.session_state.active_tab == "BLNK":
             buyer_pos_code = matched_code if matched_code else buyer_state_code
             pos_state_name = STATE_CODE_MAP.get(buyer_pos_code, buyer_state_name)
 
-        is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
         is_interstate = (seller_state_code != buyer_pos_code)
 
         inv_total_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else None
 
-        # Clean search for Bottom GST Summary Box (Avoids Table Header)
+        # Bottom Summary Box Regex
         summary_m = re.search(r"Total\s*Amount\(\+\)\s*[:\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_taxable_total = float(summary_m.group(1).replace(",", "")) if summary_m else None
 
@@ -1165,7 +1171,7 @@ elif st.session_state.active_tab == "BLNK":
             "printed_tax_total": printed_tax_total
         }
 
-    # COLUMN POSITION-AWARE ROW PARSER
+    # RECONCILE AND CAPTURE NUMBERS ACCURATELY BY COLUMN X-COORDINATES
     def process_and_reconcile_pdf(pdf_bytes):
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         meta = extract_metadata_from_doc(doc)
@@ -1257,12 +1263,11 @@ elif st.session_state.active_tab == "BLNK":
                     search_words = [w for w in row_words if w[0] > (hsn_w[2] if hsn_w else (hsn_x0 + 5))]
                     search_words.sort(key=lambda w: w[0])
 
+                    # Extract all valid numbers without skipping lengths >= 9
                     after_hsn_nums = []
                     for w in search_words:
                         val = w[4].replace(",", "").strip()
                         if re.match(r"^\d+(\.\d{1,2})?$", val):
-                            if len(val) >= 9:
-                                continue
                             after_hsn_nums.append({
                                 "val": float(val),
                                 "str": val,
@@ -1288,7 +1293,7 @@ elif st.session_state.active_tab == "BLNK":
                             final_p = round(final_p * factor, 2)
                             overwrite_exact_area(page, after_hsn_nums[1]["rect"], f"{final_p:.2f}", font_size=7.2)
 
-                    # 2. Extract Discount (x: 250 to 295)
+                    # 2. Extract Discount (x: 245 to 295)
                     disc_cand = [n for n in after_hsn_nums if 245 <= n["x0"] <= 295]
                     if disc_cand:
                         final_disc = disc_cand[0]["val"]
@@ -1314,7 +1319,7 @@ elif st.session_state.active_tab == "BLNK":
                         else:
                             taxable_val = round((final_q * final_p) - final_disc, 2)
 
-                        # User Rule: Gross Amount = Taxable Value + Discount
+                        # User Mandate: Gross Amount = Taxable Value + Discount
                         gross_amt = round(taxable_val + final_disc, 2)
                         unit_label = "BOX" if (is_blinkit and factor > 1) else "PACKS"
 
@@ -1471,6 +1476,7 @@ elif st.session_state.active_tab == "BLNK":
             }
         }
 
+    # EXACT 86-COLUMN NIC EXCEL BUILDER (MATCHING PDF TO THE EXACT PAISA)
     def generate_official_nic_v101_excel_bytes(data_list):
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1621,8 +1627,10 @@ elif st.session_state.active_tab == "BLNK":
                 price = it["unit_price"]
                 disc = it.get("discount", 0.0)
 
+                # Direct Taxable Value from PDF
                 taxable = it.get("taxable_val", round(qty * price, 2))
-                gross_amt = it.get("gross_amt", round(taxable + disc, 2))
+                # User Rule: Gross Amount = Taxable + Discount
+                gross_amt = round(taxable + disc, 2)
                 gst_rate = it.get("gst_rate", 5.0)
 
                 tot_taxable += taxable
@@ -1677,9 +1685,9 @@ elif st.session_state.active_tab == "BLNK":
                     fmt_dec(r_data["disc"]) if r_data["disc"] > 0 else "",
                     "",
                     fmt_dec(r_data["taxable"]), str(int(r_data["gst_rate"])),
-                    fmt_dec(r_data["sgst"]) if r_data["sgst"] > 0 else "",
-                    fmt_dec(r_data["cgst"]) if r_data["cgst"] > 0 else "",
-                    fmt_dec(r_data["igst"]) if r_data["igst"] > 0 else "",
+                    fmt_dec(r_data["sgst"]) if (r_data["sgst"] > 0 and not is_interstate) else "",
+                    fmt_dec(r_data["cgst"]) if (r_data["cgst"] > 0 and not is_interstate) else "",
+                    fmt_dec(r_data["igst"]) if (r_data["igst"] > 0 and is_interstate) else "",
                     "", "", "", "", "", "", "",
                     fmt_dec(r_data["item_tot"]),
                     "", "", "",
@@ -1750,7 +1758,6 @@ elif st.session_state.active_tab == "BLNK":
             taxable = it['taxable_val']
             disc = it.get('discount', 0.0)
             gst_r = it.get('gst_rate', 5.0)
-            tax_amt = round(taxable * (gst_r / 100), 2)
             tot_val = it.get("item_tot") or round(taxable + round(taxable * (gst_r / 100), 2), 2)
 
             table_rows += f"""
@@ -2056,7 +2063,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 )
             with c2:
                 st.download_button(
-                    label=f"📊 Download Bulk eInvoice.xlsx ({len(active_docs)} Invoices)",
+                    label="📊 Download Bulk eInvoice.xlsx ({len(active_docs)} Invoices)",
                     data=excel_raw_bytes,
                     file_name=f"Bulk_eInvoice_{date_str}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

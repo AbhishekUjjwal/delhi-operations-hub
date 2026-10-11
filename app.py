@@ -294,37 +294,84 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* LARGE TOOL CARD PARENT WRAPPER */
-    .big-tool-card-wrapper {
-        position: relative;
-        width: 100%;
-        margin-bottom: 20px;
+    /* ----------------- CLEAN EXACT TOOL CARD STYLING ----------------- */
+    .dashboard-tool-container div[data-testid="stButton"] {
+        width: 100% !important;
+        margin-bottom: 18px !important;
     }
 
-    .big-tool-visual-box {
+    /* POORA CARD BUTTON HE BAN GAYA HAI */
+    .dashboard-tool-container div[data-testid="stButton"] button {
+        width: 100% !important;
+        min-height: 165px !important;
+        height: 165px !important;
+        background: #ffffff !important;
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 28px !important;
+        padding: 24px 28px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: space-between !important;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05) !important;
+        cursor: pointer !important;
+        transition: all 0.22s ease-in-out !important;
+    }
+
+    /* Streamlit ke button ke default text ko hide karke HTML structure render karenge */
+    .dashboard-tool-container div[data-testid="stButton"] button p {
+        display: none !important;
+    }
+
+    /* CARD HOVER HIGHLIGHTS */
+    .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {
+        border-color: #2563eb !important;
+        box-shadow: 0 10px 26px rgba(37, 99, 235, 0.18) !important;
+        transform: translateY(-4px) !important;
+    }
+    .dashboard-tool-container .card-blnk-po div[data-testid="stButton"] button:hover {
+        border-color: #059669 !important;
+        box-shadow: 0 10px 26px rgba(5, 150, 105, 0.18) !important;
+        transform: translateY(-4px) !important;
+    }
+    .dashboard-tool-container .card-blnk div[data-testid="stButton"] button:hover {
+        border-color: #d97706 !important;
+        box-shadow: 0 10px 26px rgba(217, 119, 6, 0.18) !important;
+        transform: translateY(-4px) !important;
+    }
+    .dashboard-tool-container .card-lbl div[data-testid="stButton"] button:hover {
+        border-color: #7c3aed !important;
+        box-shadow: 0 10px 26px rgba(124, 58, 237, 0.18) !important;
+        transform: translateY(-4px) !important;
+    }
+    .dashboard-tool-container .card-conf div[data-testid="stButton"] button:hover {
+        border-color: #475569 !important;
+        box-shadow: 0 10px 26px rgba(71, 85, 105, 0.18) !important;
+        transform: translateY(-4px) !important;
+    }
+
+    /* INTERNAL VISUAL CARD STRUCTURE */
+    .card-face-wrapper {
+        position: relative;
         width: 100%;
-        min-height: 205px;
-        background: #ffffff;
-        border: 2px solid #e2e8f0;
-        border-radius: 30px;
+        margin-bottom: -165px;
+        pointer-events: none;
+        z-index: 2;
         padding: 24px 28px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
-        pointer-events: none;
-        transition: all 0.25s ease-in-out;
+        height: 165px;
     }
 
-    /* Top Row: Icon + Badge */
-    .card-top-header {
+    .card-top-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
         width: 100%;
     }
 
-    .card-icon-square {
+    .card-icon-box {
         width: 48px;
         height: 48px;
         border-radius: 14px;
@@ -335,96 +382,22 @@ st.markdown("""
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
 
-    .card-mod-pill {
-        font-size: 11px;
+    .card-badge-pill {
+        font-size: 11.5px;
         font-weight: 800;
-        padding: 5px 14px;
+        padding: 4px 14px;
         border-radius: 20px;
-        letter-spacing: 0.6px;
+        letter-spacing: 0.5px;
     }
 
-    /* Middle: Big Title + Description */
-    .card-body-section {
-        margin-top: 14px;
-        margin-bottom: 12px;
-    }
-
-    .card-title-text {
-        font-size: 19px;
-        font-weight: 900;
+    .card-title-heading {
+        font-size: 20px;
+        font-weight: 800;
         color: #0f172a;
+        margin-top: 18px;
+        margin-bottom: 2px;
         letter-spacing: -0.3px;
-        margin-bottom: 6px;
-    }
-
-    .card-desc-text {
-        font-size: 13px;
-        font-weight: 500;
-        color: #64748b;
-        line-height: 1.45;
-    }
-
-    /* Bottom: Feature tags list */
-    .card-bottom-tags {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-        border-top: 1px solid #f1f5f9;
-        padding-top: 12px;
-    }
-
-    .card-mini-tag {
-        font-size: 11px;
-        font-weight: 700;
-        background: #f8fafc;
-        color: #475569;
-        padding: 3px 10px;
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
-    }
-
-    /* INVISIBLE BUTTON SITTING EXACTLY OVER ENTIRE CARD */
-    .big-tool-card-wrapper div[data-testid="stButton"] {
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        z-index: 10 !important;
-        opacity: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    .big-tool-card-wrapper div[data-testid="stButton"] button {
-        width: 100% !important;
-        height: 100% !important;
-        min-height: 205px !important;
-        cursor: pointer !important;
-        background: transparent !important;
-        border: none !important;
-    }
-
-    /* CARD HOVER BORDER & LIFT EFFECT WHEN HOVERED ANYWHERE */
-    .big-tool-card-wrapper:hover .big-tool-visual-box {
-        transform: translateY(-5px);
-        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
-    }
-    .big-tool-card-wrapper.hover-amz:hover .big-tool-visual-box {
-        border-color: #2563eb !important;
-    }
-    .big-tool-card-wrapper.hover-blnk-po:hover .big-tool-visual-box {
-        border-color: #059669 !important;
-    }
-    .big-tool-card-wrapper.hover-blnk:hover .big-tool-visual-box {
-        border-color: #d97706 !important;
-    }
-    .big-tool-card-wrapper.hover-lbl:hover .big-tool-visual-box {
-        border-color: #7c3aed !important;
-    }
-    .big-tool-card-wrapper.hover-conf:hover .big-tool-visual-box {
-        border-color: #475569 !important;
+        text-align: left;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -446,66 +419,56 @@ AVAILABLE_MODULES = {
         "mod_no": "MODULE 01",
         "name": "1. B2B Invoice Process",
         "code": "AMZ-ED",
-        "desc": "Amazon shipment report linking, PAN & description validation with auto barcode stamping.",
-        "tags": ["Shipment Cross-Check", "Auto Barcoding", "Multi-PDF Batch"],
         "icon": "📄",
         "icon_bg": "#2563eb",
         "badge_bg": "#eff6ff",
         "badge_color": "#2563eb",
         "badge_border": "#bfdbfe",
-        "hover_class": "hover-amz"
+        "css_cls": "card-amz"
     },
     "BLNK_PO": {
         "mod_no": "MODULE 02",
-        "name": "2. Blinkit PO Pouch",
+        "name": "2. Blinkit PO Pounch",
         "code": "BLNK-PO",
-        "desc": "Blinkit Purchase Order PDF parser, warehouse dispatch manifest & pouch processing.",
-        "tags": ["PO Extractor", "SKU Mapping", "Manifest Generator"],
         "icon": "🛍️",
         "icon_bg": "#ecfdf5",
         "badge_bg": "#ecfdf5",
         "badge_color": "#059669",
         "badge_border": "#a7f3d0",
-        "hover_class": "hover-blnk-po"
+        "css_cls": "card-blnk-po"
     },
     "BLNK": {
         "mod_no": "MODULE 03",
         "name": "3. Blinkit e-Invoice Tool",
         "code": "BLNK-INV",
-        "desc": "GST e-Invoice NIC JSON v1.01 generator, reconciliation excel sheet & government preview.",
-        "tags": ["NIC v1.01 JSON", "Excel Bulk Export", "Tax Auto-Reconcile"],
         "icon": "🧾",
         "icon_bg": "#fffbeb",
         "badge_bg": "#fffbeb",
         "badge_color": "#d97706",
         "badge_border": "#fde68a",
-        "hover_class": "hover-blnk"
+        "css_cls": "card-blnk"
     },
     "LBL": {
         "mod_no": "MODULE 04",
         "name": "4. Label Editor Tool",
         "code": "LBL-ED",
-        "desc": "E-Commerce shipping label crop, barcode enhancer & thermal printer format optimizer.",
-        "tags": ["Thermal 4x6", "Crop & Align", "Multi-AWB"],
         "icon": "🏷️",
         "icon_bg": "#f5f3ff",
         "badge_bg": "#f5f3ff",
         "badge_color": "#7c3aed",
         "badge_border": "#ddd6fe",
-        "hover_class": "hover-lbl"
+        "css_cls": "card-lbl"
     },
     "CONF": {
         "mod_no": "MODULE 05",
         "name": "5. Settings & Config",
         "code": "SETTINGS",
-        "desc": "Warehouse location routing, Code128 engine settings, storage retention & system logs.",
-        "tags": ["WH Locations", "Barcode Engine", "Master Clear"],
         "icon": "⚙️",
         "icon_bg": "#f1f5f9",
         "badge_bg": "#f8fafc",
         "badge_color": "#475569",
         "badge_border": "#cbd5e1",
-        "hover_class": "hover-conf"
+        "css_cls": "card-conf"
     }
 }
 
@@ -681,13 +644,11 @@ with st.sidebar:
     st.markdown("📊 **Invoice Upload Analytics**")
     all_history_records = load_disk_history()
 
-    # Location Filter
     if st.session_state.selected_wh != "Headoffice":
         active_records = [r for r in all_history_records if r.get("location") == st.session_state.selected_wh]
     else:
         active_records = all_history_records
 
-    # Deduplication by original_name / invoice identifier
     unique_invoices = {}
     for r in active_records:
         inv_key = r.get("original_name") or r.get("file_name")
@@ -715,14 +676,12 @@ with st.sidebar:
             other_count += 1
             other_val += val
 
-    # Small Metrics View with Delta Values
     m_col1, m_col2 = st.columns(2)
     with m_col1:
         st.metric("⚡ Blinkit", f"{blinkit_count} Inv", delta=f"₹{blinkit_val:,.0f}" if blinkit_val > 0 else "₹0")
     with m_col2:
         st.metric("🏢 Others", f"{other_count} Inv", delta=f"₹{other_val:,.0f}" if other_val > 0 else "₹0")
 
-    # Clear Bar Chart with Total Values
     chart_df = pd.DataFrame({
         "Category": ["Blinkit Invoices", "Other Invoices"],
         "Count": [blinkit_count, other_count],
@@ -796,10 +755,11 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ----------------- LARGE PROFESSIONAL TOOL CARDS (FULL CLICKABLE SURFACE) -----------------
+# ----------------- CLEAN BOX DESIGN: CLICK ANYWHERE ON WHITE AREA TO OPEN -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
     st.markdown('<div style="font-size: 13px; font-weight: 800; color: #94a3b8; margin-bottom: 16px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
+    st.markdown('<div class="dashboard-tool-container">', unsafe_allow_html=True)
     keys = list(AVAILABLE_MODULES.keys())
     for i in range(0, len(keys), 2):
         c1, c2 = st.columns(2)
@@ -808,37 +768,33 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
         for col_obj, m_key in zip([c1, c2], row_keys):
             mod_data = AVAILABLE_MODULES[m_key]
             with col_obj:
-                tags_html = "".join([f'<span class="card-mini-tag">{tag}</span>' for tag in mod_data["tags"]])
+                st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Card Container
+                # Card Face: Icon + Module Badge + Name (Clean & Spaced)
                 st.markdown(f"""
-                    <div class="big-tool-card-wrapper {mod_data['hover_class']}">
-                        <div class="big-tool-visual-box">
-                            <div class="card-top-header">
-                                <div class="card-icon-square" style="background: {mod_data['icon_bg']};">
-                                    {mod_data['icon']}
-                                </div>
-                                <div class="card-mod-pill" style="background: {mod_data['badge_bg']}; color: {mod_data['badge_color']}; border: 1.5px solid {mod_data['badge_border']};">
-                                    {mod_data['mod_no']}
-                                </div>
+                    <div class="card-face-wrapper">
+                        <div class="card-top-row">
+                            <div class="card-icon-box" style="background: {mod_data['icon_bg']};">
+                                {mod_data['icon']}
                             </div>
-                            <div class="card-body-section">
-                                <div class="card-title-text">{mod_data['name']}</div>
-                                <div class="card-desc-text">{mod_data['desc']}</div>
-                            </div>
-                            <div class="card-bottom-tags">
-                                {tags_html}
+                            <div class="card-badge-pill" style="background: {mod_data['badge_bg']}; color: {mod_data['badge_color']}; border: 1.5px solid {mod_data['badge_border']};">
+                                {mod_data['mod_no']}
                             </div>
                         </div>
+                        <div class="card-title-heading">{mod_data['name']}</div>
                     </div>
                 """, unsafe_allow_html=True)
-
-                # Pure invisible overlay button over the whole container
-                if st.button("", key=f"big_tool_click_{m_key}", use_container_width=True):
+                
+                # Single clickable button that covers the entire white box surface
+                if st.button(f"{m_key}_trigger", key=f"main_box_{m_key}", use_container_width=True):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key
                     st.rerun()
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------- HISTORY VIEW -----------------
 elif st.session_state.show_history:
@@ -1253,7 +1209,7 @@ elif st.session_state.active_tab == "AMZ":
 
 # ----------------- MODULE 2: BLINKIT PO UPLOADER -----------------
 elif st.session_state.active_tab == "BLNK_PO":
-    st.subheader("🛍️ Blinkit PO Pouch & Manifest Processor")
+    st.subheader("🛍️ Blinkit PO Pounch & Manifest Processor")
     st.caption("Upload Blinkit Purchase Order (PO) PDFs for extraction and dispatch processing.")
 
     po_col1, po_col2 = st.columns(2)
@@ -1432,7 +1388,6 @@ elif st.session_state.active_tab == "BLNK":
         clean_dt = re.sub(r'[^A-Za-z0-9\-_]', '', clean_date)
         pdf_filename = f"{clean_ext}_{clean_inv}_{clean_dt}.pdf"
 
-        # --- SELLER EXTRACTION ---
         sold_header = [w for w in words if "sold" in w[4].lower()]
         bill_header = [w for w in words if "billing" in w[4].lower()]
         y_sold = sold_header[0][1] if sold_header else 80
@@ -1453,7 +1408,6 @@ elif st.session_state.active_tab == "BLNK":
         seller_loc = clean_extracted_city(seller_text, seller_state_name)
         s_addr1, s_addr2 = format_best_address(s_lines[1:], seller_name, seller_pin, seller_loc, seller_state_name)
 
-        # ----------------- PARSING BILLING & SHIPPING ADDRESSES -----------------
         b_idx = full_text.find("Billing Address")
         s_idx = full_text.find("Shipping Address")
         t_idx = full_text.find("S.No")
@@ -1507,7 +1461,6 @@ elif st.session_state.active_tab == "BLNK":
         buyer_loc = clean_extracted_city(billing_text_block, buyer_state_name)
         buyer_addr1, buyer_addr2 = format_best_address(b_lines, buyer_name, buyer_pin, buyer_loc, buyer_state_name)
 
-        # Shipping Details
         shp_gst_m = re.search(r"GSTIN\s*[:\s]*([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})", shipping_text_block, re.IGNORECASE)
         ship_gstin = shp_gst_m.group(1).strip() if shp_gst_m else buyer_gstin
         ship_state_code = ship_gstin[:2] if len(ship_gstin) >= 2 else buyer_state_code
@@ -1527,7 +1480,6 @@ elif st.session_state.active_tab == "BLNK":
 
         is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
 
-        # Shipping Rule
         if is_blinkit:
             shipping_is_different = False
         else:
@@ -1554,7 +1506,6 @@ elif st.session_state.active_tab == "BLNK":
 
         is_interstate = (seller_state_code != buyer_pos_code)
 
-        # Precise Total Parsing
         inv_total_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else None
 

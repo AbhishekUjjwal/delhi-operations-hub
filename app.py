@@ -14,12 +14,10 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# IST TIME HELPER (Exact Indian Standard Time)
 IST = timezone(timedelta(hours=5, minutes=30))
 def get_current_ist_str():
     return datetime.now(IST).strftime("%d-%b %I:%M %p")
 
-# ----------------- PERMANENT DISK STORAGE ENGINE (30 DAYS AUTO-PURGE) -----------------
 STORAGE_DIR = ".pan_history"
 METADATA_FILE = os.path.join(STORAGE_DIR, "history_db.json")
 RETENTION_DAYS = 30
@@ -42,8 +40,6 @@ def load_disk_history():
 
         for m in meta_list:
             created_ts = m.get("created_ts", now_ts)
-
-            # Check 30 days retention
             if created_ts < cutoff_ts:
                 cleaned_up = True
                 for f_key in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
@@ -63,7 +59,6 @@ def load_disk_history():
                 with open(pdf_path, "rb") as f_bin:
                     m_copy["data"] = f_bin.read()
 
-                # Read Excel if saved
                 excel_fname = m.get("disk_excel_filename")
                 if excel_fname:
                     epath = os.path.join(STORAGE_DIR, excel_fname)
@@ -71,7 +66,6 @@ def load_disk_history():
                         with open(epath, "rb") as fe:
                             m_copy["excel_data"] = fe.read()
 
-                # Read JSON if saved
                 json_fname = m.get("disk_json_filename")
                 if json_fname:
                     jpath = os.path.join(STORAGE_DIR, json_fname)
@@ -116,20 +110,17 @@ def save_item_to_disk_history(item):
     current_ts = current_dt.timestamp()
     prefix = int(current_ts * 1000)
 
-    # 1. Save PDF binary
     disk_fname = f"{prefix}_{new_file_name}"
     disk_path = os.path.join(STORAGE_DIR, disk_fname)
     with open(disk_path, "wb") as f_out:
         f_out.write(item["data"])
 
-    # 2. Save Excel binary (if available)
     disk_excel_fname = None
     if "excel_data" in item and item["excel_data"]:
         disk_excel_fname = f"{prefix}_{name_root}.xlsx"
         with open(os.path.join(STORAGE_DIR, disk_excel_fname), "wb") as fe:
             fe.write(item["excel_data"])
 
-    # 3. Save JSON binary (if available)
     disk_json_fname = None
     if "json_data" in item and item["json_data"]:
         disk_json_fname = f"{prefix}_{name_root}.json"
@@ -199,7 +190,6 @@ def clear_disk_history(wh_filter=None, mod_filter=None):
     except Exception:
         pass
 
-# Page Configuration
 st.set_page_config(
     page_title="PAN OPERATIONS HUB | Central Portal",
     page_icon="🏛️",
@@ -207,7 +197,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden; display: none !important;}
@@ -334,7 +323,6 @@ AVAILABLE_MODULES = {
     "CONF": {"name": "Settings & Reports", "code": "SETTINGS", "logo": "⚙️"}
 }
 
-# ----------------- SESSION STATE -----------------
 if "selected_wh" not in st.session_state:
     st.session_state.selected_wh = "DEL"
 if "open_tabs" not in st.session_state:
@@ -375,7 +363,6 @@ def clear_all_pinned_tabs():
     st.session_state.show_history = False
     st.rerun()
 
-# ----------------- SIDEBAR -----------------
 with st.sidebar:
     st.markdown('<div class="hub-title">🏛️ PAN OPERATIONS HUB</div>', unsafe_allow_html=True)
     st.caption("Romsons prime pvt ltd operation portal")
@@ -394,7 +381,6 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP CONTROLS -----------------
 header_left, header_right = st.columns([7.8, 2.2])
 
 with header_left:
@@ -444,9 +430,6 @@ with header_right:
 
 st.divider()
 
-# =========================================================================
-# HISTORY VIEW (COMPLETE BUNDLE: PDF + EXCEL + JSON DOWNLOADS)
-# =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
     h_top_c1, h_top_c2 = st.columns([4, 1])
@@ -468,7 +451,6 @@ if st.session_state.show_history:
     else:
         st.success(f"💾 Total Saved Files: **{len(loc_history)}** (Auto retained for 30 days)")
 
-        # BULK DOWNLOAD ZIP CONTAINING ALL STORED FILES
         if len(loc_history) > 1:
             zip_buf = io.BytesIO()
             with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -476,15 +458,12 @@ if st.session_state.show_history:
                     loc_tag = item.get("location", "GEN")
                     name_root = item['file_name'][:-4] if item['file_name'].endswith(".pdf") else item['file_name']
 
-                    # Add PDF
                     safe_pdf_name = f"{idx+1}_{loc_tag}_{item['file_name']}"
                     zf.writestr(safe_pdf_name, item["data"])
 
-                    # Add Excel if stored
                     if "excel_data" in item and item["excel_data"]:
                         zf.writestr(f"{idx+1}_{loc_tag}_{name_root}.xlsx", item["excel_data"])
 
-                    # Add JSON if stored
                     if "json_data" in item and item["json_data"]:
                         zf.writestr(f"{idx+1}_{loc_tag}_{name_root}.json", item["json_data"])
 
@@ -544,9 +523,7 @@ if st.session_state.show_history:
                 else:
                     st.button("🧾 JSON", key=f"dis_js_{idx}", disabled=True, use_container_width=True)
 
-# =========================================================================
-# MODULE 1: AMAZON INVOICE EDITOR
-# =========================================================================
+# ----------------- MODULE 1: AMAZON INVOICE EDITOR -----------------
 elif st.session_state.active_tab == "AMZ":
     st.subheader("📑 Amazon Invoice Editor & Barcode Stamper")
 
@@ -861,9 +838,7 @@ elif st.session_state.active_tab == "AMZ":
                     use_container_width=True
                 )
 
-# =========================================================================
-# MODULE 2: BLINKIT PO UPLOADER
-# =========================================================================
+# ----------------- MODULE 2: BLINKIT PO UPLOADER -----------------
 elif st.session_state.active_tab == "BLNK_PO":
     st.subheader("⚡ Blinkit PO Uploader & Converter")
     st.caption("Upload Blinkit Purchase Order (PO) PDFs for extraction and dispatch processing.")
@@ -883,12 +858,10 @@ elif st.session_state.active_tab == "BLNK_PO":
             key=f"blnk_po_map_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
         )
 
-# =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL (EXACT MATCHING TAXABLE BASE & PDF TOTAL)
-# =========================================================================
+# ----------------- MODULE 3: BLINKIT E-INVOICE TOOL -----------------
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
-    st.caption("Gross Amount = Taxable Value + Discount | Exact Printed Taxable as Base | Full Package Saved in History")
+    st.caption("Gross Amount = Taxable Value + Discount | Exact Taxable Base | Clean Address & State Aware")
 
     STATE_CODE_MAP = {
         "01": "JAMMU AND KASHMIR", "02": "HIMACHAL PRADESH", "03": "PUNJAB", "04": "CHANDIGARH",
@@ -908,7 +881,7 @@ elif st.session_state.active_tab == "BLNK":
     MAJOR_CITIES = [
         "New Delhi", "Delhi", "Varanasi", "Lucknow", "Jaipur", "Gurgaon", "Gurugram", 
         "Noida", "Ghaziabad", "Kanpur", "Bengaluru", "Bangalore", "Mumbai", "Pune", 
-        "Kolkata", "Ahmedabad", "Patna", "Ranchi", "Chandigarh", "Faridabad", "Agra", "Meerut", "Hapur"
+        "Kolkata", "Ahmedabad", "Patna", "Ranchi", "Chandigarh", "Faridabad", "Agra", "Meerut", "Hapur", "Dehradun"
     ]
 
     def clean_extracted_city(text, state_name):
@@ -932,7 +905,8 @@ elif st.session_state.active_tab == "BLNK":
             s = l.strip()
             if not s:
                 continue
-            if re.search(r"(@|contact|phone|mob|gstin|pan|india)", s, re.I):
+            # Remove any unwanted header keywords or tags
+            if re.search(r"(@|contact|phone|mob|gstin|pan|india|cgst|sgst|ugst|igst|s\.no|item code)", s, re.I):
                 continue
             s = re.sub(rf"\b{re.escape(str(pincode))}\b", "", s).strip()
             s = re.sub(rf"\b{re.escape(str(city))}\b", "", s, flags=re.I).strip()
@@ -1042,9 +1016,11 @@ elif st.session_state.active_tab == "BLNK":
         table_header = [w for w in words if w[4].lower() in ["s.no", "sl.no", "item", "hsn"]]
 
         y_sold = sold_header[0][1] if sold_header else 80
-        y_bill = bill_header[0][1] if bill_header else 215
-        y_table = table_header[0][1] if table_header else 340
-        split_x = 300
+        y_bill = bill_header[0][1] if bill_header else 200
+        
+        # Stop shipping box safely before the table header
+        y_table = table_header[0][1] - 4 if table_header else 285
+        split_x = 295
 
         seller_rect = fitz.Rect(20, y_sold, split_x, y_bill)
         seller_text = page0.get_text("text", clip=seller_rect).strip()
@@ -1062,7 +1038,8 @@ elif st.session_state.active_tab == "BLNK":
 
         s_addr1, s_addr2 = format_best_address(s_lines[1:], seller_pin, seller_loc, seller_state_name)
 
-        billing_rect = fitz.Rect(20, y_bill, split_x, y_table)
+        # Precise Billing Address Rect
+        billing_rect = fitz.Rect(20, y_bill + 10, split_x, y_table)
         billing_text = page0.get_text("text", clip=billing_rect).strip()
         b_lines = [l.strip() for l in billing_text.split("\n") if l.strip() and not re.search(r"billing\s*addr", l, re.I)]
 
@@ -1090,7 +1067,8 @@ elif st.session_state.active_tab == "BLNK":
 
         buyer_addr1, buyer_addr2 = format_best_address(b_lines[1:], buyer_pin, buyer_loc, buyer_state_name)
 
-        shipping_rect = fitz.Rect(split_x + 5, y_bill, 585, y_table)
+        # Precise Shipping Address Rect (Stops strictly before y_table)
+        shipping_rect = fitz.Rect(split_x + 5, y_bill + 10, 585, y_table)
         shipping_text = page0.get_text("text", clip=shipping_rect).strip()
         shp_lines = [l.strip() for l in shipping_text.split("\n") if l.strip() and not re.search(r"shipping\s*addr", l, re.I)]
 
@@ -1107,9 +1085,12 @@ elif st.session_state.active_tab == "BLNK":
 
         ship_addr1, ship_addr2 = format_best_address(shp_lines[1:], ship_pin, ship_loc, ship_state_name)
 
-        clean_b_str = re.sub(r'[^A-Za-z0-9]', '', f"{buyer_addr1}{buyer_pin}").lower()
-        clean_s_str = re.sub(r'[^A-Za-z0-9]', '', f"{ship_addr1}{ship_pin}").lower()
-        shipping_is_different = (clean_b_str != clean_s_str) and (buyer_pin != ship_pin or buyer_addr1 != ship_addr1)
+        # Compare clean address contents to check if shipping is genuinely different
+        clean_b_str = re.sub(r'[^A-Za-z0-9]', '', f"{buyer_name}{buyer_addr1}{buyer_pin}").lower()
+        clean_s_str = re.sub(r'[^A-Za-z0-9]', '', f"{ship_name}{ship_addr1}{ship_pin}").lower()
+        
+        # Check if shipping is actually different
+        shipping_is_different = (clean_b_str != clean_s_str) and (buyer_pin != ship_pin or buyer_addr1 != ship_addr1 or buyer_name.lower() != ship_name.lower())
 
         pos_match = re.search(r"Place\s*of\s*Supply\s*[:\s]*([A-Za-z0-9\s\-]+?)(?=\n|GST|State|$)", full_text, re.IGNORECASE)
         pos_raw = pos_match.group(1).strip() if pos_match else ""
@@ -1134,11 +1115,12 @@ elif st.session_state.active_tab == "BLNK":
         inv_total_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else None
 
-        tot_taxable_m = re.search(r"(?:Total\s*Amount\(\+\)|Taxable\s*Value)[\s\S]*?([0-9,]+\.\d{2})", full_text, re.I)
-        printed_taxable_total = float(tot_taxable_m.group(1).replace(",", "")) if tot_taxable_m else None
+        # Clean search for Bottom GST Summary Box (Avoids Table Header)
+        summary_m = re.search(r"Total\s*Amount\(\+\)\s*[:\s]*([0-9,]+\.\d{2})", full_text, re.I)
+        printed_taxable_total = float(summary_m.group(1).replace(",", "")) if summary_m else None
 
-        tot_tax_m = re.search(r"(?:Total\s*Tax\(\+\)|IGST[\s\S]*?Amt)[\s\S]*?([0-9,]+\.\d{2})", full_text, re.I)
-        printed_tax_total = float(tot_tax_m.group(1).replace(",", "")) if tot_tax_m else None
+        tax_sum_m = re.search(r"Total\s*Tax\(\+\)\s*[:\s]*([0-9,]+\.\d{2})", full_text, re.I)
+        printed_tax_total = float(tax_sum_m.group(1).replace(",", "")) if tax_sum_m else None
 
         return {
             "invoice_no": invoice_no,
@@ -1183,7 +1165,7 @@ elif st.session_state.active_tab == "BLNK":
             "printed_tax_total": printed_tax_total
         }
 
-    # RECONCILE AND CAPTURE EXACT PRINTED TAXABLE VALUE AS BASE
+    # COLUMN POSITION-AWARE ROW PARSER
     def process_and_reconcile_pdf(pdf_bytes):
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         meta = extract_metadata_from_doc(doc)
@@ -1251,7 +1233,7 @@ elif st.session_state.active_tab == "BLNK":
                             hsn_code = clean_w
                             break
 
-                    hsn_x0 = hsn_w[0] if hsn_w else 220
+                    hsn_x0 = hsn_w[0] if hsn_w else 200
 
                     desc_words = [w for w in row_words if 30 <= w[0] < (hsn_x0 - 4) and not w[4].isdigit()]
                     desc_words.sort(key=lambda w: (round(w[1] / 6) * 6, w[0]))
@@ -1294,6 +1276,7 @@ elif st.session_state.active_tab == "BLNK":
                     final_taxable = None
                     final_item_tot = None
 
+                    # 1. Quantity & Unit Price
                     if len(after_hsn_nums) >= 2:
                         final_q = int(after_hsn_nums[0]["val"])
                         if factor > 1 and final_q >= factor:
@@ -1305,31 +1288,35 @@ elif st.session_state.active_tab == "BLNK":
                             final_p = round(final_p * factor, 2)
                             overwrite_exact_area(page, after_hsn_nums[1]["rect"], f"{final_p:.2f}", font_size=7.2)
 
-                        if len(after_hsn_nums) >= 3:
-                            final_disc = after_hsn_nums[2]["val"]
+                    # 2. Extract Discount (x: 250 to 295)
+                    disc_cand = [n for n in after_hsn_nums if 245 <= n["x0"] <= 295]
+                    if disc_cand:
+                        final_disc = disc_cand[0]["val"]
+                    elif len(after_hsn_nums) >= 3 and after_hsn_nums[2]["x0"] < 298:
+                        final_disc = after_hsn_nums[2]["val"]
 
-                        # EXACT EXTRACTION OF TAXABLE VALUE (COLUMN AROUND x: 290 - 345)
-                        taxable_cand = [n for n in after_hsn_nums if 290 <= n["x0"] <= 345]
-                        if taxable_cand:
-                            final_taxable = taxable_cand[0]["val"]
-                        elif len(after_hsn_nums) >= 4:
-                            final_taxable = after_hsn_nums[3]["val"]
+                    # 3. Extract Taxable Value (x: 298 to 345)
+                    taxable_cand = [n for n in after_hsn_nums if 298 <= n["x0"] <= 345]
+                    if taxable_cand:
+                        final_taxable = taxable_cand[0]["val"]
+                    elif len(after_hsn_nums) >= 4:
+                        final_taxable = after_hsn_nums[3]["val"]
 
-                        # LAST COLUMN IS ITEM TOTAL (x >= 520)
-                        tot_cand = [n for n in after_hsn_nums if n["x0"] >= 520]
-                        if tot_cand:
-                            final_item_tot = tot_cand[0]["val"]
+                    # 4. Item Total (x >= 520)
+                    tot_cand = [n for n in after_hsn_nums if n["x0"] >= 520]
+                    if tot_cand:
+                        final_item_tot = tot_cand[0]["val"]
 
                     if final_q is not None and final_p is not None and final_q > 0:
-                        # MANDATORY: EXACT PRINTED TAXABLE VALUE AS BASE
+                        # Taxable Value directly from PDF is base
                         if final_taxable is not None and final_taxable > 0:
                             taxable_val = round(final_taxable, 2)
                         else:
                             taxable_val = round((final_q * final_p) - final_disc, 2)
 
-                        # GROSS AMOUNT = TAXABLE AMOUNT + DISCOUNT (USER MANDATE)
+                        # User Rule: Gross Amount = Taxable Value + Discount
                         gross_amt = round(taxable_val + final_disc, 2)
-                        unit_label = "BOX" if (is_blinkit and factor > 1) else "PAC"
+                        unit_label = "BOX" if (is_blinkit and factor > 1) else "PACKS"
 
                         line_items.append({
                             "sno": len(line_items) + 1,
@@ -1339,7 +1326,7 @@ elif st.session_state.active_tab == "BLNK":
                             "unit": unit_label,
                             "unit_price": final_p,
                             "gross_amt": gross_amt,       # Taxable + Discount
-                            "discount": final_disc,
+                            "discount": final_disc,       # Exact Discount
                             "taxable_val": taxable_val,   # Direct Printed Taxable
                             "gst_rate": 5.0,
                             "item_tot": final_item_tot
@@ -1484,7 +1471,6 @@ elif st.session_state.active_tab == "BLNK":
             }
         }
 
-    # EXACT 86-COLUMN NIC EXCEL BUILDER (MATCHING PDF TO THE EXACT PAISA)
     def generate_official_nic_v101_excel_bytes(data_list):
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1635,9 +1621,7 @@ elif st.session_state.active_tab == "BLNK":
                 price = it["unit_price"]
                 disc = it.get("discount", 0.0)
 
-                # USE THE EXACT PRINTED TAXABLE VALUE AS BASE
                 taxable = it.get("taxable_val", round(qty * price, 2))
-                # GROSS AMOUNT = TAXABLE + DISCOUNT (USER MANDATE)
                 gross_amt = it.get("gross_amt", round(taxable + disc, 2))
                 gst_rate = it.get("gst_rate", 5.0)
 
@@ -1667,6 +1651,7 @@ elif st.session_state.active_tab == "BLNK":
             final_tax_sum = inv.get("printed_tax_total") or round(tot_cgst + tot_sgst + tot_igst, 2)
             final_invoice_val = inv.get("printed_grand_total") or round(final_taxable_sum + final_tax_sum, 2)
 
+            # Strictly blank out Shipping Details if identical or Blinkit
             if inv.get("shipping_is_different", False):
                 ship_vals = [
                     str(inv["ship_gstin"]), str(inv["ship_name"]), str(inv["ship_name"]),
@@ -1699,8 +1684,8 @@ elif st.session_state.active_tab == "BLNK":
                     fmt_dec(r_data["item_tot"]),
                     "", "", "",
                     fmt_dec(final_taxable_sum),
-                    fmt_dec(tot_sgst) if tot_sgst > 0 else "",
-                    fmt_dec(tot_cgst) if tot_cgst > 0 else "",
+                    fmt_dec(tot_sgst) if (tot_sgst > 0 and not is_interstate) else "",
+                    fmt_dec(tot_cgst) if (tot_cgst > 0 and not is_interstate) else "",
                     fmt_dec(final_tax_sum) if is_interstate else "",
                     "", "", "", "",
                     "", # Round off Strictly BLANK
@@ -1765,6 +1750,7 @@ elif st.session_state.active_tab == "BLNK":
             taxable = it['taxable_val']
             disc = it.get('discount', 0.0)
             gst_r = it.get('gst_rate', 5.0)
+            tax_amt = round(taxable * (gst_r / 100), 2)
             tot_val = it.get("item_tot") or round(taxable + round(taxable * (gst_r / 100), 2), 2)
 
             table_rows += f"""
@@ -1921,7 +1907,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
         return html
 
     uploaded_invoices = st.file_uploader(
-        "Upload Blinkit Invoices (PDF) - Single ya Bulk", 
+        "Upload Invoices (PDF) - Single ya Bulk", 
         type=["pdf"], 
         accept_multiple_files=True,
         key=f"blnk_inv_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
@@ -2032,12 +2018,17 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for idx, doc in enumerate(active_docs, 1):
                     pdf_name = doc["meta"]["pdf_filename"]
+                    name_root = pdf_name[:-4] if pdf_name.endswith(".pdf") else pdf_name
                     raw_data = doc["pdf_buf"].getvalue()
+                    
                     zip_file.writestr(pdf_name, raw_data)
 
                     single_json = bulk_json[idx-1]
                     single_json_bytes = json.dumps(single_json, indent=4).encode('utf-8')
                     single_excel_bytes = generate_official_nic_v101_excel_bytes([doc["meta"]])
+
+                    zip_file.writestr(f"{name_root}.xlsx", single_excel_bytes)
+                    zip_file.writestr(f"{name_root}.json", single_json_bytes)
 
                     batch_hist.append({
                         "original_name": doc["original_name"],
@@ -2055,9 +2046,9 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             c1, c2, c3 = st.columns(3)
             with c1:
                 st.download_button(
-                    label=f"📦 Download All Processed PDFs ({len(active_docs)} Files - ZIP)",
+                    label=f"📦 Download All Processed Files ({len(active_docs)} Invoices Bundle - ZIP)",
                     data=zip_buffer.getvalue(),
-                    file_name=f"Invoices_Processed_{date_str}.zip",
+                    file_name=f"Invoices_Complete_Bundle_{date_str}.zip",
                     mime="application/zip",
                     on_click=save_batch_to_disk_history,
                     args=(batch_hist,),
@@ -2086,7 +2077,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### 📄 Invoices Official e-Invoice Preview")
-            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in active_docs])
+            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
             for i, tab in enumerate(preview_tabs):
                 with tab:
                     curr_meta = active_docs[i]['meta']
@@ -2094,16 +2085,12 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     p_html = render_exact_government_einvoice_preview(curr_meta)
                     components.html(p_html, height=calc_height, scrolling=True)
 
-# =========================================================================
-# MODULE 4: LABEL EDITOR
-# =========================================================================
+# ----------------- MODULE 4: LABEL EDITOR -----------------
 elif st.session_state.active_tab == "LBL":
     st.subheader("🏷️ Shipping & Product Label Editor")
     st.info("No files")
 
-# =========================================================================
-# MODULE 5: SETTINGS & REPORTS
-# =========================================================================
+# ----------------- MODULE 5: SETTINGS & REPORTS -----------------
 elif st.session_state.active_tab == "CONF":
     st.subheader("⚙️ System Operations & Units Configuration")
     st.markdown(f"""

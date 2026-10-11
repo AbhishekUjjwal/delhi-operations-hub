@@ -300,6 +300,54 @@ st.markdown("""
         color: #ecfdf5;
         margin: 8px 0px;
     }
+
+    /* CARD BOX DESIGN CSS */
+    .module-card {
+        background: #ffffff;
+        border: 2px solid #e2e8f0;
+        border-radius: 20px;
+        padding: 22px 20px 16px 20px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .module-card:hover {
+        transform: translateY(-3px);
+    }
+    .module-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 18px;
+    }
+    .module-icon-box {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+    .module-badge {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 20px;
+        letter-spacing: 0.5px;
+    }
+    .module-card-title {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 6px;
+    }
+    .module-card-desc {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 18px;
+        min-height: 32px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -316,19 +364,64 @@ LOCATION_DISPLAY_MAP = {
 ORDERED_LOCATIONS = list(LOCATION_DISPLAY_MAP.keys())
 
 AVAILABLE_MODULES = {
-    "AMZ": {"name": "Amazon Invoice Editor", "code": "AMZ-ED", "logo": "📦"},
-    "BLNK_PO": {"name": "Blinkit PO Uploader", "code": "BLNK-PO", "logo": "⚡"},
-    "BLNK": {"name": "Blinkit e-Invoice Tool", "code": "BLNK-INV", "logo": "🧾"},
-    "LBL": {"name": "Label Editor", "code": "LBL-ED", "logo": "🏷️"},
-    "CONF": {"name": "Settings & Reports", "code": "SETTINGS", "logo": "⚙️"}
+    "AMZ": {
+        "mod_no": "MODULE 01",
+        "name": "1. Amazon Invoice Editor",
+        "code": "AMZ-ED",
+        "logo": "📦",
+        "desc": "Barcode stamping, PAN filter & dispatch label reconciliation for Amazon.",
+        "color": "#2563eb",
+        "badge_bg": "#eff6ff",
+        "icon_bg": "#dbeafe"
+    },
+    "BLNK_PO": {
+        "mod_no": "MODULE 02",
+        "name": "2. Blinkit PO Pouch",
+        "code": "BLNK-PO",
+        "logo": "⚡",
+        "desc": "PO upload, SKU conversion & batch pouch manifest preparation.",
+        "color": "#059669",
+        "badge_bg": "#ecfdf5",
+        "icon_bg": "#d1fae5"
+    },
+    "BLNK": {
+        "mod_no": "MODULE 03",
+        "name": "3. Blinkit e-Invoice Tool",
+        "code": "BLNK-INV",
+        "logo": "🧾",
+        "desc": "NIC v1.01 JSON & Excel exporter with smart buyer/shipping separation.",
+        "color": "#d97706",
+        "badge_bg": "#fffbeb",
+        "icon_bg": "#fef3c7"
+    },
+    "LBL": {
+        "mod_no": "MODULE 04",
+        "name": "4. Label Editor Tool",
+        "code": "LBL-ED",
+        "logo": "🏷️",
+        "desc": "Crop, resize & format shipping labels for thermal 4x6 roll printing.",
+        "color": "#7c3aed",
+        "badge_bg": "#f5f3ff",
+        "icon_bg": "#ede9fe"
+    },
+    "CONF": {
+        "mod_no": "MODULE 05",
+        "name": "5. Settings & Config",
+        "code": "SETTINGS",
+        "logo": "⚙️",
+        "desc": "Warehouse parameters, system logs, master SKU mapping & reports.",
+        "color": "#475569",
+        "badge_bg": "#f1f5f9",
+        "icon_bg": "#e2e8f0"
+    }
 }
 
 if "selected_wh" not in st.session_state:
     st.session_state.selected_wh = "DEL"
 if "open_tabs" not in st.session_state:
-    st.session_state.open_tabs = ["AMZ"]
+    st.session_state.open_tabs = ["HOME", "AMZ"]
 if "active_tab" not in st.session_state:
-    st.session_state.active_tab = "AMZ"
+    st.session_state.active_tab = "HOME"
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 if "show_history" not in st.session_state:
@@ -358,8 +451,8 @@ def reset_current_workspace():
     st.rerun()
 
 def clear_all_pinned_tabs():
-    st.session_state.open_tabs = ["AMZ"]
-    st.session_state.active_tab = "AMZ"
+    st.session_state.open_tabs = ["HOME"]
+    st.session_state.active_tab = "HOME"
     st.session_state.show_history = False
     st.rerun()
 
@@ -367,6 +460,14 @@ with st.sidebar:
     st.markdown('<div class="hub-title">🏛️ PAN OPERATIONS HUB</div>', unsafe_allow_html=True)
     st.caption("Romsons prime pvt ltd operation portal")
     st.divider()
+
+    # Home button in sidebar
+    if st.button("🏠 Central Dashboard", use_container_width=True):
+        if "HOME" not in st.session_state.open_tabs:
+            st.session_state.open_tabs.insert(0, "HOME")
+        st.session_state.active_tab = "HOME"
+        st.session_state.show_history = False
+        st.rerun()
 
     for key, info in AVAILABLE_MODULES.items():
         is_pinned = key in st.session_state.open_tabs
@@ -384,14 +485,18 @@ with st.sidebar:
 header_left, header_right = st.columns([7.8, 2.2])
 
 with header_left:
-    tab_cols = st.columns([0.8] * len(st.session_state.open_tabs) + [3.8])
+    tab_cols = st.columns([1.0] * len(st.session_state.open_tabs) + [2.8])
     for idx, t_key in enumerate(st.session_state.open_tabs):
-        info = AVAILABLE_MODULES[t_key]
+        if t_key == "HOME":
+            tab_label = "🏠 Home"
+        else:
+            info = AVAILABLE_MODULES[t_key]
+            tab_label = f"{info['logo']} {info['code']} ✕" if len(st.session_state.open_tabs) > 1 else f"{info['logo']} {info['code']}"
+
         is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
-        tab_label = f"{info['logo']} {info['code']} ✕" if len(st.session_state.open_tabs) > 1 else f"{info['logo']} {info['code']}"
         with tab_cols[idx]:
             if st.button(tab_label, key=f"tab_chip_{t_key}", type="primary" if is_active else "secondary"):
-                if is_active and len(st.session_state.open_tabs) > 1:
+                if is_active and t_key != "HOME" and len(st.session_state.open_tabs) > 1:
                     st.session_state.open_tabs.remove(t_key)
                     st.session_state.active_tab = st.session_state.open_tabs[0]
                 else:
@@ -430,7 +535,47 @@ with header_right:
 
 st.divider()
 
-if st.session_state.show_history:
+# ----------------- VIEW 0: CENTRAL MASTER DASHBOARD (EXACT BOX DESIGN) -----------------
+if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
+    st.subheader("⚡ Select Operation Module")
+    st.caption("Click 'Open Tool' to launch or pin any module to your active workspace tabs.")
+    st.write("")
+
+    keys = list(AVAILABLE_MODULES.keys())
+    # Display in 2-column or 3-column responsive grid matching user image
+    for i in range(0, len(keys), 2):
+        c1, c2 = st.columns(2)
+        row_keys = keys[i:i+2]
+        
+        for col_obj, m_key in zip([c1, c2], row_keys):
+            mod_data = AVAILABLE_MODULES[m_key]
+            with col_obj:
+                card_html = f"""
+                <div class="module-card" style="border-color: {mod_data['color']}25;">
+                    <div class="module-card-header">
+                        <div class="module-icon-box" style="background-color: {mod_data['icon_bg']}; color: {mod_data['color']};">
+                            {mod_data['logo']}
+                        </div>
+                        <span class="module-badge" style="background-color: {mod_data['badge_bg']}; color: {mod_data['color']};">
+                            {mod_data['mod_no']}
+                        </span>
+                    </div>
+                    <div class="module-card-title">{mod_data['name']}</div>
+                    <div class="module-card-desc">{mod_data['desc']}</div>
+                </div>
+                """
+                st.markdown(card_html, unsafe_allow_html=True)
+                
+                # Action button aligned with card
+                btn_txt = f"Open {mod_data['code']} ➔"
+                if st.button(btn_txt, key=f"btn_open_grid_{m_key}", use_container_width=True, type="primary"):
+                    if m_key not in st.session_state.open_tabs:
+                        st.session_state.open_tabs.append(m_key)
+                    st.session_state.active_tab = m_key
+                    st.rerun()
+                st.write("")
+
+elif st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
     h_top_c1, h_top_c2 = st.columns([4, 1])
     with h_top_c1:

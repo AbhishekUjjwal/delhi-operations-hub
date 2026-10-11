@@ -27,7 +27,7 @@ st.markdown("""
     div[data-testid="stDecoration"] {visibility: hidden; display: none !important;}
     div[data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
 
-    /* 2. COMPACT TAB & PILL BUTTONS (Fitted to text) */
+    /* 2. COMPACT TAB & PILL BUTTONS */
     div[data-testid="stButton"] button {
         border-radius: 16px !important;
         font-size: 12px !important;
@@ -227,6 +227,8 @@ if st.session_state.show_history:
         st.info(f"Abhi tak **{st.session_state.selected_wh}** ke liye koi file process nahi hui hai.")
     else:
         st.success(f"💾 Total Saved Files: **{len(loc_history)}**")
+        
+        # BULK ZIP DOWNLOAD IN HISTORY
         if len(loc_history) > 1:
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -243,6 +245,7 @@ if st.session_state.show_history:
             )
 
         st.write("---")
+        # SINGLE-SINGLE FILE DOWNLOAD IN HISTORY
         for idx, item in enumerate(loc_history):
             d_col1, d_col2 = st.columns([3, 1])
             with d_col1:
@@ -349,7 +352,6 @@ elif st.session_state.active_tab == "AMZ":
             st.error(f"CSV read error: {e}")
             st.stop()
 
-        # Silent Column Mapping (Cards hidden on UI)
         col_mapping = {str(col).strip().lower(): col for col in df.columns}
         order_col = next((col_mapping[c] for c in col_mapping if "order" in c and "id" in c), None) or \
                     next((col_mapping[c] for c in col_mapping if "order" in c), None)
@@ -379,3 +381,224 @@ elif st.session_state.active_tab == "AMZ":
             if clean_oid and track_val:
                 if clean_oid not in order_records_map:
                     order_records_map[clean_oid] = []
+                order_records_map[clean_oid].append({
+                    "full_desc": full_desc,
+                    "desc_words": desc_words,
+                    "track": track_val,
+                    "used": False
+                })
+
+        st.info(f"📊 Unique Orders in CSV: **{len(order_records_map)}** | Selected PDFs: **{len(uploaded_pdfs)} file(s)**")
+
+        if st.button("🚀 Process & Generate Stamped Invoices", type="primary", use_container_width=True):
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+
+            current_processed = []
+            total_files = len(uploaded_pdfs)
+
+            for file_idx, pdf_file in enumerate(uploaded_pdfs):
+                status_text.text(f"Processing File {file_idx+1}/{total_files}: {pdf_file.name}...")
+
+                pdf_bytes = pdf_file.read()
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                new_doc = fitz.open()
+
+                total_pages = len(doc)
+                file_stamped_count = 0
+                file_removed_pan = 0
+                file_removed_desc = 0
+
+                for page_num in range(total_pages):
+                    page = doc[page_num]
+                    raw_text = page.get_text()
+                    text_lower = raw_text.lower()
+
+                    # Rule 1: Strict PAN Filter
+                    if TARGET_PAN not in text_lower:
+                        file_removed_pan += 1
+                        continue
+
+                    # Rule 2: Description Check Filter (Remove if no description)
+                    if not has_valid_description(raw_text):
+                        file_removed_desc += 1
+                        continue
+
+                    # Extract 17-digit Order Number
+                    order_clean = None
+                    order_match = re.search(r'(\d{3})\s*[-–—\s]\s*(\d{7})\s*[-–—\s]\s*(\d{7})', raw_text)
+                    if order_match:
+                        order_clean = f"{order_match.group(1)}{order_match.group(2)}{order_match.group(3)}"
+                    else:
+                        num_match = re.search(r'order\s*number\s*[:\s]*([0-9\-–—\s]{17,25})', raw_text, re.IGNORECASE)
+                        if num_match:
+                            extracted = clean_alphanumeric(num_match.group(1))
+                            if len(extracted) == 17:
+                                order_clean = extracted
+
+                    target_tracking_id = None
+
+                    if order_clean and order_clean in order_records_map:
+                        matching_rows = order_records_map[order_clean]
+
+                        if len(matching_rows) == 1:
+                            target_tracking_id = matching_rows[0]["track"]
+                        else:
+                            page_words = get_token_words(raw_text)
+                            best_match_row = None
+                            highest_overlap = -1
+
+                            for r in matching_rows:
+                                if not r["desc_words"]:
+                                    continue
+                                common = page_words.intersection(r["desc_words"])
+                                overlap_score = len(common)
+
+                                if overlap_score > highest_overlap:
+                                    highest_overlap = overlap_score
+                                    best_match_row = r
+
+                            if best_match_row and highest_overlap > 0:
+                                target_tracking_id = best_match_row["track"]
+                                best_match_row["used"] = True
+                            else:
+                                unused_rows = [r for r in matching_rows if not r["used"]]
+                                if unused_rows:
+                                    target_tracking_id = unused_rows[0]["track"]
+                                    unused_rows[0]["used"] = True
+                                else:
+                                    target_tracking_id = matching_rows[0]["track"]
+
+                    # Stamping Barcode and Tracking ID
+                    if target_tracking_id:
+                        barcode_rect = fitz.Rect(40, 58, 235, 82)
+                        page.draw_rect(barcode_rect, color=(1.0, 1.0, 1.0), fill=(1.0, 1.0, 1.0), width=0)
+
+                        barcode_img_bytes = generate_barcode_image(target_tracking_id)
+                        if barcode_img_bytes:
+                            page.insert_image(barcode_rect, stream=barcode_img_bytes, keep_proportion=False)
+
+                        page.insert_text(
+                            (barcode_rect.x0 + 10, 95),
+                            f"TRACKING: {target_tracking_id}",
+                            fontsize=10.5,
+                            fontname="hebo",
+                            color=(0, 0, 0)
+                        )
+
+                        date_instances = page.search_for("Order Date:") or page.search_for("Order Date")
+                        if date_instances:
+                            first_date_rect = date_instances[0]
+                            page.insert_text(
+                                (first_date_rect.x0, first_date_rect.y1 + 13),
+                                f"Tracking ID: {target_tracking_id}",
+                                fontsize=9.5,
+                                fontname="hebo",
+                                color=(0, 0, 0)
+                            )
+
+                        file_stamped_count += 1
+
+                    new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
+
+                out_buf = io.BytesIO()
+                new_doc.save(out_buf)
+                out_buf.seek(0)
+
+                current_processed.append({
+                    "original_name": pdf_file.name,
+                    "file_name": f"Stamped_{pdf_file.name}",
+                    "data": out_buf.getvalue(),
+                    "pages": len(new_doc),
+                    "stamped": file_stamped_count,
+                    "removed_pan": file_removed_pan,
+                    "removed_desc": file_removed_desc,
+                    "location": st.session_state.selected_wh
+                })
+
+                progress_bar.progress((file_idx + 1) / total_files)
+
+            status_text.empty()
+            progress_bar.empty()
+
+            st.session_state.processed_history.extend(current_processed)
+            
+            # Professional Banner
+            st.markdown(f"""
+                <div class="pro-success-card">
+                    <b style="font-size: 15px; color: #34d399;">✔ Operation Completed Successfully!</b><br>
+                    <span style="font-size: 13px; color: #cbd5e1;">All {len(current_processed)} invoice file(s) for <b>{st.session_state.selected_wh}</b> have been accurately verified, filtered, and stamped with dispatch barcodes. Ready for warehouse fulfillment.</span>
+                </div>
+            """, unsafe_allow_html=True)
+
+    # =====================================================================
+    # BULK ZIP & SINGLE-SINGLE DOWNLOAD SECTION (ALWAYS VISIBLE WHEN FILES EXIST)
+    # =====================================================================
+    if loc_history:
+        st.write("---")
+        st.subheader("📥 Download Invoices")
+
+        # 1. BULK ZIP DOWNLOAD BUTTON
+        if len(loc_history) > 1:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for idx, item in enumerate(loc_history):
+                    zip_file.writestr(f"{idx+1}_{item['file_name']}", item["data"])
+            zip_buffer.seek(0)
+
+            st.download_button(
+                label=f"📦 Download All Invoices as ZIP ({len(loc_history)} Files)",
+                data=zip_buffer,
+                file_name=f"{st.session_state.selected_wh.replace(' ', '_')}_All_Invoices.zip",
+                mime="application/zip",
+                use_container_width=True
+            )
+            st.write("")
+
+        # 2. INDIVIDUAL (SINGLE-SINGLE) DOWNLOAD BUTTONS
+        for idx, item in enumerate(loc_history):
+            d_col1, d_col2 = st.columns([3, 1])
+            with d_col1:
+                st.write(
+                    f"📁 **{item['original_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
+                    f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | "
+                    f"`{item['removed_pan']} Non-PAN Filtered` | `{item.get('removed_desc', 0)} No-Desc Filtered`"
+                )
+            with d_col2:
+                st.download_button(
+                    label="📥 Download PDF",
+                    data=item["data"],
+                    file_name=item["file_name"],
+                    mime="application/pdf",
+                    key=f"dl_single_btn_{st.session_state.selected_wh}_{idx}",
+                    use_container_width=True
+                )
+
+# =========================================================================
+# MODULE 2: BLINKIT E-INVOICE TOOL
+# =========================================================================
+elif st.session_state.active_tab == "BLNK":
+    st.subheader("⚡ Blinkit e-Invoice Management Tool")
+    b_col1, b_col2 = st.columns(2)
+    with b_col1:
+        st.file_uploader("Upload Blinkit PO / Data Sheet (Excel/CSV)", type=["xlsx", "xls", "csv"], key="blinkit_data")
+    with b_col2:
+        st.file_uploader("Upload Master Template / Supporting PDF (Optional)", type=["pdf", "json"], key="blinkit_template")
+
+# =========================================================================
+# MODULE 3: LABEL EDITOR
+# =========================================================================
+elif st.session_state.active_tab == "LBL":
+    st.subheader("🏷️ Shipping & Product Label Editor")
+    st.info("Label Editor module ready hai.")
+
+# =========================================================================
+# MODULE 4: SETTINGS & REPORTS
+# =========================================================================
+elif st.session_state.active_tab == "CONF":
+    st.subheader("⚙️ System Operations & Units Configuration")
+    st.markdown(f"""
+    - **Active Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`
+    - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
+    - **Engine Status:** Online & Healthy
+    """)

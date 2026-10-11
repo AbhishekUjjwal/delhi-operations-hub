@@ -19,7 +19,6 @@ st.set_page_config(
 # Custom Styling: Zero Top Padding, Compact Actions & Snappy Layout
 st.markdown("""
     <style>
-    /* 1. HIDE TOP-RIGHT FORK, GITHUB LOGO & STREAMLIT HEADER */
     #MainMenu {visibility: hidden; display: none !important;}
     header {visibility: hidden; display: none !important;}
     footer {visibility: hidden; display: none !important;}
@@ -28,7 +27,6 @@ st.markdown("""
     div[data-testid="stDecoration"] {visibility: hidden; display: none !important;}
     div[data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
 
-    /* 2. HIDE BOTTOM RIGHT BADGES & WATERMARKS */
     [data-testid="stViewerBadge"] {display: none !important; visibility: hidden !important;}
     div[class*="viewerBadge"] {display: none !important; visibility: hidden !important;}
     iframe[title*="streamlit"] {display: none !important;}
@@ -36,7 +34,6 @@ st.markdown("""
     div[class*="manage-app"] {display: none !important;}
     div[class*="floating"] {display: none !important;}
 
-    /* 3. ZERO EXTRA TOP GAP */
     .block-container {
         padding-top: 0.2rem !important;
         padding-bottom: 0.8rem !important;
@@ -50,7 +47,6 @@ st.markdown("""
         border-color: rgba(58, 80, 107, 0.4) !important;
     }
 
-    /* 4. TIGHT LETTER-FIT BUTTONS */
     div[data-testid="stButton"] {
         width: fit-content !important;
     }
@@ -75,7 +71,6 @@ st.markdown("""
         color: #38bdf8 !important;
     }
 
-    /* 5. RIGHT STACK ACTION ROW BUTTONS */
     .right-action-cluster div[data-testid="stButton"] {
         width: 100% !important;
     }
@@ -83,7 +78,6 @@ st.markdown("""
         width: 100% !important;
     }
 
-    /* 6. COMPACT SELECTBOX (LOCATION) */
     div[data-testid="stSelectbox"] label {
         display: none !important;
     }
@@ -99,14 +93,12 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }
 
-    /* 7. HEADINGS SPACING COMPACT */
     h2, h3, h4 {
         margin-top: 0px !important;
         margin-bottom: 4px !important;
         padding-top: 0px !important;
     }
 
-    /* 8. SIDEBAR TITLE */
     .hub-title {
         font-size: 18px;
         font-weight: 800;
@@ -166,7 +158,6 @@ if "show_history" not in st.session_state:
 if "current_batch_results" not in st.session_state:
     st.session_state.current_batch_results = []
 
-# HEADOFFICE: Saare locations ka data ek sath consolidate hota hai
 def get_current_location_history():
     current_tab = st.session_state.active_tab
     current_wh = st.session_state.selected_wh
@@ -175,7 +166,6 @@ def get_current_location_history():
         item for item in st.session_state.permanent_history 
         if item.get("module") == current_tab
     ]
-    
     if current_wh == "Headoffice":
         return module_items
         
@@ -225,7 +215,7 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP LAYOUT: LEFT TABS & RIGHT CONTROLS -----------------
+# ----------------- TOP LAYOUT -----------------
 header_left, header_right = st.columns([7.8, 2.2])
 
 with header_left:
@@ -247,7 +237,6 @@ with header_left:
 with header_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     
-    # Row 1: Refresh Button (Left) + Location Dropdown (Right)
     loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
     with loc_sub1:
         if st.button("🔄", key="btn_refresh_pinned", help="Click to unpin all extra tabs", use_container_width=True):
@@ -261,7 +250,6 @@ with header_right:
         )
         st.session_state.selected_wh = selected_display
 
-    # Row 2: History (Active Module & Location/Headoffice Filtered) & Reset
     loc_history = get_current_location_history()
     hist_col, reset_col = st.columns([1.2, 0.8])
     with hist_col:
@@ -278,7 +266,7 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (HEADOFFICE: CONSOLIDATED ALL LOCATIONS IN ONE TAB)
+# HISTORY VIEW
 # =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
@@ -310,7 +298,6 @@ if st.session_state.show_history:
     else:
         st.success(f"💾 Total Saved Files: **{len(loc_history)}**")
         
-        # BULK ZIP FROM HISTORY (CONSOLIDATED IN HEADOFFICE)
         if len(loc_history) > 1:
             zip_buf = io.BytesIO()
             with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -350,7 +337,7 @@ if st.session_state.show_history:
                 )
 
 # =========================================================================
-# MODULE 1: AMAZON INVOICE EDITOR
+# MODULE 1: AMAZON INVOICE EDITOR (ULTRA-FAST OPTIMIZED ENGINE)
 # =========================================================================
 elif st.session_state.active_tab == "AMZ":
     st.subheader("📑 Amazon Invoice Editor & Barcode Stamper")
@@ -372,12 +359,21 @@ elif st.session_state.active_tab == "AMZ":
             key=f"amz_pdf_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
         )
 
+    # Pre-compiled high performance regex
+    REGEX_ORDER_HYPHEN = re.compile(r'(\d{3})\s*[-–—\s]\s*(\d{7})\s*[-–—\s]\s*(\d{7})')
+    REGEX_ORDER_KEYWORD = re.compile(r'order\s*number\s*[:\s]*([0-9\-–—\s]{17,25})', re.IGNORECASE)
+    REGEX_WORDS = re.compile(r'[a-zA-Z0-9]+')
+    STOP_WORDS = {
+        'the', 'and', 'for', 'with', 'pcs', 'piece', 'pieces', 'only', 'total', 
+        'hsn', 'gst', 'rs', 'inr', 'tax', 'invoice', 'date', 'order', 'qty',
+        'rate', 'amount', 'shipping', 'charges', 'state', 'code', 'pan', 'bill', 'to'
+    }
+
     def clean_val(v):
         if pd.isna(v):
             return ""
         s = str(v).strip()
-        s = re.sub(r'^[="\']+|["\']+$', '', s)
-        return s.strip()
+        return s.strip("=\"'")
 
     def clean_alphanumeric(text):
         return re.sub(r'[^a-zA-Z0-9]', '', str(text)).lower()
@@ -385,28 +381,28 @@ elif st.session_state.active_tab == "AMZ":
     def get_token_words(text):
         if not text:
             return set()
-        words = re.findall(r'[a-zA-Z0-9]+', str(text).lower())
-        stop_words = {
-            'the', 'and', 'for', 'with', 'pcs', 'piece', 'pieces', 'only', 'total', 
-            'hsn', 'gst', 'rs', 'inr', 'tax', 'invoice', 'date', 'order', 'qty',
-            'rate', 'amount', 'shipping', 'charges', 'state', 'code', 'pan', 'bill', 'to'
-        }
-        return {w for w in words if len(w) >= 2 and w not in stop_words}
+        words = REGEX_WORDS.findall(str(text).lower())
+        return {w for w in words if len(w) >= 2 and w not in STOP_WORDS}
 
     def has_valid_description(raw_text):
         text_lower = raw_text.lower()
-        desc_keywords = ["description", "item description", "product description", "title"]
-        has_header = any(k in text_lower for k in desc_keywords)
+        if not any(k in text_lower for k in ("description", "item description", "product description", "title")):
+            return False
         tokens = get_token_words(raw_text)
-        return has_header and len(tokens) >= 5
+        return len(tokens) >= 5
 
-    def generate_barcode_image(code_text):
+    # Memory Barcode Cache: Same barcode image renders once only
+    BARCODE_CACHE = {}
+    code128_cls = barcode.get_barcode_class('code128')
+    barcode_writer = ImageWriter()
+    barcode_writer.font_path = None
+
+    def get_cached_barcode(code_text):
+        clean_code = str(code_text).strip()
+        if clean_code in BARCODE_CACHE:
+            return BARCODE_CACHE[clean_code]
         try:
-            code128 = barcode.get_barcode_class('code128')
-            writer = ImageWriter()
-            writer.font_path = None
-            barcode_instance = code128(str(code_text).strip(), writer=writer)
-            
+            barcode_instance = code128_cls(clean_code, writer=barcode_writer)
             buffer = io.BytesIO()
             barcode_instance.write(
                 buffer,
@@ -415,11 +411,12 @@ elif st.session_state.active_tab == "AMZ":
                     'module_width': 0.45,
                     'module_height': 15.0,
                     'quiet_zone': 1.5,
-                    'dpi': 300
+                    'dpi': 200  # High crisp scan without overhead
                 }
             )
-            buffer.seek(0)
-            return buffer.getvalue()
+            data = buffer.getvalue()
+            BARCODE_CACHE[clean_code] = data
+            return data
         except Exception:
             return None
 
@@ -482,6 +479,10 @@ elif st.session_state.active_tab == "AMZ":
             processed_items = []
             total_files = len(uploaded_pdfs)
 
+            barcode_rect = fitz.Rect(40, 58, 235, 82)
+            white_color = (1.0, 1.0, 1.0)
+            black_color = (0, 0, 0)
+
             for file_idx, pdf_file in enumerate(uploaded_pdfs):
                 status_text.text(f"Processing File {file_idx+1}/{total_files}: {pdf_file.name}...")
 
@@ -489,12 +490,11 @@ elif st.session_state.active_tab == "AMZ":
                 doc = fitz.open(stream=pdf_bytes, filetype="pdf")
                 new_doc = fitz.open()
 
-                total_pages = len(doc)
                 file_stamped_count = 0
                 file_removed_pan = 0
                 file_removed_desc = 0
 
-                for page_num in range(total_pages):
+                for page_num in range(len(doc)):
                     page = doc[page_num]
                     raw_text = page.get_text()
                     text_lower = raw_text.lower()
@@ -508,11 +508,11 @@ elif st.session_state.active_tab == "AMZ":
                         continue
 
                     order_clean = None
-                    order_match = re.search(r'(\d{3})\s*[-–—\s]\s*(\d{7})\s*[-–—\s]\s*(\d{7})', raw_text)
+                    order_match = REGEX_ORDER_HYPHEN.search(raw_text)
                     if order_match:
                         order_clean = f"{order_match.group(1)}{order_match.group(2)}{order_match.group(3)}"
                     else:
-                        num_match = re.search(r'order\s*number\s*[:\s]*([0-9\-–—\s]{17,25})', raw_text, re.IGNORECASE)
+                        num_match = REGEX_ORDER_KEYWORD.search(raw_text)
                         if num_match:
                             extracted = clean_alphanumeric(num_match.group(1))
                             if len(extracted) == 17:
@@ -552,10 +552,9 @@ elif st.session_state.active_tab == "AMZ":
                                     target_tracking_id = matching_rows[0]["track"]
 
                     if target_tracking_id:
-                        barcode_rect = fitz.Rect(40, 58, 235, 82)
-                        page.draw_rect(barcode_rect, color=(1.0, 1.0, 1.0), fill=(1.0, 1.0, 1.0), width=0)
+                        page.draw_rect(barcode_rect, color=white_color, fill=white_color, width=0)
 
-                        barcode_img_bytes = generate_barcode_image(target_tracking_id)
+                        barcode_img_bytes = get_cached_barcode(target_tracking_id)
                         if barcode_img_bytes:
                             page.insert_image(barcode_rect, stream=barcode_img_bytes, keep_proportion=False)
 
@@ -564,7 +563,7 @@ elif st.session_state.active_tab == "AMZ":
                             f"TRACKING: {target_tracking_id}",
                             fontsize=10.5,
                             fontname="hebo",
-                            color=(0, 0, 0)
+                            color=black_color
                         )
 
                         date_instances = page.search_for("Order Date:") or page.search_for("Order Date")
@@ -575,22 +574,23 @@ elif st.session_state.active_tab == "AMZ":
                                 f"Tracking ID: {target_tracking_id}",
                                 fontsize=9.5,
                                 fontname="hebo",
-                                color=(0, 0, 0)
+                                color=black_color
                             )
 
                         file_stamped_count += 1
 
                     new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
 
-                out_buf = io.BytesIO()
-                new_doc.save(out_buf)
-                out_buf.seek(0)
+                # Lightning-Fast PDF stream save
+                out_bytes = new_doc.tobytes(deflate=True, clean=False)
+                new_doc.close()
+                doc.close()
 
                 processed_items.append({
                     "original_name": pdf_file.name,
                     "file_name": f"Stamped_{pdf_file.name}",
-                    "data": out_buf.getvalue(),
-                    "pages": len(new_doc),
+                    "data": out_bytes,
+                    "pages": len(new_doc) if new_doc else file_stamped_count,
                     "stamped": file_stamped_count,
                     "removed_pan": file_removed_pan,
                     "removed_desc": file_removed_desc,
@@ -621,7 +621,7 @@ elif st.session_state.active_tab == "AMZ":
         st.write("---")
         st.subheader("📥 Download Invoices")
 
-        # 1. BULK ZIP DOWNLOAD
+        # FAST ZIP CREATION
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
             for idx, item in enumerate(batch_list):
@@ -641,7 +641,6 @@ elif st.session_state.active_tab == "AMZ":
         )
         st.write("")
 
-        # 2. INDIVIDUAL DOWNLOAD BUTTONS
         for idx, item in enumerate(batch_list):
             d_col1, d_col2 = st.columns([3, 1])
             with d_col1:

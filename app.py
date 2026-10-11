@@ -36,7 +36,7 @@ st.markdown("""
     div[class*="manage-app"] {display: none !important;}
     div[class*="floating"] {display: none !important;}
 
-    /* 3. ZERO EXTRA TOP GAP (CONTENT SHIFTED MAXIMUM UP) */
+    /* 3. ZERO EXTRA TOP GAP */
     .block-container {
         padding-top: 0.2rem !important;
         padding-bottom: 0.8rem !important;
@@ -131,7 +131,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Locations list without RPPL
 LOCATION_DISPLAY_MAP = {
     "DEL": "📍 DEL",
     "KOL": "📍 KOL",
@@ -164,6 +163,8 @@ if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 if "show_history" not in st.session_state:
     st.session_state.show_history = False
+if "current_batch_results" not in st.session_state:
+    st.session_state.current_batch_results = []
 
 def get_current_location_history():
     if st.session_state.selected_wh == "Headoffice":
@@ -173,8 +174,20 @@ def get_current_location_history():
         if item.get("location") == st.session_state.selected_wh
     ]
 
+# Function jo sirf downloaded item ko history me record karta hai (Duplicate prevent karke)
+def record_to_history(item):
+    existing_ids = {f"{x.get('file_name')}_{x.get('location')}" for x in st.session_state.permanent_history}
+    item_id = f"{item.get('file_name')}_{item.get('location')}"
+    if item_id not in existing_ids:
+        st.session_state.permanent_history.append(item)
+
+def record_batch_to_history(batch_items):
+    for item in batch_items:
+        record_to_history(item)
+
 def reset_current_workspace():
     st.session_state.uploader_key += 1
+    st.session_state.current_batch_results = []
     st.session_state.show_history = False
     st.rerun()
 
@@ -255,12 +268,12 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (PERMANENT STORAGE)
+# HISTORY VIEW (ONLY DOWNLOADED FILES GET SAVED HERE)
 # =========================================================================
 if st.session_state.show_history:
     h_top_c1, h_top_c2 = st.columns([4, 1])
     with h_top_c1:
-        st.subheader("📜 Processed History & Downloads (Safe Storage)")
+        st.subheader("📜 Downloaded Invoices History (Safe Storage)")
     with h_top_c2:
         if loc_history:
             if st.button("🗑️ Clear History", key="btn_del_hist", use_container_width=True):
@@ -274,21 +287,23 @@ if st.session_state.show_history:
                 st.rerun()
 
     if not loc_history:
-        st.info(f"Abhi tak **{st.session_state.selected_wh}** ke liye koi history saved nahi hai.")
+        st.info(f"Abhi tak **{st.session_state.selected_wh}** me koi downloaded invoice save nahi hai. Jab aap invoice download karenge, wo yahan show hoga.")
     else:
-        st.success(f"💾 Total Saved Files in Storage: **{len(loc_history)}**")
+        st.success(f"💾 Total Downloaded Files Recorded: **{len(loc_history)}**")
         
+        # BULK ZIP FROM HISTORY
         if len(loc_history) > 1:
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            zip_buf = io.BytesIO()
+            with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                 for idx, item in enumerate(loc_history):
-                    zip_file.writestr(f"{idx+1}_{item['file_name']}", item["data"])
-            zip_buffer.seek(0)
+                    safe_fname = f"{idx+1}_{item['file_name']}"
+                    zf.writestr(safe_fname, item["data"])
+            zip_bytes = zip_buf.getvalue()
 
             st.download_button(
-                label=f"📦 Download All {st.session_state.selected_wh} Files as ZIP ({len(loc_history)} Files)",
-                data=zip_buffer,
-                file_name=f"{st.session_state.selected_wh}_History.zip",
+                label=f"📦 Re-Download All History as ZIP ({len(loc_history)} Files)",
+                data=zip_bytes,
+                file_name=f"{st.session_state.selected_wh}_History_Bulk.zip",
                 mime="application/zip",
                 key="btn_zip_history_download",
                 use_container_width=True
@@ -301,7 +316,6 @@ if st.session_state.show_history:
                 st.write(
                     f"📁 **{item['original_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
                     f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | "
-                    f"`{item['removed_pan']} Non-PAN Filtered` | `{item.get('removed_desc', 0)} No-Desc Filtered` | "
                     f"⏰ *{item.get('time', '')}*"
                 )
             with d_col2:
@@ -444,7 +458,7 @@ elif st.session_state.active_tab == "AMZ":
             progress_bar = st.progress(0)
             status_text = st.empty()
 
-            current_processed = []
+            processed_items = []
             total_files = len(uploaded_pdfs)
 
             for file_idx, pdf_file in enumerate(uploaded_pdfs):
@@ -551,7 +565,7 @@ elif st.session_state.active_tab == "AMZ":
                 new_doc.save(out_buf)
                 out_buf.seek(0)
 
-                current_processed.append({
+                processed_items.append({
                     "original_name": pdf_file.name,
                     "file_name": f"Stamped_{pdf_file.name}",
                     "data": out_buf.getvalue(),
@@ -568,40 +582,46 @@ elif st.session_state.active_tab == "AMZ":
             status_text.empty()
             progress_bar.empty()
 
-            st.session_state.permanent_history.extend(current_processed)
+            st.session_state.current_batch_results = processed_items
             
             st.markdown(f"""
                 <div class="pro-success-card">
                     <b style="font-size: 15px; color: #34d399;">✔ Operation Completed Successfully!</b><br>
-                    <span style="font-size: 13px; color: #cbd5e1;">All {len(current_processed)} invoice file(s) for <b>{st.session_state.selected_wh}</b> have been accurately verified, filtered, and stamped with dispatch barcodes. Saved to History.</span>
+                    <span style="font-size: 13px; color: #cbd5e1;">All {len(processed_items)} invoice file(s) for <b>{st.session_state.selected_wh}</b> have been accurately verified, filtered, and stamped with dispatch barcodes. Download below to record in History.</span>
                 </div>
             """, unsafe_allow_html=True)
-            st.rerun()
 
-    # LIVE & SAVED DOWNLOAD SECTION
-    active_loc_data = get_current_location_history()
-    if active_loc_data:
+    # =====================================================================
+    # BULK & SINGLE DOWNLOAD SECTION (DOWNLOAD TRIGGERS HISTORY SAVE)
+    # =====================================================================
+    batch_list = st.session_state.current_batch_results
+    if batch_list:
         st.write("---")
         st.subheader("📥 Download Invoices")
 
-        if len(active_loc_data) > 1:
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for idx, item in enumerate(active_loc_data):
-                    zip_file.writestr(f"{idx+1}_{item['file_name']}", item["data"])
-            zip_buffer.seek(0)
+        # 1. BULK ZIP DOWNLOAD (PREPARED ROBUST BUFFER)
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
+            for idx, item in enumerate(batch_list):
+                unique_name = f"{idx+1}_{item['file_name']}"
+                zip_file.writestr(unique_name, item["data"])
+        bulk_zip_bytes = zip_buffer.getvalue()
 
-            st.download_button(
-                label=f"📦 Download All Invoices as ZIP ({len(active_loc_data)} Files)",
-                data=zip_buffer,
-                file_name=f"{st.session_state.selected_wh}_All_Invoices.zip",
-                mime="application/zip",
-                key="btn_live_zip_download",
-                use_container_width=True
-            )
-            st.write("")
+        # On click of bulk download -> auto-save whole batch to history
+        st.download_button(
+            label=f"📦 Download All Invoices as ZIP ({len(batch_list)} Files)",
+            data=bulk_zip_bytes,
+            file_name=f"{st.session_state.selected_wh}_All_Invoices.zip",
+            mime="application/zip",
+            key="btn_live_zip_download",
+            on_click=record_batch_to_history,
+            args=(batch_list,),
+            use_container_width=True
+        )
+        st.write("")
 
-        for idx, item in enumerate(active_loc_data):
+        # 2. INDIVIDUAL DOWNLOAD BUTTONS
+        for idx, item in enumerate(batch_list):
             d_col1, d_col2 = st.columns([3, 1])
             with d_col1:
                 st.write(
@@ -617,6 +637,8 @@ elif st.session_state.active_tab == "AMZ":
                     file_name=item["file_name"],
                     mime="application/pdf",
                     key=f"dl_single_live_{st.session_state.selected_wh}_{idx}",
+                    on_click=record_to_history,
+                    args=(item,),
                     use_container_width=True
                 )
 

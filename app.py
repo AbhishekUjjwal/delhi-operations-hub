@@ -289,54 +289,73 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* EXACT CLICKABLE OVAL CARD STYLING ON STREAMLIT BUTTON DIRECTLY */
+    /* EXACT OVAL SHAPED MODULE CARDS */
     .dashboard-grid-area div[data-testid="stButton"] {
         width: 100% !important;
-        margin-bottom: 14px !important;
+        margin-bottom: 18px !important;
     }
+
     .dashboard-grid-area div[data-testid="stButton"] button {
         width: 100% !important;
-        min-height: 168px !important;
-        background: #ffffff !important;
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 26px !important;
-        padding: 22px 24px !important;
+        min-height: 155px !important;
+        height: auto !important;
+        background: #1e293b !important;
+        color: #ffffff !important;
+        border: 2px solid rgba(148, 163, 184, 0.3) !important;
+        border-radius: 46px !important; /* Perfect Oval Curves */
+        padding: 22px 34px !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: flex-start !important;
         justify-content: space-between !important;
         text-align: left !important;
-        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06) !important;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28) !important;
         white-space: pre-wrap !important;
-        transition: all 0.22s ease-in-out !important;
+        transition: all 0.25s ease-in-out !important;
         cursor: pointer !important;
     }
 
-    /* DYNAMIC OVAL BORDER ON HOVER */
+    /* Prevent text truncate or ellipsis (...) */
+    .dashboard-grid-area div[data-testid="stButton"] button p,
+    .dashboard-grid-area div[data-testid="stButton"] button div {
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        text-align: left !important;
+        line-height: 1.55 !important;
+        font-size: 13.5px !important;
+        width: 100% !important;
+    }
+
+    /* DYNAMIC OVAL ACCENT HOVER EFFECTS */
     .dashboard-grid-area .btn-amz div[data-testid="stButton"] button:hover {
-        border-color: #2563eb !important;
+        border-color: #38bdf8 !important;
+        background: #0f172a !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.16) !important;
+        box-shadow: 0 10px 25px rgba(56, 189, 248, 0.3) !important;
     }
     .dashboard-grid-area .btn-blnk-po div[data-testid="stButton"] button:hover {
-        border-color: #059669 !important;
+        border-color: #10b981 !important;
+        background: #0f172a !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 10px 24px rgba(5, 150, 105, 0.16) !important;
+        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3) !important;
     }
     .dashboard-grid-area .btn-blnk div[data-testid="stButton"] button:hover {
-        border-color: #d97706 !important;
+        border-color: #f59e0b !important;
+        background: #0f172a !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 10px 24px rgba(217, 119, 6, 0.16) !important;
+        box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3) !important;
     }
     .dashboard-grid-area .btn-lbl div[data-testid="stButton"] button:hover {
-        border-color: #7c3aed !important;
+        border-color: #a855f7 !important;
+        background: #0f172a !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 10px 24px rgba(124, 58, 237, 0.16) !important;
+        box-shadow: 0 10px 25px rgba(168, 85, 247, 0.3) !important;
     }
     .dashboard-grid-area .btn-conf div[data-testid="stButton"] button:hover {
-        border-color: #475569 !important;
+        border-color: #94a3b8 !important;
+        background: #0f172a !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 10px 24px rgba(71, 85, 105, 0.16) !important;
+        box-shadow: 0 10px 25px rgba(148, 163, 184, 0.3) !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -598,21 +617,31 @@ with st.sidebar:
             other_count += 1
             other_val += val
 
-    # Small Metrics View
+    # Small Metrics View with Delta Values
     m_col1, m_col2 = st.columns(2)
     with m_col1:
-        st.metric("⚡ Blinkit", f"{blinkit_count} Inv", delta=f"₹{blinkit_val:,.0f}" if blinkit_val > 0 else None)
+        st.metric("⚡ Blinkit", f"{blinkit_count} Inv", delta=f"₹{blinkit_val:,.0f}" if blinkit_val > 0 else "₹0")
     with m_col2:
-        st.metric("🏢 Others", f"{other_count} Inv", delta=f"₹{other_val:,.0f}" if other_val > 0 else None)
+        st.metric("🏢 Others", f"{other_count} Inv", delta=f"₹{other_val:,.0f}" if other_val > 0 else "₹0")
 
-    # Clean Chart
-    chart_df = pd.DataFrame({
-        "Category": ["Blinkit Invoices", "Other Buyers"],
-        "Count": [blinkit_count, other_count]
-    }).set_index("Category")
+    # Analytics View Option: Toggle between Count and Value
+    chart_view_mode = st.radio("Graph View Mode:", ["Count (Qty)", "Total Value (₹)"], horizontal=True, label_visibility="collapsed")
 
-    st.bar_chart(chart_df, height=130, use_container_width=True)
-    st.caption(f"Total Unique Invoices: **{len(dedup_list)}** (Duplicates removed)")
+    if chart_view_mode == "Count (Qty)":
+        chart_df = pd.DataFrame({
+            "Category": ["Blinkit Invoices", "Other Buyers"],
+            "Count": [blinkit_count, other_count]
+        }).set_index("Category")
+        st.bar_chart(chart_df, height=140, use_container_width=True)
+    else:
+        chart_df = pd.DataFrame({
+            "Category": ["Blinkit (₹)", "Others (₹)"],
+            "Value (₹)": [blinkit_val, other_val]
+        }).set_index("Category")
+        st.bar_chart(chart_df, height=140, use_container_width=True)
+
+    total_net_val = blinkit_val + other_val
+    st.caption(f"Total Unique Invoices: **{len(dedup_list)}** | Net Total: **₹{total_net_val:,.2f}**")
     st.divider()
 
 # ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
@@ -678,7 +707,7 @@ st.divider()
 
 # ----------------- EXACT OVAL CARD BOXES (CLICK ANYWHERE DIRECTLY ON THE CARD) -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
-    st.markdown('<div style="font-size: 13px; font-weight: 800; color: #64748b; margin-bottom: 12px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size: 13px; font-weight: 800; color: #94a3b8; margin-bottom: 14px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="dashboard-grid-area">', unsafe_allow_html=True)
     keys = list(AVAILABLE_MODULES.keys())
@@ -691,15 +720,15 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
             with col_obj:
                 st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Single clean button that acts as the ENTIRE white oval card
+                # Multi-line oval card text
                 card_text = (
-                    f"{mod_data['logo']}          [{mod_data['mod_no']}]\n\n"
-                    f"{mod_data['name']}\n\n"
+                    f"{mod_data['logo']}   [{mod_data['mod_no']}]\n\n"
+                    f"{mod_data['name']}\n"
                     f"────────────────────────\n"
                     f"{mod_data['short_open']}"
                 )
                 
-                if st.button(card_text, key=f"card_btn_{m_key}"):
+                if st.button(card_text, key=f"card_btn_{m_key}", use_container_width=True):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key
@@ -1396,7 +1425,7 @@ elif st.session_state.active_tab == "BLNK":
 
         is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
 
-        # ----------------- SHIPPING RULE -----------------
+        # Shipping Rule
         if is_blinkit:
             shipping_is_different = False
         else:

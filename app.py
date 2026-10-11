@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Strict Letter-Fit Tabs & Clean Icons
+# Custom Styling: Strict Letter-Fit Tabs, Clean Icons & Right-side Action Stack
 st.markdown("""
     <style>
     /* 1. HIDE TOP-RIGHT FORK, GITHUB LOGO & STREAMLIT HEADER */
@@ -28,13 +28,29 @@ st.markdown("""
     div[data-testid="stDecoration"] {visibility: hidden; display: none !important;}
     div[data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
 
-    /* 2. TOP ACTION ROW - COMPACT HORIZONTAL BAR */
-    div[data-testid="stHorizontalBlock"] {
-        align-items: center !important;
-        gap: 6px !important;
+    /* 2. TOP BANNER */
+    .top-hero-banner {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%);
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        border-radius: 12px;
+        padding: 14px 20px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+    }
+    .top-hero-title {
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-transform: uppercase;
+        margin: 0;
     }
 
-    /* 3. TIGHT LETTER-FIT BUTTONS (NO EXTRA STRETCH) */
+    /* 3. TIGHT LETTER-FIT BUTTONS */
     div[data-testid="stButton"] {
         width: fit-content !important;
     }
@@ -54,19 +70,18 @@ st.markdown("""
         justify-content: center !important;
         box-shadow: none !important;
     }
-
     div[data-testid="stButton"] button:hover {
         border-color: #38bdf8 !important;
         color: #38bdf8 !important;
     }
 
-    /* 4. COMPACT LETTER-FIT SELECTBOX (LOCATION) */
+    /* 4. COMPACT SELECTBOX */
     div[data-testid="stSelectbox"] label {
         display: none !important;
     }
     div[data-testid="stSelectbox"] {
-        width: 130px !important;
-        min-width: 120px !important;
+        width: 140px !important;
+        min-width: 130px !important;
     }
     div[data-testid="stSelectbox"] > div > div {
         min-height: 28px !important;
@@ -77,7 +92,7 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }
 
-    /* 5. SINGLE LINE GRADIENT TITLE */
+    /* 5. SIDEBAR TITLE */
     .hub-title {
         font-size: 18px;
         font-weight: 800;
@@ -91,7 +106,6 @@ st.markdown("""
         gap: 6px;
     }
 
-    /* Professional Success Badge */
     .pro-success-card {
         background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.25) 100%);
         border: 1px solid rgba(52, 211, 153, 0.5);
@@ -149,12 +163,6 @@ def reset_current_workspace():
     st.session_state.show_history = False
     st.rerun()
 
-def clear_all_pinned_tabs():
-    st.session_state.open_tabs = ["AMZ"]
-    st.session_state.active_tab = "AMZ"
-    st.session_state.show_history = False
-    st.rerun()
-
 # ----------------- SIDEBAR NAVIGATION -----------------
 with st.sidebar:
     st.markdown('<div class="hub-title">🏛️ PAN OPERATIONS HUB</div>', unsafe_allow_html=True)
@@ -174,41 +182,36 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP ACTION BAR: TIGHT LETTER-FIT LAYOUT -----------------
-# Pinned Tabs + Refresh Icon + Location + History + Reset sab tight sequence me
-top_cols = st.columns([0.8] * len(st.session_state.open_tabs) + [0.35, 1.1, 0.9, 0.65, 3.5])
+# ----------------- TOP HEADER: BANNER (LEFT) & 3 BOXES (RIGHT) -----------------
+header_left, header_right = st.columns([8.2, 1.8])
 
-col_idx = 0
-
-# 1. Pinned Tabs
-for t_key in st.session_state.open_tabs:
-    info = AVAILABLE_MODULES[t_key]
-    is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
+with header_left:
+    # Lamba Box
+    st.markdown("""
+        <div class="top-hero-banner">
+            <h2 class="top-hero-title">🏛️ PAN INDIA AMZ INVOICE EDITOR</h2>
+        </div>
+    """, unsafe_allow_html=True)
     
-    if len(st.session_state.open_tabs) > 1:
-        tab_label = f"{info['logo']} {info['code']} ✕"
-    else:
-        tab_label = f"{info['logo']} {info['code']}"
+    # Neeche ke Compact Tabs Row
+    tab_cols = st.columns([0.8] * len(st.session_state.open_tabs) + [4.0])
+    for idx, t_key in enumerate(st.session_state.open_tabs):
+        info = AVAILABLE_MODULES[t_key]
+        is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
+        tab_label = f"{info['logo']} {info['code']} ✕" if len(st.session_state.open_tabs) > 1 else f"{info['logo']} {info['code']}"
+        with tab_cols[idx]:
+            if st.button(tab_label, key=f"tab_chip_{t_key}", type="primary" if is_active else "secondary"):
+                if is_active and len(st.session_state.open_tabs) > 1:
+                    st.session_state.open_tabs.remove(t_key)
+                    st.session_state.active_tab = st.session_state.open_tabs[0]
+                else:
+                    st.session_state.active_tab = t_key
+                    st.session_state.show_history = False
+                st.rerun()
 
-    with top_cols[col_idx]:
-        if st.button(tab_label, key=f"tab_chip_{t_key}", type="primary" if is_active else "secondary"):
-            if is_active and len(st.session_state.open_tabs) > 1:
-                st.session_state.open_tabs.remove(t_key)
-                st.session_state.active_tab = st.session_state.open_tabs[0]
-            else:
-                st.session_state.active_tab = t_key
-                st.session_state.show_history = False
-            st.rerun()
-    col_idx += 1
-
-# 2. Refresh Icon Only (Unpin text removed)
-with top_cols[col_idx]:
-    if st.button("🔄", key="btn_refresh_icon_only", help="Unpin all extra tabs"):
-        clear_all_pinned_tabs()
-col_idx += 1
-
-# 3. Location Dropdown
-with top_cols[col_idx]:
+with header_right:
+    # Right side ke 3 Stacked Boxes
+    # 1. Location
     selected_display = st.selectbox(
         "WH | Location",
         options=ORDERED_LOCATIONS,
@@ -216,19 +219,15 @@ with top_cols[col_idx]:
         index=ORDERED_LOCATIONS.index(st.session_state.selected_wh) if st.session_state.selected_wh in ORDERED_LOCATIONS else 0
     )
     st.session_state.selected_wh = selected_display
-col_idx += 1
 
-# 4. History Button
-loc_history = get_current_location_history()
-with top_cols[col_idx]:
-    if st.button(f"🕒 History ({len(loc_history)})", key="top_hist_btn", type="primary" if st.session_state.show_history else "secondary"):
+    # 2. History
+    loc_history = get_current_location_history()
+    if st.button(f"🕒 History ({len(loc_history)})", key="top_hist_btn", type="primary" if st.session_state.show_history else "secondary", use_container_width=True):
         st.session_state.show_history = not st.session_state.show_history
         st.rerun()
-col_idx += 1
 
-# 5. Reset Button
-with top_cols[col_idx]:
-    if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset upload area"):
+    # 3. Reset
+    if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset upload area", use_container_width=True):
         reset_current_workspace()
 
 st.divider()

@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Right Stack 3 Boxes & Tight Tabs with Left Refresh Icon
+# Custom Styling: Zero Top Padding, Hide Bottom Badges & Compact Layout
 st.markdown("""
     <style>
     /* 1. HIDE TOP-RIGHT FORK, GITHUB LOGO & STREAMLIT HEADER */
@@ -28,7 +28,28 @@ st.markdown("""
     div[data-testid="stDecoration"] {visibility: hidden; display: none !important;}
     div[data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
 
-    /* 2. TIGHT LETTER-FIT BUTTONS */
+    /* 2. HIDE BOTTOM RIGHT BADGES & WATERMARKS */
+    [data-testid="stViewerBadge"] {display: none !important; visibility: hidden !important;}
+    div[class*="viewerBadge"] {display: none !important; visibility: hidden !important;}
+    iframe[title*="streamlit"] {display: none !important;}
+    div[data-testid="manage-app-button"] {display: none !important;}
+    div[class*="manage-app"] {display: none !important;}
+    div[class*="floating"] {display: none !important;}
+
+    /* 3. REDUCE TOP BLANK SPACE (CONTENT MOVED UP) */
+    .block-container {
+        padding-top: 0.5rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+    }
+
+    hr {
+        margin-top: 8px !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* 4. TIGHT LETTER-FIT BUTTONS */
     div[data-testid="stButton"] {
         width: fit-content !important;
     }
@@ -53,7 +74,7 @@ st.markdown("""
         color: #38bdf8 !important;
     }
 
-    /* 3. RIGHT STACK ACTION BUTTONS FULL WIDTH IN BOX */
+    /* 5. RIGHT STACK ACTION BUTTONS FULL WIDTH IN BOX */
     .right-stack-col div[data-testid="stButton"] {
         width: 100% !important;
     }
@@ -61,7 +82,7 @@ st.markdown("""
         width: 100% !important;
     }
 
-    /* 4. COMPACT SELECTBOX (LOCATION) */
+    /* 6. COMPACT SELECTBOX (LOCATION) */
     div[data-testid="stSelectbox"] label {
         display: none !important;
     }
@@ -77,7 +98,7 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }
 
-    /* 5. SIDEBAR TITLE */
+    /* 7. SIDEBAR TITLE */
     .hub-title {
         font-size: 18px;
         font-weight: 800;
@@ -178,7 +199,6 @@ with st.sidebar:
 header_left, header_right = st.columns([8.2, 1.8])
 
 with header_left:
-    # Pinned Tabs Row
     tab_cols = st.columns([0.8] * len(st.session_state.open_tabs) + [4.0])
     for idx, t_key in enumerate(st.session_state.open_tabs):
         info = AVAILABLE_MODULES[t_key]
@@ -587,35 +607,4 @@ elif st.session_state.active_tab == "AMZ":
                     data=item["data"],
                     file_name=item["file_name"],
                     mime="application/pdf",
-                    key=f"dl_single_live_{st.session_state.selected_wh}_{idx}",
-                    use_container_width=True
-                )
-
-# =========================================================================
-# MODULE 2: BLINKIT E-INVOICE TOOL
-# =========================================================================
-elif st.session_state.active_tab == "BLNK":
-    st.subheader("⚡ Blinkit e-Invoice Management Tool")
-    b_col1, b_col2 = st.columns(2)
-    with b_col1:
-        st.file_uploader("Upload Blinkit PO / Data Sheet (Excel/CSV)", type=["xlsx", "xls", "csv"], key="blinkit_data")
-    with b_col2:
-        st.file_uploader("Upload Master Template / Supporting PDF (Optional)", type=["pdf", "json"], key="blinkit_template")
-
-# =========================================================================
-# MODULE 3: LABEL EDITOR
-# =========================================================================
-elif st.session_state.active_tab == "LBL":
-    st.subheader("🏷️ Shipping & Product Label Editor")
-    st.info("Label Editor module ready hai.")
-
-# =========================================================================
-# MODULE 4: SETTINGS & REPORTS
-# =========================================================================
-elif st.session_state.active_tab == "CONF":
-    st.subheader("⚙️ System Operations & Units Configuration")
-    st.markdown(f"""
-    - **Active Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`
-    - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
-    - **Engine Status:** Online & Healthy
-    """)
+                    key=f"dl_single_live_{st.session

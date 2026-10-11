@@ -143,9 +143,11 @@ LOCATION_DISPLAY_MAP = {
 
 ORDERED_LOCATIONS = list(LOCATION_DISPLAY_MAP.keys())
 
+# Added Blinkit PO Uploader Tool
 AVAILABLE_MODULES = {
     "AMZ": {"name": "Amazon Invoice Editor", "code": "AMZ-ED", "logo": "📦"},
-    "BLNK": {"name": "Blinkit e-Invoice Tool", "code": "BLNK-INV", "logo": "⚡"},
+    "BLNK_PO": {"name": "Blinkit PO Uploader", "code": "BLNK-PO", "logo": "⚡"},
+    "BLNK": {"name": "Blinkit e-Invoice Tool", "code": "BLNK-INV", "logo": "🧾"},
     "LBL": {"name": "Label Editor", "code": "LBL-ED", "logo": "🏷️"},
     "CONF": {"name": "Settings & Reports", "code": "SETTINGS", "logo": "⚙️"}
 }
@@ -348,7 +350,7 @@ if st.session_state.show_history:
                 )
 
 # =========================================================================
-# MODULE 1: AMAZON INVOICE EDITOR (HIGH SPEED ENGINE + SAFE CLOSURE)
+# MODULE 1: AMAZON INVOICE EDITOR (ULTRA-FAST SAFE ENGINE)
 # =========================================================================
 elif st.session_state.active_tab == "AMZ":
     st.subheader("📑 Amazon Invoice Editor & Barcode Stamper")
@@ -401,7 +403,7 @@ elif st.session_state.active_tab == "AMZ":
         tokens = get_token_words(raw_text)
         return len(tokens) >= 5
 
-    # Memory Barcode Cache: Har code ke liye ek hi baar render karega (Massive speed boost)
+    # Memory Barcode Cache
     BARCODE_CACHE = {}
     code128_cls = barcode.get_barcode_class('code128')
     barcode_writer = ImageWriter()
@@ -591,7 +593,6 @@ elif st.session_state.active_tab == "AMZ":
 
                     new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
 
-                # CRITICAL FIX: Pehle page count store karo, fir close karo
                 final_page_count = len(new_doc)
                 out_bytes = new_doc.tobytes(deflate=True, clean=False)
                 new_doc.close()
@@ -625,14 +626,13 @@ elif st.session_state.active_tab == "AMZ":
             """, unsafe_allow_html=True)
 
     # =====================================================================
-    # BULK & SINGLE DOWNLOAD SECTION (DOWNLOAD TRIGGERS HISTORY SAVE)
+    # BULK & SINGLE DOWNLOAD SECTION
     # =====================================================================
     batch_list = st.session_state.current_batch_results
     if batch_list:
         st.write("---")
         st.subheader("📥 Download Invoices")
 
-        # FAST COMPRESSED ZIP
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
             for idx, item in enumerate(batch_list):
@@ -673,10 +673,32 @@ elif st.session_state.active_tab == "AMZ":
                 )
 
 # =========================================================================
-# MODULE 2: BLINKIT E-INVOICE TOOL
+# MODULE 2: BLINKIT PO UPLOADER (NEW TOOL)
+# =========================================================================
+elif st.session_state.active_tab == "BLNK_PO":
+    st.subheader("⚡ Blinkit PO Uploader & Converter")
+    st.caption("Upload Blinkit Purchase Order (PO) PDFs for extraction and dispatch processing.")
+    
+    po_col1, po_col2 = st.columns(2)
+    with po_col1:
+        st.file_uploader(
+            "Upload Blinkit PO PDF(s)", 
+            type=["pdf"], 
+            accept_multiple_files=True, 
+            key=f"blnk_po_pdf_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
+        )
+    with po_col2:
+        st.file_uploader(
+            "Upload Reference / SKU Mapping Sheet (Optional Excel/CSV)", 
+            type=["xlsx", "xls", "csv"], 
+            key=f"blnk_po_map_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
+        )
+
+# =========================================================================
+# MODULE 3: BLINKIT E-INVOICE TOOL
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
-    st.subheader("⚡ Blinkit e-Invoice Management Tool")
+    st.subheader("🧾 Blinkit e-Invoice Management Tool")
     b_col1, b_col2 = st.columns(2)
     with b_col1:
         st.file_uploader("Upload Blinkit PO / Data Sheet (Excel/CSV)", type=["xlsx", "xls", "csv"], key="blinkit_data")
@@ -684,14 +706,14 @@ elif st.session_state.active_tab == "BLNK":
         st.file_uploader("Upload Master Template / Supporting PDF (Optional)", type=["pdf", "json"], key="blinkit_template")
 
 # =========================================================================
-# MODULE 3: LABEL EDITOR
+# MODULE 4: LABEL EDITOR
 # =========================================================================
 elif st.session_state.active_tab == "LBL":
     st.subheader("🏷️ Shipping & Product Label Editor")
     st.info("No files")
 
 # =========================================================================
-# MODULE 4: SETTINGS & REPORTS
+# MODULE 5: SETTINGS & REPORTS
 # =========================================================================
 elif st.session_state.active_tab == "CONF":
     st.subheader("⚙️ System Operations & Units Configuration")

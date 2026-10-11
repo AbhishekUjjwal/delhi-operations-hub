@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Sleek, Compact & Theme-Adaptive
+# Custom Styling: Strict Letter-Fit Tabs & Clean Icons
 st.markdown("""
     <style>
     /* 1. HIDE TOP-RIGHT FORK, GITHUB LOGO & STREAMLIT HEADER */
@@ -28,17 +28,27 @@ st.markdown("""
     div[data-testid="stDecoration"] {visibility: hidden; display: none !important;}
     div[data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
 
-    /* 2. COMPACT TAB & PILL BUTTONS (Fitted to text) */
+    /* 2. TOP ACTION ROW - COMPACT HORIZONTAL BAR */
+    div[data-testid="stHorizontalBlock"] {
+        align-items: center !important;
+        gap: 6px !important;
+    }
+
+    /* 3. TIGHT LETTER-FIT BUTTONS (NO EXTRA STRETCH) */
+    div[data-testid="stButton"] {
+        width: fit-content !important;
+    }
     div[data-testid="stButton"] button {
         border-radius: 16px !important;
         font-size: 12px !important;
         font-weight: 600 !important;
-        padding: 3px 10px !important;
+        padding: 4px 10px !important;
         min-height: 28px !important;
         height: 28px !important;
         line-height: 1 !important;
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
         white-space: nowrap !important;
+        width: fit-content !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -50,13 +60,13 @@ st.markdown("""
         color: #38bdf8 !important;
     }
 
-    /* 3. COMPACT SELECTBOX (Letter ke hisaab se fixed size) */
+    /* 4. COMPACT LETTER-FIT SELECTBOX (LOCATION) */
     div[data-testid="stSelectbox"] label {
         display: none !important;
     }
     div[data-testid="stSelectbox"] {
-        width: 145px !important;
-        min-width: 135px !important;
+        width: 130px !important;
+        min-width: 120px !important;
     }
     div[data-testid="stSelectbox"] > div > div {
         min-height: 28px !important;
@@ -67,7 +77,7 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }
 
-    /* 4. SINGLE LINE GRADIENT TITLE */
+    /* 5. SINGLE LINE GRADIENT TITLE */
     .hub-title {
         font-size: 18px;
         font-weight: 800;
@@ -164,39 +174,41 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP ACTION BAR: UNPIN WITH LOGO & COMPACT LOCATION -----------------
-top_tabs_col, top_wh_col, top_hist_col, top_reset_col = st.columns([5.2, 1.8, 1.4, 0.9])
+# ----------------- TOP ACTION BAR: TIGHT LETTER-FIT LAYOUT -----------------
+# Pinned Tabs + Refresh Icon + Location + History + Reset sab tight sequence me
+top_cols = st.columns([0.8] * len(st.session_state.open_tabs) + [0.35, 1.1, 0.9, 0.65, 3.5])
 
-with top_tabs_col:
-    # Open Tabs + 1 slot for Unpin button
-    num_tabs = len(st.session_state.open_tabs)
-    cols = st.columns(num_tabs + 1)
+col_idx = 0
+
+# 1. Pinned Tabs
+for t_key in st.session_state.open_tabs:
+    info = AVAILABLE_MODULES[t_key]
+    is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
     
-    for idx, t_key in enumerate(st.session_state.open_tabs):
-        info = AVAILABLE_MODULES[t_key]
-        is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
-        
-        if len(st.session_state.open_tabs) > 1:
-            tab_label = f"{info['logo']} {info['code']}  ✕"
-        else:
-            tab_label = f"{info['logo']} {info['code']}"
+    if len(st.session_state.open_tabs) > 1:
+        tab_label = f"{info['logo']} {info['code']} ✕"
+    else:
+        tab_label = f"{info['logo']} {info['code']}"
 
-        with cols[idx]:
-            if st.button(tab_label, key=f"tab_chip_{t_key}", type="primary" if is_active else "secondary", use_container_width=True):
-                if is_active and len(st.session_state.open_tabs) > 1:
-                    st.session_state.open_tabs.remove(t_key)
-                    st.session_state.active_tab = st.session_state.open_tabs[0]
-                else:
-                    st.session_state.active_tab = t_key
-                    st.session_state.show_history = False
-                st.rerun()
+    with top_cols[col_idx]:
+        if st.button(tab_label, key=f"tab_chip_{t_key}", type="primary" if is_active else "secondary"):
+            if is_active and len(st.session_state.open_tabs) > 1:
+                st.session_state.open_tabs.remove(t_key)
+                st.session_state.active_tab = st.session_state.open_tabs[0]
+            else:
+                st.session_state.active_tab = t_key
+                st.session_state.show_history = False
+            st.rerun()
+    col_idx += 1
 
-    # Dedicated Unpin tab with logo
-    with cols[num_tabs]:
-        if st.button("🔄 Unpin", key="btn_unpin_with_logo", use_container_width=True, help="Clear all extra pinned tabs"):
-            clear_all_pinned_tabs()
+# 2. Refresh Icon Only (Unpin text removed)
+with top_cols[col_idx]:
+    if st.button("🔄", key="btn_refresh_icon_only", help="Unpin all extra tabs"):
+        clear_all_pinned_tabs()
+col_idx += 1
 
-with top_wh_col:
+# 3. Location Dropdown
+with top_cols[col_idx]:
     selected_display = st.selectbox(
         "WH | Location",
         options=ORDERED_LOCATIONS,
@@ -204,22 +216,25 @@ with top_wh_col:
         index=ORDERED_LOCATIONS.index(st.session_state.selected_wh) if st.session_state.selected_wh in ORDERED_LOCATIONS else 0
     )
     st.session_state.selected_wh = selected_display
+col_idx += 1
 
+# 4. History Button
 loc_history = get_current_location_history()
-
-with top_hist_col:
-    if st.button(f"🕒 History ({len(loc_history)})", use_container_width=True, type="primary" if st.session_state.show_history else "secondary"):
+with top_cols[col_idx]:
+    if st.button(f"🕒 History ({len(loc_history)})", key="top_hist_btn", type="primary" if st.session_state.show_history else "secondary"):
         st.session_state.show_history = not st.session_state.show_history
         st.rerun()
+col_idx += 1
 
-with top_reset_col:
-    if st.button("🔄 Reset", use_container_width=True, type="secondary", help="Clears upload inputs only; history remains safe"):
+# 5. Reset Button
+with top_cols[col_idx]:
+    if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset upload area"):
         reset_current_workspace()
 
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (PERMANENT & SAVED ACROSS RESETS)
+# HISTORY VIEW (PERMANENT STORAGE)
 # =========================================================================
 if st.session_state.show_history:
     h_top_c1, h_top_c2 = st.columns([4, 1])
@@ -242,7 +257,6 @@ if st.session_state.show_history:
     else:
         st.success(f"💾 Total Saved Files in Storage: **{len(loc_history)}**")
         
-        # BULK ZIP DOWNLOAD IN HISTORY
         if len(loc_history) > 1:
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -260,7 +274,6 @@ if st.session_state.show_history:
             )
 
         st.write("---")
-        # SINGLE-SINGLE FILE DOWNLOAD IN HISTORY
         for idx, item in enumerate(loc_history):
             d_col1, d_col2 = st.columns([3, 1])
             with d_col1:
@@ -368,7 +381,6 @@ elif st.session_state.active_tab == "AMZ":
             st.error(f"CSV read error: {e}")
             st.stop()
 
-        # Silent Column Mapping
         col_mapping = {str(col).strip().lower(): col for col in df.columns}
         order_col = next((col_mapping[c] for c in col_mapping if "order" in c and "id" in c), None) or \
                     next((col_mapping[c] for c in col_mapping if "order" in c), None)

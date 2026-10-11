@@ -227,37 +227,19 @@ st.markdown("""
         border-color: rgba(58, 80, 107, 0.3) !important;
     }
 
-    /* Clean Streamlit Buttons */
-    div[data-testid="stButton"] button {
+    /* Small action buttons */
+    .right-action-cluster div[data-testid="stButton"] button {
         border-radius: 16px !important;
         font-size: 12px !important;
         font-weight: 600 !important;
-        padding: 3px 12px !important;
         min-height: 28px !important;
         height: 28px !important;
         line-height: 1 !important;
-        border: 1px solid rgba(148, 163, 184, 0.3) !important;
-        white-space: nowrap !important;
-        box-shadow: none !important;
-    }
-    div[data-testid="stButton"] button:hover {
-        border-color: #38bdf8 !important;
-        color: #38bdf8 !important;
-    }
-
-    .right-action-cluster div[data-testid="stButton"] {
-        width: 100% !important;
-    }
-    .right-action-cluster div[data-testid="stButton"] button {
         width: 100% !important;
     }
 
-    div[data-testid="stSelectbox"] label {
-        display: none !important;
-    }
-    div[data-testid="stSelectbox"] {
-        width: 100% !important;
-    }
+    div[data-testid="stSelectbox"] label { display: none !important; }
+    div[data-testid="stSelectbox"] { width: 100% !important; }
     div[data-testid="stSelectbox"] > div > div {
         min-height: 28px !important;
         height: 28px !important;
@@ -280,47 +262,96 @@ st.markdown("""
         gap: 8px;
     }
     .pan-brand-subtitle {
-        font-size: 12px;
+        font-size: 12.5px;
         font-weight: 500;
         color: #94a3b8;
         margin-bottom: 8px;
     }
 
-    .pro-success-card {
-        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.25) 100%);
-        border: 1px solid rgba(52, 211, 153, 0.5);
-        border-radius: 10px;
-        padding: 12px 16px;
-        color: #ecfdf5;
-        margin: 8px 0px;
+    /* EXACT WHITE CARD DESIGN */
+    .custom-card-container {
+        position: relative;
+        background: #ffffff;
+        border: 2px solid #e2e8f0;
+        border-radius: 20px;
+        padding: 22px 22px 18px 22px;
+        margin-bottom: 14px;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+        cursor: pointer;
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .custom-card-container:hover {
+        transform: translateY(-4px);
+        border-color: #38bdf8;
+        box-shadow: 0 10px 24px rgba(56, 189, 248, 0.16);
+    }
+    .card-top-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .card-icon-bubble {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+    }
+    .card-badge {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 20px;
+        letter-spacing: 0.6px;
+    }
+    .card-main-title {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 24px;
+    }
+    .card-bottom-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 14px;
+    }
+    .card-open-link {
+        font-size: 14px;
+        font-weight: 700;
+    }
+    .card-arrow-bubble {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
     }
 
-    /* FULL WHITE BOX CLICKABLE STYLING */
-    div[data-testid="stVerticalBlock"] > div.module-card-wrap div[data-testid="stButton"] {
-        width: 100% !important;
+    /* FULL CARD BUTTON TRANSPARENT OVERLAY (CLICK ANYWHERE) */
+    .card-outer-box {
+        position: relative;
     }
-    div[data-testid="stVerticalBlock"] > div.module-card-wrap div[data-testid="stButton"] button {
+    .card-outer-box div[data-testid="stButton"] {
+        position: absolute;
+        top: 0;
+        left: 0;
         width: 100% !important;
-        height: auto !important;
-        min-height: 155px !important;
-        background: #ffffff !important;
-        color: #0f172a !important;
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 20px !important;
-        padding: 18px 20px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        justify-content: flex-start !important;
-        text-align: left !important;
-        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06) !important;
-        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
-        white-space: normal !important;
+        height: 100% !important;
+        z-index: 10;
+        opacity: 0;
     }
-    div[data-testid="stVerticalBlock"] > div.module-card-wrap div[data-testid="stButton"] button:hover {
-        transform: translateY(-4px) !important;
-        border-color: #38bdf8 !important;
-        box-shadow: 0 10px 24px rgba(56, 189, 248, 0.18) !important;
+    .card-outer-box div[data-testid="stButton"] button {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 165px !important;
+        cursor: pointer !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -342,51 +373,56 @@ AVAILABLE_MODULES = {
         "mod_no": "MODULE 01",
         "name": "1. Amazon Invoice Editor",
         "code": "AMZ-ED",
-        "logo": "📦",
-        "desc": "Barcode stamping, PAN filter & dispatch label reconciliation for Amazon.",
-        "color": "#2563eb",
+        "short_open": "Open AMZ-ED",
+        "logo": "📄",
+        "color": "#1d4ed8",
         "badge_bg": "#eff6ff",
-        "icon_bg": "#dbeafe"
+        "icon_bg": "#dbeafe",
+        "arrow_bg": "#eff6ff"
     },
     "BLNK_PO": {
         "mod_no": "MODULE 02",
         "name": "2. Blinkit PO Pouch",
         "code": "BLNK-PO",
-        "logo": "⚡",
-        "desc": "PO upload, SKU conversion & batch pouch manifest preparation.",
+        "short_open": "Open BLNK-PO",
+        "logo": "🛍️",
         "color": "#059669",
         "badge_bg": "#ecfdf5",
-        "icon_bg": "#d1fae5"
+        "icon_bg": "#d1fae5",
+        "arrow_bg": "#ecfdf5"
     },
     "BLNK": {
         "mod_no": "MODULE 03",
         "name": "3. Blinkit e-Invoice Tool",
         "code": "BLNK-INV",
+        "short_open": "Open BLNK-INV",
         "logo": "🧾",
-        "desc": "NIC v1.01 JSON & Excel exporter with smart buyer/shipping separation.",
         "color": "#d97706",
         "badge_bg": "#fffbeb",
-        "icon_bg": "#fef3c7"
+        "icon_bg": "#fef3c7",
+        "arrow_bg": "#fffbeb"
     },
     "LBL": {
         "mod_no": "MODULE 04",
         "name": "4. Label Editor Tool",
         "code": "LBL-ED",
+        "short_open": "Open LBL-ED",
         "logo": "🏷️",
-        "desc": "Crop, resize & format shipping labels for thermal 4x6 roll printing.",
         "color": "#7c3aed",
         "badge_bg": "#f5f3ff",
-        "icon_bg": "#ede9fe"
+        "icon_bg": "#ede9fe",
+        "arrow_bg": "#f5f3ff"
     },
     "CONF": {
         "mod_no": "MODULE 05",
         "name": "5. Settings & Config",
         "code": "SETTINGS",
+        "short_open": "Open SETTINGS",
         "logo": "⚙️",
-        "desc": "Warehouse parameters, system logs, master SKU mapping & reports.",
         "color": "#475569",
         "badge_bg": "#f1f5f9",
-        "icon_bg": "#e2e8f0"
+        "icon_bg": "#e2e8f0",
+        "arrow_bg": "#f1f5f9"
     }
 }
 
@@ -430,22 +466,135 @@ def clear_all_pinned_tabs():
     st.session_state.show_history = False
     st.rerun()
 
-# ----------------- SIDEBAR (CLEANED UP - NO DUPLICATE TOOLS) -----------------
+# ----------------- SIDEBAR: LIVE INDIA ANALOG CLOCK -----------------
 with st.sidebar:
-    st.markdown('<div class="pan-brand-title">🏛️ PAN OPERATIONS</div>', unsafe_allow_html=True)
-    st.caption("Romsons prime pvt ltd portal")
-    st.divider()
+    clock_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <style>
+    .clock-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 0px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .analog-clock {
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        background: #0f172a;
+        border: 4px solid #38bdf8;
+        box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+        position: relative;
+        margin-bottom: 12px;
+    }
+    .center-dot {
+        width: 8px;
+        height: 8px;
+        background: #38bdf8;
+        border-radius: 50%;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+    }
+    .hand {
+        position: absolute;
+        bottom: 50%;
+        left: 50%;
+        transform-origin: bottom center;
+        border-radius: 4px;
+    }
+    .hour-hand {
+        width: 4px;
+        height: 38px;
+        background: #f8fafc;
+        margin-left: -2px;
+    }
+    .minute-hand {
+        width: 2.5px;
+        height: 52px;
+        background: #94a3b8;
+        margin-left: -1.25px;
+    }
+    .second-hand {
+        width: 1.5px;
+        height: 58px;
+        background: #ef4444;
+        margin-left: -0.75px;
+    }
+    .time-ist-tag {
+        font-size: 11px;
+        font-weight: 800;
+        color: #38bdf8;
+        letter-spacing: 1px;
+    }
+    .digital-time {
+        font-size: 15px;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin-top: 2px;
+    }
+    .digital-date {
+        font-size: 11px;
+        color: #94a3b8;
+        margin-top: 1px;
+    }
+    </style>
+    </head>
+    <body>
+    <div class="clock-wrapper">
+        <div class="analog-clock">
+            <div class="center-dot"></div>
+            <div class="hand hour-hand" id="hour"></div>
+            <div class="hand minute-hand" id="min"></div>
+            <div class="hand second-hand" id="sec"></div>
+        </div>
+        <div class="time-ist-tag">🇮🇳 INDIA TIME (IST)</div>
+        <div class="digital-time" id="digi-time">--:--:-- --</div>
+        <div class="digital-date" id="digi-date">--</div>
+    </div>
+    <script>
+    function updateClock() {
+        const now = new Date();
+        // Force IST (UTC + 5:30)
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const ist = new Date(utc + (3600000 * 5.5));
+        
+        const h = ist.getHours();
+        const m = ist.getMinutes();
+        const s = ist.getSeconds();
 
-    if st.button("🏠 Central Dashboard", use_container_width=True, type="primary" if st.session_state.active_tab == "HOME" else "secondary"):
-        if "HOME" not in st.session_state.open_tabs:
-            st.session_state.open_tabs.insert(0, "HOME")
-        st.session_state.active_tab = "HOME"
-        st.session_state.show_history = False
-        st.rerun()
+        const hDeg = (h % 12) * 30 + (m / 2);
+        const mDeg = m * 6;
+        const sDeg = s * 6;
 
+        document.getElementById('hour').style.transform = `rotate(${hDeg}deg)`;
+        document.getElementById('min').style.transform = `rotate(${mDeg}deg)`;
+        document.getElementById('sec').style.transform = `rotate(${sDeg}deg)`;
+
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        const pad = (n) => n < 10 ? '0' + n : n;
+        document.getElementById('digi-time').innerText = `${pad(h12)}:${pad(m)}:${pad(s)} ${ampm}`;
+        
+        const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+        document.getElementById('digi-date').innerText = ist.toLocaleDateString('en-IN', options);
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+    </script>
+    </body>
+    </html>
+    """
+    components.html(clock_html, height=230)
     st.divider()
-    st.markdown(f"**Selected WH:** `{st.session_state.selected_wh}`")
-    st.caption("System Engine: v3.2 Enterprise Online")
+    st.markdown(f"**WH Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`")
+    st.caption("Central Operations Hub v3.2")
 
 # ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
 h_left, h_right = st.columns([7.5, 2.5])
@@ -460,7 +609,7 @@ with h_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
     with loc_sub1:
-        if st.button("🔄", key="btn_refresh_pinned", help="Clear all pinned extra tabs", use_container_width=True):
+        if st.button("🔄", key="btn_refresh_pinned", help="Clear all extra tabs", use_container_width=True):
             clear_all_pinned_tabs()
     with loc_sub2:
         selected_display = st.selectbox(
@@ -484,11 +633,11 @@ with h_right:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ----------------- JUST NICHE: PINNED TABS -----------------
-tab_cols = st.columns([1.1] * len(st.session_state.open_tabs) + [3.0])
+# ----------------- PINNED TABS: 'HOME' REPLACES 'DASHBOARD' -----------------
+tab_cols = st.columns([1.0] * len(st.session_state.open_tabs) + [3.0])
 for idx, t_key in enumerate(st.session_state.open_tabs):
     if t_key == "HOME":
-        tab_label = "🏠 Dashboard"
+        tab_label = "🏠 HOME"
     else:
         info = AVAILABLE_MODULES[t_key]
         tab_label = f"{info['logo']} {info['code']} ✕" if len(st.session_state.open_tabs) > 1 else f"{info['logo']} {info['code']}"
@@ -506,10 +655,10 @@ for idx, t_key in enumerate(st.session_state.open_tabs):
 
 st.divider()
 
-# ----------------- USKE NICHE: DASHBOARD WHITE BOXES (CLICKABLE CARDS) -----------------
+# ----------------- USKE NICHE: DASHBOARD WHITE BOXES (CLICK ANYWHERE TO OPEN) -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
     st.subheader("⚡ Select Operation Module")
-    st.caption("Click anywhere on any card box to open and pin that tool.")
+    st.caption("Click anywhere on any box to open and pin that tool.")
     st.write("")
 
     keys = list(AVAILABLE_MODULES.keys())
@@ -520,16 +669,32 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
         for col_obj, m_key in zip([c1, c2], row_keys):
             mod_data = AVAILABLE_MODULES[m_key]
             with col_obj:
-                st.markdown('<div class="module-card-wrap">', unsafe_allow_html=True)
-                # Formatted Card text directly inside the big button
-                card_btn_label = f"{mod_data['logo']}  [{mod_data['mod_no']}]\n\n{mod_data['name']}\n\n{mod_data['desc']}\n\n➔ Open Tool"
-                if st.button(card_btn_label, key=f"full_card_click_{m_key}"):
+                st.markdown(f"""
+                <div class="card-outer-box">
+                    <div class="custom-card-container">
+                        <div class="card-top-row">
+                            <div class="card-icon-bubble" style="background-color: {mod_data['icon_bg']}; color: {mod_data['color']};">
+                                {mod_data['logo']}
+                            </div>
+                            <span class="card-badge" style="background-color: {mod_data['badge_bg']}; color: {mod_data['color']};">
+                                {mod_data['mod_no']}
+                            </span>
+                        </div>
+                        <div class="card-main-title">{mod_data['name']}</div>
+                        <div class="card-bottom-row">
+                            <span class="card-open-link" style="color: {mod_data['color']};">{mod_data['short_open']}</span>
+                            <div class="card-arrow-bubble" style="background-color: {mod_data['arrow_bg']}; color: {mod_data['color']};">➔</div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Invisible full-sized overlay button over the white box
+                if st.button(f"open_{m_key}", key=f"overlay_btn_{m_key}"):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key
                     st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.write("")
 
 # ----------------- HISTORY VIEW -----------------
 elif st.session_state.show_history:
@@ -1217,8 +1382,6 @@ elif st.session_state.active_tab == "BLNK":
         is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
 
         # ----------------- SHIPPING RULE -----------------
-        # 1. Blinkit invoice me shipping details hamesha BLANK rahegi (False)
-        # 2. Baaki kisi buyer ka billing address se alag shipping address ho, tabhi fill hogi (True)
         if is_blinkit:
             shipping_is_different = False
         else:

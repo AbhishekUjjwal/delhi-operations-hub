@@ -268,91 +268,123 @@ st.markdown("""
         margin-bottom: 8px;
     }
 
-    /* EXACT WHITE CARD DESIGN */
-    .custom-card-container {
+    .pro-success-card {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.25) 100%);
+        border: 1px solid rgba(52, 211, 153, 0.5);
+        border-radius: 10px;
+        padding: 12px 16px;
+        color: #ecfdf5;
+        margin: 8px 0px;
+    }
+
+    /* Pinned Tabs Styling */
+    .top-tab-strip div[data-testid="stButton"] button {
+        border-radius: 18px !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        padding: 4px 14px !important;
+        min-height: 32px !important;
+        height: 32px !important;
+    }
+
+    /* OVAL CARD BOX STYLING */
+    .oval-card-wrapper {
         position: relative;
+        width: 100%;
+        margin-bottom: 16px;
+    }
+    .oval-card {
         background: #ffffff;
         border: 2px solid #e2e8f0;
-        border-radius: 20px;
-        padding: 22px 22px 18px 22px;
-        margin-bottom: 14px;
-        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
-        cursor: pointer;
-        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        border-radius: 24px;
+        padding: 24px 26px 18px 26px;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
     }
-    .custom-card-container:hover {
-        transform: translateY(-4px);
-        border-color: #38bdf8;
-        box-shadow: 0 10px 24px rgba(56, 189, 248, 0.16);
-    }
-    .card-top-row {
+    .card-top-flex {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
     }
-    .card-icon-bubble {
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
+    .icon-bubble {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 22px;
+        font-size: 24px;
     }
-    .card-badge {
+    .badge-pill {
         font-size: 11px;
-        font-weight: 700;
-        padding: 4px 12px;
-        border-radius: 20px;
+        font-weight: 800;
+        padding: 5px 14px;
+        border-radius: 30px;
         letter-spacing: 0.6px;
     }
-    .card-main-title {
-        font-size: 20px;
+    .card-heading {
+        font-size: 21px;
         font-weight: 800;
         color: #0f172a;
-        margin-bottom: 24px;
+        margin-bottom: 22px;
+        letter-spacing: -0.2px;
     }
-    .card-bottom-row {
+    .card-foot-flex {
         display: flex;
         justify-content: space-between;
         align-items: center;
         border-top: 1px solid #f1f5f9;
         padding-top: 14px;
     }
-    .card-open-link {
-        font-size: 14px;
-        font-weight: 700;
+    .foot-label {
+        font-size: 14.5px;
+        font-weight: 800;
     }
-    .card-arrow-bubble {
-        width: 30px;
-        height: 30px;
+    .foot-circle {
+        width: 32px;
+        height: 32px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 14px;
+        font-weight: 900;
     }
 
-    /* FULL CARD BUTTON TRANSPARENT OVERLAY (CLICK ANYWHERE) */
-    .card-outer-box {
-        position: relative;
-    }
-    .card-outer-box div[data-testid="stButton"] {
-        position: absolute;
-        top: 0;
-        left: 0;
+    /* FULL INVISIBLE BUTTON OVERLAY TO MAKE ENTIRE OVAL CLICKABLE */
+    .oval-card-wrapper div[data-testid="stButton"] {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
         width: 100% !important;
         height: 100% !important;
-        z-index: 10;
-        opacity: 0;
+        z-index: 5 !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
-    .card-outer-box div[data-testid="stButton"] button {
+    .oval-card-wrapper div[data-testid="stButton"] button {
         width: 100% !important;
         height: 100% !important;
-        min-height: 165px !important;
+        opacity: 0 !important;
         cursor: pointer !important;
+        border-radius: 24px !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }
+
+    /* DYNAMIC HOVER COLOR EFFECTS */
+    .oval-card-wrapper:hover .oval-card {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    }
+    .hover-amz:hover .oval-card { border-color: #2563eb !important; }
+    .hover-blnk-po:hover .oval-card { border-color: #059669 !important; }
+    .hover-blnk:hover .oval-card { border-color: #d97706 !important; }
+    .hover-lbl:hover .oval-card { border-color: #7c3aed !important; }
+    .hover-conf:hover .oval-card { border-color: #475569 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -378,7 +410,8 @@ AVAILABLE_MODULES = {
         "color": "#1d4ed8",
         "badge_bg": "#eff6ff",
         "icon_bg": "#dbeafe",
-        "arrow_bg": "#eff6ff"
+        "arrow_bg": "#eff6ff",
+        "hover_cls": "hover-amz"
     },
     "BLNK_PO": {
         "mod_no": "MODULE 02",
@@ -389,7 +422,8 @@ AVAILABLE_MODULES = {
         "color": "#059669",
         "badge_bg": "#ecfdf5",
         "icon_bg": "#d1fae5",
-        "arrow_bg": "#ecfdf5"
+        "arrow_bg": "#ecfdf5",
+        "hover_cls": "hover-blnk-po"
     },
     "BLNK": {
         "mod_no": "MODULE 03",
@@ -400,7 +434,8 @@ AVAILABLE_MODULES = {
         "color": "#d97706",
         "badge_bg": "#fffbeb",
         "icon_bg": "#fef3c7",
-        "arrow_bg": "#fffbeb"
+        "arrow_bg": "#fffbeb",
+        "hover_cls": "hover-blnk"
     },
     "LBL": {
         "mod_no": "MODULE 04",
@@ -411,7 +446,8 @@ AVAILABLE_MODULES = {
         "color": "#7c3aed",
         "badge_bg": "#f5f3ff",
         "icon_bg": "#ede9fe",
-        "arrow_bg": "#f5f3ff"
+        "arrow_bg": "#f5f3ff",
+        "hover_cls": "hover-lbl"
     },
     "CONF": {
         "mod_no": "MODULE 05",
@@ -422,7 +458,8 @@ AVAILABLE_MODULES = {
         "color": "#475569",
         "badge_bg": "#f1f5f9",
         "icon_bg": "#e2e8f0",
-        "arrow_bg": "#f1f5f9"
+        "arrow_bg": "#f1f5f9",
+        "hover_cls": "hover-conf"
     }
 }
 
@@ -487,7 +524,7 @@ with st.sidebar:
         border-radius: 50%;
         background: #0f172a;
         border: 4px solid #38bdf8;
-        box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+        box-shadow: 0 0 18px rgba(56, 189, 248, 0.4);
         position: relative;
         margin-bottom: 12px;
     }
@@ -561,7 +598,6 @@ with st.sidebar:
     <script>
     function updateClock() {
         const now = new Date();
-        // Force IST (UTC + 5:30)
         const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
         const ist = new Date(utc + (3600000 * 5.5));
         
@@ -594,7 +630,7 @@ with st.sidebar:
     components.html(clock_html, height=230)
     st.divider()
     st.markdown(f"**WH Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`")
-    st.caption("Central Operations Hub v3.2")
+    st.caption("Operations Hub System Engine v3.2")
 
 # ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
 h_left, h_right = st.columns([7.5, 2.5])
@@ -634,6 +670,7 @@ with h_right:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------- PINNED TABS: 'HOME' REPLACES 'DASHBOARD' -----------------
+st.markdown('<div class="top-tab-strip">', unsafe_allow_html=True)
 tab_cols = st.columns([1.0] * len(st.session_state.open_tabs) + [3.0])
 for idx, t_key in enumerate(st.session_state.open_tabs):
     if t_key == "HOME":
@@ -652,14 +689,13 @@ for idx, t_key in enumerate(st.session_state.open_tabs):
                 st.session_state.active_tab = t_key
                 st.session_state.show_history = False
             st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ----------------- USKE NICHE: DASHBOARD WHITE BOXES (CLICK ANYWHERE TO OPEN) -----------------
+# ----------------- DASHBOARD VIEW: OVAL CARDS (CLICK ANYWHERE TO OPEN) -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
-    st.subheader("⚡ Select Operation Module")
-    st.caption("Click anywhere on any box to open and pin that tool.")
-    st.write("")
+    st.markdown('<div style="font-size: 13px; font-weight: 800; color: #64748b; margin-bottom: 12px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
     keys = list(AVAILABLE_MODULES.keys())
     for i in range(0, len(keys), 2):
@@ -669,32 +705,35 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
         for col_obj, m_key in zip([c1, c2], row_keys):
             mod_data = AVAILABLE_MODULES[m_key]
             with col_obj:
-                st.markdown(f"""
-                <div class="card-outer-box">
-                    <div class="custom-card-container">
-                        <div class="card-top-row">
-                            <div class="card-icon-bubble" style="background-color: {mod_data['icon_bg']}; color: {mod_data['color']};">
+                # OVAL CARD HTML + INVISIBLE FULL BUTTON (NO SEPARATE BOTTOM BUTTONS)
+                card_markup = f"""
+                <div class="oval-card-wrapper {mod_data['hover_cls']}">
+                    <div class="oval-card">
+                        <div class="card-top-flex">
+                            <div class="icon-bubble" style="background-color: {mod_data['icon_bg']}; color: {mod_data['color']};">
                                 {mod_data['logo']}
                             </div>
-                            <span class="card-badge" style="background-color: {mod_data['badge_bg']}; color: {mod_data['color']};">
+                            <span class="badge-pill" style="background-color: {mod_data['badge_bg']}; color: {mod_data['color']};">
                                 {mod_data['mod_no']}
                             </span>
                         </div>
-                        <div class="card-main-title">{mod_data['name']}</div>
-                        <div class="card-bottom-row">
-                            <span class="card-open-link" style="color: {mod_data['color']};">{mod_data['short_open']}</span>
-                            <div class="card-arrow-bubble" style="background-color: {mod_data['arrow_bg']}; color: {mod_data['color']};">➔</div>
+                        <div class="card-heading">{mod_data['name']}</div>
+                        <div class="card-foot-flex">
+                            <span class="foot-label" style="color: {mod_data['color']};">{mod_data['short_open']}</span>
+                            <div class="foot-circle" style="background-color: {mod_data['arrow_bg']}; color: {mod_data['color']};">➔</div>
                         </div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
+                """
+                st.markdown(card_markup, unsafe_allow_html=True)
                 
-                # Invisible full-sized overlay button over the white box
-                if st.button(f"open_{m_key}", key=f"overlay_btn_{m_key}"):
+                # Hidden full overlay button on entire box
+                if st.button(f"open_mod_{m_key}", key=f"ovl_btn_{m_key}"):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key
                     st.rerun()
+
+                st.markdown("</div>", unsafe_allow_html=True)
 
 # ----------------- HISTORY VIEW -----------------
 elif st.session_state.show_history:
@@ -1107,7 +1146,7 @@ elif st.session_state.active_tab == "AMZ":
 
 # ----------------- MODULE 2: BLINKIT PO UPLOADER -----------------
 elif st.session_state.active_tab == "BLNK_PO":
-    st.subheader("⚡ Blinkit PO Uploader & Converter")
+    st.subheader("🛍️ Blinkit PO Pouch & Manifest Processor")
     st.caption("Upload Blinkit Purchase Order (PO) PDFs for extraction and dispatch processing.")
 
     po_col1, po_col2 = st.columns(2)

@@ -8,10 +8,15 @@ import json
 import zipfile
 import barcode
 from barcode.writer import ImageWriter
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+# IST TIME HELPER (Exact Indian Standard Time)
+IST = timezone(timedelta(hours=5, minutes=30))
+def get_current_ist_str():
+    return datetime.now(IST).strftime("%d-%b %I:%M %p")
 
 # Page Configuration
 st.set_page_config(
@@ -229,7 +234,7 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP LAYOUT: LEFT TABS & RIGHT CONTROLS -----------------
+# ----------------- TOP LAYOUT -----------------
 header_left, header_right = st.columns([7.8, 2.2])
 
 with header_left:
@@ -280,7 +285,7 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW
+# HISTORY VIEW (WITH EXACT IST TIMEZONE)
 # =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
@@ -608,7 +613,7 @@ elif st.session_state.active_tab == "AMZ":
                     "removed_desc": file_removed_desc,
                     "location": st.session_state.selected_wh,
                     "module": "AMZ",
-                    "time": datetime.now().strftime("%d-%b %H:%M")
+                    "time": get_current_ist_str()
                 })
 
                 progress_bar.progress((file_idx + 1) / total_files)
@@ -693,7 +698,7 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL (PERFECT UNIFIED SINGLE-LINE ORDER ID)
+# MODULE 3: BLINKIT E-INVOICE TOOL (STRICT ORDER ID & IST CLOCK)
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
@@ -765,24 +770,24 @@ elif st.session_state.active_tab == "BLNK":
         page0 = doc[0]
         words = page0.get_text("words")
 
-        # COMPLETE EXTERNAL ORDER EXTRACTION (COMBINES MULTI-LINE SPLIT NUMBERS)
+        # 1. CLEAN EXTERNAL ORDER EXTRACTION (STRICTLY NUMBERS - NO INVOICE NO LEAKAGE)
         ext_order_id = None
         ext_matches = [w for w in words if "extern" in w[4].lower()]
         if ext_matches:
             anchor = ext_matches[0]
-            # Capture all digit blocks directly to the right or on the immediate line below
+            # Capture words on the right OR immediately below (<= 11 points) that are strictly digits
             num_words = [
                 w for w in words 
-                if (anchor[1] - 4 <= w[1] <= anchor[3] + 18) 
+                if (anchor[1] - 4 <= w[1] <= anchor[3] + 11.5) 
                 and (anchor[0] + 45 <= w[0] <= 445)
-                and re.search(r'\d', w[4])
+                and w[4].strip().isdigit()  # Strictly digit only (excludes M90-...)
             ]
             num_words.sort(key=lambda w: (round(w[1] / 6) * 6, w[0]))
             if num_words:
-                ext_order_id = "".join([re.sub(r'[^\w\-]', '', w[4]) for w in num_words])
+                ext_order_id = "".join([w[4].strip() for w in num_words])
 
         if not ext_order_id:
-            ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\sA-Za-z\-]+?)(?=\n\s*[A-Za-z]|Invoice|Date|$)", full_text, re.IGNORECASE)
+            ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\s]+?)(?=\n\s*[A-Za-z]|Invoice|Date|$)", full_text, re.IGNORECASE)
             if ext_match:
                 ext_order_id = "".join(ext_match.group(1).split())
         if not ext_order_id:
@@ -792,6 +797,7 @@ elif st.session_state.active_tab == "BLNK":
         if not ext_order_id:
             ext_order_id = "ExtOrder"
 
+        # 2. INVOICE NO EXTRACTION
         inv_match = re.search(r"Invoice\s*No\s*[:\s]*([A-Za-z0-9\-_/]+)", full_text, re.IGNORECASE)
         invoice_no = inv_match.group(1).strip() if inv_match else "INV-001"
 
@@ -799,7 +805,7 @@ elif st.session_state.active_tab == "BLNK":
         raw_date = date_match.group(1).strip() if date_match else "Date"
 
         clean_date = raw_date
-        std_date_for_json = datetime.now().strftime("%d/%m/%Y")
+        std_date_for_json = datetime.now(IST).strftime("%d/%m/%Y")
         for fmt in ("%b %d, %Y", "%B %d, %Y", "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
             try:
                 d_obj = datetime.strptime(raw_date, fmt)
@@ -968,13 +974,13 @@ elif st.session_state.active_tab == "BLNK":
         for p_idx, page in enumerate(doc):
             words = page.get_text("words")
 
-            # COMPLETE UNIFIED SINGLE-LINE ORDER ID
+            # ACCURATE SINGLE-LINE OVERWRITE FOR EXTERNAL ORDER ID
             if p_idx == 0 and ext_order_str and ext_order_str != "ExtOrder":
                 ext_matches = [w for w in words if "extern" in w[4].lower()]
                 if ext_matches:
                     anchor = ext_matches[0]
-                    # Exactly target the area right of 'Extern Order No :' (x: 368 to 445, y: from anchor top to next row top)
-                    ext_num_box = fitz.Rect(anchor[2] + 2, anchor[1] - 1, anchor[2] + 80, anchor[3] + 12)
+                    # Mask exactly the order number area (without touching Invoice No below)
+                    ext_num_box = fitz.Rect(anchor[2] + 2, anchor[1] - 0.5, anchor[2] + 75, anchor[3] + 10)
                     page.draw_rect(ext_num_box, color=None, fill=(1, 1, 1))
                     page.insert_text(
                         (anchor[2] + 3, anchor[3] - 1.0), 
@@ -1121,7 +1127,7 @@ elif st.session_state.active_tab == "BLNK":
                             "gst_rate": 5.0
                         })
 
-                    # SAFE IN-LINE UOM UPDATE (WITHOUT HIDING TEXT/BORDER LINES)
+                    # SAFE IN-LINE UOM UPDATE
                     if is_blinkit and factor > 1:
                         uom_in_row = [
                             w for w in row_words 
@@ -1499,7 +1505,7 @@ elif st.session_state.active_tab == "BLNK":
         exact_total = round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
         grand_total = round(exact_total)
         round_off = round(grand_total - exact_total, 2)
-        ack_date_str = f"{meta['clean_date']} 17:0:00"
+        ack_date_str = f"{meta['clean_date']} 17:00:00"
 
         table_rows = ""
         for idx, it in enumerate(meta['line_items'], 1):
@@ -1719,7 +1725,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     "stamped": len(meta["line_items"]),
                     "location": st.session_state.selected_wh,
                     "module": "BLNK",
-                    "time": datetime.now().strftime("%d-%b %H:%M")
+                    "time": get_current_ist_str()
                 }
 
                 c1, c2, c3 = st.columns(3)
@@ -1772,12 +1778,12 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                             "stamped": len(doc["meta"]["line_items"]),
                             "location": st.session_state.selected_wh,
                             "module": "BLNK",
-                            "time": datetime.now().strftime("%d-%b %H:%M")
+                            "time": get_current_ist_str()
                         })
                 zip_buffer.seek(0)
 
                 bulk_json = [build_einvoice_json_v101(d["meta"]) for d in processed_docs]
-                date_str = datetime.now().strftime('%d-%m-%Y')
+                date_str = datetime.now(IST).strftime('%d-%m-%Y')
 
                 c1, c2, c3 = st.columns(3)
                 with c1:

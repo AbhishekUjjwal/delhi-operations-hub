@@ -403,7 +403,7 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (30-DAY RETENTION)
+# HISTORY VIEW
 # =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
@@ -805,11 +805,11 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL (STRICT STATE-AWARE TAX LOGIC)
+# MODULE 3: BLINKIT E-INVOICE TOOL (EXACT MATCHING TAXABLE BASE & PDF TOTAL)
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
-    st.caption("Delhi se bahar: Only IGST | Delhi me: CGST + SGST (No Round Off)")
+    st.caption("Matches PDF Taxable Value directly as Gross Amount with zero roundoff mismatch")
 
     STATE_CODE_MAP = {
         "01": "JAMMU AND KASHMIR", "02": "HIMACHAL PRADESH", "03": "PUNJAB", "04": "CHANDIGARH",
@@ -1050,14 +1050,17 @@ elif st.session_state.active_tab == "BLNK":
             pos_state_name = STATE_CODE_MAP.get(buyer_pos_code, buyer_state_name)
 
         is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
-
-        # STRICT TAX DETERMINATION:
-        # Supplier Delhi ('07') -> Agar Buyer POS Delhi ('07') hai to Intra-State (CGST+SGST)
-        # Delhi se bahar (e.g. '06' Haryana, '09' UP) hai to STRICT INTER-STATE (ONLY IGST)
         is_interstate = (seller_state_code != buyer_pos_code)
 
         inv_total_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else None
+
+        # EXTRACT PRINTED TOTAL TAXABLE AND TOTAL TAX FROM PDF FOOTER DIRECTLY
+        tot_taxable_m = re.search(r"(?:Total\s*Amount\(\+\)|Taxable\s*Value)[\s\S]*?([0-9,]+\.\d{2})", full_text, re.I)
+        printed_taxable_total = float(tot_taxable_m.group(1).replace(",", "")) if tot_taxable_m else None
+
+        tot_tax_m = re.search(r"(?:Total\s*Tax\(\+\)|IGST[\s\S]*?Amt)[\s\S]*?([0-9,]+\.\d{2})", full_text, re.I)
+        printed_tax_total = float(tot_tax_m.group(1).replace(",", "")) if tot_tax_m else None
 
         return {
             "invoice_no": invoice_no,
@@ -1097,9 +1100,12 @@ elif st.session_state.active_tab == "BLNK":
             "ship_state_name": ship_state_name,
             "ship_state_code": ship_state_code,
             "is_blinkit": is_blinkit,
-            "printed_grand_total": printed_grand_total
+            "printed_grand_total": printed_grand_total,
+            "printed_taxable_total": printed_taxable_total,
+            "printed_tax_total": printed_tax_total
         }
 
+    # RECONCILE AND CAPTURE EXACT PRINTED TAXABLE VALUE AS BASE
     def process_and_reconcile_pdf(pdf_bytes):
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         meta = extract_metadata_from_doc(doc)
@@ -1200,13 +1206,15 @@ elif st.session_state.active_tab == "BLNK":
                             after_hsn_nums.append({
                                 "val": float(val),
                                 "str": val,
-                                "rect": fitz.Rect(w[0], w[1], w[2], w[3])
+                                "rect": fitz.Rect(w[0], w[1], w[2], w[3]),
+                                "x0": w[0]
                             })
 
                     final_q = None
                     final_p = None
                     final_disc = 0.0
                     final_taxable = None
+                    final_item_tot = None
 
                     if len(after_hsn_nums) >= 2:
                         final_q = int(after_hsn_nums[0]["val"])
@@ -1222,17 +1230,29 @@ elif st.session_state.active_tab == "BLNK":
                         if len(after_hsn_nums) >= 3:
                             final_disc = after_hsn_nums[2]["val"]
 
-                        if len(after_hsn_nums) >= 4:
+                        # EXACT EXTRACTION OF TAXABLE VALUE (COLUMN AROUND x: 290 - 340)
+                        taxable_cand = [n for n in after_hsn_nums if 290 <= n["x0"] <= 345]
+                        if taxable_cand:
+                            final_taxable = taxable_cand[0]["val"]
+                        elif len(after_hsn_nums) >= 4:
                             final_taxable = after_hsn_nums[3]["val"]
 
+                        # LAST COLUMN IS ITEM TOTAL (AROUND x: 520+)
+                        tot_cand = [n for n in after_hsn_nums if n["x0"] >= 520]
+                        if tot_cand:
+                            final_item_tot = tot_cand[0]["val"]
+
                     if final_q is not None and final_p is not None and final_q > 0:
+                        # MANDATORY: TAXABLE AMOUNT IS THE BASE (DIRECT FROM PDF)
                         if final_taxable is not None and final_taxable > 0:
-                            taxable_val = final_taxable
+                            taxable_val = round(final_taxable, 2)
                         else:
                             taxable_val = round((final_q * final_p) - final_disc, 2)
 
+                        # GROSS AMOUNT = TAXABLE AMOUNT + DISCOUNT
                         gross_amt = round(taxable_val + final_disc, 2)
                         unit_label = "BOX" if (is_blinkit and factor > 1) else "PAC"
+
                         line_items.append({
                             "sno": len(line_items) + 1,
                             "desc": pure_desc,
@@ -1240,10 +1260,11 @@ elif st.session_state.active_tab == "BLNK":
                             "qty": final_q,
                             "unit": unit_label,
                             "unit_price": final_p,
-                            "gross_amt": gross_amt,
+                            "gross_amt": gross_amt,       # Base is Taxable + Disc
                             "discount": final_disc,
-                            "taxable_val": taxable_val,
-                            "gst_rate": 5.0
+                            "taxable_val": taxable_val,   # Exact Printed Taxable
+                            "gst_rate": 5.0,
+                            "item_tot": final_item_tot
                         })
 
                     if is_blinkit and factor > 1:
@@ -1289,7 +1310,6 @@ elif st.session_state.active_tab == "BLNK":
 
             gst_rate = item.get("gst_rate", 5.0)
 
-            # INTER-STATE VS INTRA-STATE CHECK
             if is_interstate:
                 igst_amt = round((taxable_amt * gst_rate) / 100, 2)
                 cgst_amt = 0.0
@@ -1324,7 +1344,7 @@ elif st.session_state.active_tab == "BLNK":
                 "TotItemVal": tot_item_val
             })
 
-        exact_calc_total = round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
+        exact_calc_total = data.get("printed_grand_total") or round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
 
         ship_dtls = None
         if data.get("shipping_is_different", False):
@@ -1386,7 +1406,7 @@ elif st.session_state.active_tab == "BLNK":
             }
         }
 
-    # EXACT 86-COLUMN NIC EXCEL BUILDER
+    # EXACT 86-COLUMN NIC EXCEL BUILDER (MATCHING PDF TO THE EXACT PAISA)
     def generate_official_nic_v101_excel_bytes(data_list):
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1536,14 +1556,15 @@ elif st.session_state.active_tab == "BLNK":
                 qty = it["qty"]
                 price = it["unit_price"]
                 disc = it.get("discount", 0.0)
+
+                # USE THE EXACT PRINTED TAXABLE VALUE AS BASE
                 taxable = it.get("taxable_val", round(qty * price, 2))
-                gross_amt = round(taxable + disc, 2)
+                gross_amt = it.get("gross_amt", round(taxable + disc, 2))
                 gst_rate = it.get("gst_rate", 5.0)
 
                 tot_taxable += taxable
                 tot_discount += disc
 
-                # STRICT LOGIC: DELHI SE BAHAR ONLY IGST
                 if is_interstate:
                     igst = round(taxable * (gst_rate / 100), 2)
                     cgst = 0.0
@@ -1556,15 +1577,17 @@ elif st.session_state.active_tab == "BLNK":
                     tot_cgst += cgst
                     tot_sgst += sgst
 
-                item_tot = round(taxable + cgst + sgst + igst, 2)
+                item_tot = it.get("item_tot") or round(taxable + cgst + sgst + igst, 2)
                 item_rows_data.append({
                     "it": it, "qty": qty, "price": price, "gross_amt": gross_amt,
                     "disc": disc, "taxable": taxable, "gst_rate": gst_rate,
                     "cgst": cgst, "sgst": sgst, "igst": igst, "item_tot": item_tot
                 })
 
-            exact_total_tax = round(tot_cgst + tot_sgst + tot_igst, 2)
-            exact_invoice_val = round(tot_taxable + exact_total_tax, 2)
+            # MATCH DIRECTLY WITH PDF PRINTED TOTALS
+            final_taxable_sum = inv.get("printed_taxable_total") or round(tot_taxable, 2)
+            final_tax_sum = inv.get("printed_tax_total") or round(tot_cgst + tot_sgst + tot_igst, 2)
+            final_invoice_val = inv.get("printed_grand_total") or round(final_taxable_sum + final_tax_sum, 2)
 
             if inv.get("shipping_is_different", False):
                 ship_vals = [
@@ -1597,13 +1620,13 @@ elif st.session_state.active_tab == "BLNK":
                     "", "", "", "", "", "", "",
                     fmt_dec(r_data["item_tot"]),
                     "", "", "",
-                    fmt_dec(tot_taxable),
+                    fmt_dec(final_taxable_sum),
                     fmt_dec(tot_sgst) if tot_sgst > 0 else "",
                     fmt_dec(tot_cgst) if tot_cgst > 0 else "",
-                    fmt_dec(tot_igst) if tot_igst > 0 else "",
+                    fmt_dec(final_tax_sum) if is_interstate else "",
                     "", "", "", "",
                     "", # Round off Strictly BLANK
-                    fmt_dec(exact_invoice_val),
+                    fmt_dec(final_invoice_val),
                     "", "", "", "", "", "", "",
                     "", "", "", "", "", "", "", "",
                     ""
@@ -1642,11 +1665,11 @@ elif st.session_state.active_tab == "BLNK":
 
     def render_exact_government_einvoice_preview(meta):
         is_interstate = meta["is_interstate"]
-        tot_taxable = sum([it['taxable_val'] for it in meta['line_items']])
+        tot_taxable = meta.get("printed_taxable_total") or sum([it['taxable_val'] for it in meta['line_items']])
         tot_discount = sum([it.get('discount', 0.0) for it in meta['line_items']])
 
         if is_interstate:
-            tot_igst = round(tot_taxable * 0.05, 2)
+            tot_igst = meta.get("printed_tax_total") or round(tot_taxable * 0.05, 2)
             tot_cgst = 0.0
             tot_sgst = 0.0
         else:
@@ -1654,7 +1677,7 @@ elif st.session_state.active_tab == "BLNK":
             tot_cgst = round(tot_taxable * 0.025, 2)
             tot_sgst = round(tot_taxable * 0.025, 2)
 
-        exact_total = round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
+        exact_total = meta.get("printed_grand_total") or round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
         ack_date_str = f"{meta['clean_date']} 17:00:00"
 
         table_rows = ""
@@ -1665,7 +1688,7 @@ elif st.session_state.active_tab == "BLNK":
             disc = it.get('discount', 0.0)
             gst_r = it.get('gst_rate', 5.0)
             tax_amt = round(taxable * (gst_r / 100), 2)
-            tot_val = round(taxable + tax_amt, 2)
+            tot_val = it.get("item_tot") or round(taxable + tax_amt, 2)
 
             table_rows += f"""
             <tr style="border-bottom: 1px solid #000; font-size: 11px;">
@@ -1844,7 +1867,6 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
         if processed_docs:
             st.session_state.blnk_batch_results = processed_docs
 
-    # WORKSPACE PERSISTENCE
     if st.session_state.blnk_batch_results:
         active_docs = st.session_state.blnk_batch_results
         st.success(f"✅ Successfully processed {len(active_docs)} Invoices!")
@@ -1969,7 +1991,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### 📄 Invoices Official e-Invoice Preview")
-            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in active_docs])
+            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
             for i, tab in enumerate(preview_tabs):
                 with tab:
                     curr_meta = active_docs[i]['meta']

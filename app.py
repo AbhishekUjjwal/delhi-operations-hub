@@ -137,6 +137,8 @@ def save_item_to_disk_history(item):
         "stamped": item.get("stamped", 0),
         "location": wh,
         "module": mod,
+        "buyer": item.get("buyer", "Unknown"),
+        "total_value": item.get("total_value", 0.0),
         "created_ts": current_ts,
         "time": get_current_ist_str()
     }
@@ -227,7 +229,7 @@ st.markdown("""
         border-color: rgba(58, 80, 107, 0.3) !important;
     }
 
-    /* Small action buttons */
+    /* Small action buttons in top bar */
     .right-action-cluster div[data-testid="stButton"] button {
         border-radius: 16px !important;
         font-size: 12px !important;
@@ -287,104 +289,55 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* OVAL CARD BOX STYLING */
-    .oval-card-wrapper {
-        position: relative;
-        width: 100%;
-        margin-bottom: 16px;
-    }
-    .oval-card {
-        background: #ffffff;
-        border: 2px solid #e2e8f0;
-        border-radius: 24px;
-        padding: 24px 26px 18px 26px;
-        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        pointer-events: none;
-    }
-    .card-top-flex {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 18px;
-    }
-    .icon-bubble {
-        width: 48px;
-        height: 48px;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24px;
-    }
-    .badge-pill {
-        font-size: 11px;
-        font-weight: 800;
-        padding: 5px 14px;
-        border-radius: 30px;
-        letter-spacing: 0.6px;
-    }
-    .card-heading {
-        font-size: 21px;
-        font-weight: 800;
-        color: #0f172a;
-        margin-bottom: 22px;
-        letter-spacing: -0.2px;
-    }
-    .card-foot-flex {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-top: 1px solid #f1f5f9;
-        padding-top: 14px;
-    }
-    .foot-label {
-        font-size: 14.5px;
-        font-weight: 800;
-    }
-    .foot-circle {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        font-weight: 900;
-    }
-
-    /* FULL INVISIBLE BUTTON OVERLAY TO MAKE ENTIRE OVAL CLICKABLE */
-    .oval-card-wrapper div[data-testid="stButton"] {
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
+    /* EXACT CLICKABLE OVAL CARD STYLING ON STREAMLIT BUTTON DIRECTLY */
+    .dashboard-grid-area div[data-testid="stButton"] {
         width: 100% !important;
-        height: 100% !important;
-        z-index: 5 !important;
-        margin: 0 !important;
-        padding: 0 !important;
+        margin-bottom: 14px !important;
     }
-    .oval-card-wrapper div[data-testid="stButton"] button {
+    .dashboard-grid-area div[data-testid="stButton"] button {
         width: 100% !important;
-        height: 100% !important;
-        opacity: 0 !important;
+        min-height: 168px !important;
+        background: #ffffff !important;
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 26px !important;
+        padding: 22px 24px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: space-between !important;
+        text-align: left !important;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06) !important;
+        white-space: pre-wrap !important;
+        transition: all 0.22s ease-in-out !important;
         cursor: pointer !important;
-        border-radius: 24px !important;
-        border: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
     }
 
-    /* DYNAMIC HOVER COLOR EFFECTS */
-    .oval-card-wrapper:hover .oval-card {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    /* DYNAMIC OVAL BORDER ON HOVER */
+    .dashboard-grid-area .btn-amz div[data-testid="stButton"] button:hover {
+        border-color: #2563eb !important;
+        transform: translateY(-4px) !important;
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.16) !important;
     }
-    .hover-amz:hover .oval-card { border-color: #2563eb !important; }
-    .hover-blnk-po:hover .oval-card { border-color: #059669 !important; }
-    .hover-blnk:hover .oval-card { border-color: #d97706 !important; }
-    .hover-lbl:hover .oval-card { border-color: #7c3aed !important; }
-    .hover-conf:hover .oval-card { border-color: #475569 !important; }
+    .dashboard-grid-area .btn-blnk-po div[data-testid="stButton"] button:hover {
+        border-color: #059669 !important;
+        transform: translateY(-4px) !important;
+        box-shadow: 0 10px 24px rgba(5, 150, 105, 0.16) !important;
+    }
+    .dashboard-grid-area .btn-blnk div[data-testid="stButton"] button:hover {
+        border-color: #d97706 !important;
+        transform: translateY(-4px) !important;
+        box-shadow: 0 10px 24px rgba(217, 119, 6, 0.16) !important;
+    }
+    .dashboard-grid-area .btn-lbl div[data-testid="stButton"] button:hover {
+        border-color: #7c3aed !important;
+        transform: translateY(-4px) !important;
+        box-shadow: 0 10px 24px rgba(124, 58, 237, 0.16) !important;
+    }
+    .dashboard-grid-area .btn-conf div[data-testid="stButton"] button:hover {
+        border-color: #475569 !important;
+        transform: translateY(-4px) !important;
+        box-shadow: 0 10px 24px rgba(71, 85, 105, 0.16) !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -405,61 +358,41 @@ AVAILABLE_MODULES = {
         "mod_no": "MODULE 01",
         "name": "1. Amazon Invoice Editor",
         "code": "AMZ-ED",
-        "short_open": "Open AMZ-ED",
+        "short_open": "Open AMZ-ED ➔",
         "logo": "📄",
-        "color": "#1d4ed8",
-        "badge_bg": "#eff6ff",
-        "icon_bg": "#dbeafe",
-        "arrow_bg": "#eff6ff",
-        "hover_cls": "hover-amz"
+        "css_cls": "btn-amz"
     },
     "BLNK_PO": {
         "mod_no": "MODULE 02",
         "name": "2. Blinkit PO Pouch",
         "code": "BLNK-PO",
-        "short_open": "Open BLNK-PO",
+        "short_open": "Open BLNK-PO ➔",
         "logo": "🛍️",
-        "color": "#059669",
-        "badge_bg": "#ecfdf5",
-        "icon_bg": "#d1fae5",
-        "arrow_bg": "#ecfdf5",
-        "hover_cls": "hover-blnk-po"
+        "css_cls": "btn-blnk-po"
     },
     "BLNK": {
         "mod_no": "MODULE 03",
         "name": "3. Blinkit e-Invoice Tool",
         "code": "BLNK-INV",
-        "short_open": "Open BLNK-INV",
+        "short_open": "Open BLNK-INV ➔",
         "logo": "🧾",
-        "color": "#d97706",
-        "badge_bg": "#fffbeb",
-        "icon_bg": "#fef3c7",
-        "arrow_bg": "#fffbeb",
-        "hover_cls": "hover-blnk"
+        "css_cls": "btn-blnk"
     },
     "LBL": {
         "mod_no": "MODULE 04",
         "name": "4. Label Editor Tool",
         "code": "LBL-ED",
-        "short_open": "Open LBL-ED",
+        "short_open": "Open LBL-ED ➔",
         "logo": "🏷️",
-        "color": "#7c3aed",
-        "badge_bg": "#f5f3ff",
-        "icon_bg": "#ede9fe",
-        "arrow_bg": "#f5f3ff",
-        "hover_cls": "hover-lbl"
+        "css_cls": "btn-lbl"
     },
     "CONF": {
         "mod_no": "MODULE 05",
         "name": "5. Settings & Config",
         "code": "SETTINGS",
-        "short_open": "Open SETTINGS",
+        "short_open": "Open SETTINGS ➔",
         "logo": "⚙️",
-        "color": "#475569",
-        "badge_bg": "#f1f5f9",
-        "icon_bg": "#e2e8f0",
-        "arrow_bg": "#f1f5f9",
-        "hover_cls": "hover-conf"
+        "css_cls": "btn-conf"
     }
 }
 
@@ -503,7 +436,7 @@ def clear_all_pinned_tabs():
     st.session_state.show_history = False
     st.rerun()
 
-# ----------------- SIDEBAR: LIVE INDIA ANALOG CLOCK -----------------
+# ----------------- SIDEBAR: ANALOG CLOCK + LIVE DEDUPLICATED INVOICE ANALYTICS -----------------
 with st.sidebar:
     clock_html = """
     <!DOCTYPE html>
@@ -515,18 +448,18 @@ with st.sidebar:
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 10px 0px;
+        padding: 6px 0px;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     .analog-clock {
-        width: 140px;
-        height: 140px;
+        width: 135px;
+        height: 135px;
         border-radius: 50%;
         background: #0f172a;
         border: 4px solid #38bdf8;
         box-shadow: 0 0 18px rgba(56, 189, 248, 0.4);
         position: relative;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
     .center-dot {
         width: 8px;
@@ -554,13 +487,13 @@ with st.sidebar:
     }
     .minute-hand {
         width: 2.5px;
-        height: 52px;
+        height: 50px;
         background: #94a3b8;
         margin-left: -1.25px;
     }
     .second-hand {
         width: 1.5px;
-        height: 58px;
+        height: 56px;
         background: #ef4444;
         margin-left: -0.75px;
     }
@@ -627,10 +560,60 @@ with st.sidebar:
     </body>
     </html>
     """
-    components.html(clock_html, height=230)
-    st.divider()
+    components.html(clock_html, height=225)
     st.markdown(f"**WH Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`")
-    st.caption("Operations Hub System Engine v3.2")
+    st.divider()
+
+    # --- INVOICE ANALYTICS GRAPH (DEDUPLICATED & BLINKIT VS OTHER BUYERS) ---
+    st.markdown("📊 **Invoice Upload Analytics**")
+    all_history_records = load_disk_history()
+
+    # Location Filter
+    if st.session_state.selected_wh != "Headoffice":
+        active_records = [r for r in all_history_records if r.get("location") == st.session_state.selected_wh]
+    else:
+        active_records = all_history_records
+
+    # Deduplication by original_name / invoice identifier
+    unique_invoices = {}
+    for r in active_records:
+        inv_key = r.get("original_name") or r.get("file_name")
+        if inv_key not in unique_invoices:
+            unique_invoices[inv_key] = r
+
+    dedup_list = list(unique_invoices.values())
+
+    blinkit_count = 0
+    blinkit_val = 0.0
+    other_count = 0
+    other_val = 0.0
+
+    for item in dedup_list:
+        buyer_str = str(item.get("buyer", "")).lower() + " " + str(item.get("file_name", "")).lower()
+        val = float(item.get("total_value", 0.0))
+        if "blink" in buyer_str:
+            blinkit_count += 1
+            blinkit_val += val
+        else:
+            other_count += 1
+            other_val += val
+
+    # Small Metrics View
+    m_col1, m_col2 = st.columns(2)
+    with m_col1:
+        st.metric("⚡ Blinkit", f"{blinkit_count} Inv", delta=f"₹{blinkit_val:,.0f}" if blinkit_val > 0 else None)
+    with m_col2:
+        st.metric("🏢 Others", f"{other_count} Inv", delta=f"₹{other_val:,.0f}" if other_val > 0 else None)
+
+    # Clean Chart
+    chart_df = pd.DataFrame({
+        "Category": ["Blinkit Invoices", "Other Buyers"],
+        "Count": [blinkit_count, other_count]
+    }).set_index("Category")
+
+    st.bar_chart(chart_df, height=130, use_container_width=True)
+    st.caption(f"Total Unique Invoices: **{len(dedup_list)}** (Duplicates removed)")
+    st.divider()
 
 # ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
 h_left, h_right = st.columns([7.5, 2.5])
@@ -693,10 +676,11 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ----------------- DASHBOARD VIEW: OVAL CARDS (CLICK ANYWHERE TO OPEN) -----------------
+# ----------------- EXACT OVAL CARD BOXES (CLICK ANYWHERE DIRECTLY ON THE CARD) -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
     st.markdown('<div style="font-size: 13px; font-weight: 800; color: #64748b; margin-bottom: 12px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
+    st.markdown('<div class="dashboard-grid-area">', unsafe_allow_html=True)
     keys = list(AVAILABLE_MODULES.keys())
     for i in range(0, len(keys), 2):
         c1, c2 = st.columns(2)
@@ -705,35 +689,25 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
         for col_obj, m_key in zip([c1, c2], row_keys):
             mod_data = AVAILABLE_MODULES[m_key]
             with col_obj:
-                # OVAL CARD HTML + INVISIBLE FULL BUTTON (NO SEPARATE BOTTOM BUTTONS)
-                card_markup = f"""
-                <div class="oval-card-wrapper {mod_data['hover_cls']}">
-                    <div class="oval-card">
-                        <div class="card-top-flex">
-                            <div class="icon-bubble" style="background-color: {mod_data['icon_bg']}; color: {mod_data['color']};">
-                                {mod_data['logo']}
-                            </div>
-                            <span class="badge-pill" style="background-color: {mod_data['badge_bg']}; color: {mod_data['color']};">
-                                {mod_data['mod_no']}
-                            </span>
-                        </div>
-                        <div class="card-heading">{mod_data['name']}</div>
-                        <div class="card-foot-flex">
-                            <span class="foot-label" style="color: {mod_data['color']};">{mod_data['short_open']}</span>
-                            <div class="foot-circle" style="background-color: {mod_data['arrow_bg']}; color: {mod_data['color']};">➔</div>
-                        </div>
-                    </div>
-                """
-                st.markdown(card_markup, unsafe_allow_html=True)
+                st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Hidden full overlay button on entire box
-                if st.button(f"open_mod_{m_key}", key=f"ovl_btn_{m_key}"):
+                # Single clean button that acts as the ENTIRE white oval card
+                card_text = (
+                    f"{mod_data['logo']}          [{mod_data['mod_no']}]\n\n"
+                    f"{mod_data['name']}\n\n"
+                    f"────────────────────────\n"
+                    f"{mod_data['short_open']}"
+                )
+                
+                if st.button(card_text, key=f"card_btn_{m_key}"):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key
                     st.rerun()
 
-                st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------- HISTORY VIEW -----------------
 elif st.session_state.show_history:
@@ -1084,7 +1058,9 @@ elif st.session_state.active_tab == "AMZ":
                     "removed_pan": file_removed_pan,
                     "removed_desc": file_removed_desc,
                     "location": st.session_state.selected_wh,
-                    "module": "AMZ"
+                    "module": "AMZ",
+                    "buyer": "Amazon Customer",
+                    "total_value": 0.0
                 })
 
                 progress_bar.progress((file_idx + 1) / total_files)
@@ -2288,6 +2264,8 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 </div>
             """, unsafe_allow_html=True)
 
+            inv_tot_val = float(meta.get("printed_grand_total") or 0.0)
+
             hist_item = {
                 "original_name": doc["original_name"],
                 "file_name": pdf_name,
@@ -2297,7 +2275,9 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 "pages": 1,
                 "stamped": len(meta["line_items"]),
                 "location": st.session_state.selected_wh,
-                "module": "BLNK"
+                "module": "BLNK",
+                "buyer": meta["buyer_name"],
+                "total_value": inv_tot_val
             }
 
             c1, c2, c3 = st.columns(3)
@@ -2359,6 +2339,8 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     zip_file.writestr(f"{name_root}.xlsx", single_excel_bytes)
                     zip_file.writestr(f"{name_root}.json", single_json_bytes)
 
+                    inv_tot_val = float(doc["meta"].get("printed_grand_total") or 0.0)
+
                     batch_hist.append({
                         "original_name": doc["original_name"],
                         "file_name": pdf_name,
@@ -2368,7 +2350,9 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                         "pages": 1,
                         "stamped": len(doc["meta"]["line_items"]),
                         "location": st.session_state.selected_wh,
-                        "module": "BLNK"
+                        "module": "BLNK",
+                        "buyer": doc["meta"]["buyer_name"],
+                        "total_value": inv_tot_val
                     })
             zip_buffer.seek(0)
 

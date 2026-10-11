@@ -251,7 +251,7 @@ with header_left:
 with header_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     
-    # Row 1: Refresh Button (Left) + Location Dropdown (Right)
+    # Row 1: Refresh Button + Location Dropdown
     loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
     with loc_sub1:
         if st.button("🔄", key="btn_refresh_pinned", help="Click to unpin all extra tabs", use_container_width=True):
@@ -695,7 +695,7 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL (SAFE RECONCILER - ZERO CHARACTER LOSS)
+# MODULE 3: BLINKIT E-INVOICE TOOL (ACCURATE MASKING & EXT ORDER REPAIR)
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
@@ -754,6 +754,13 @@ elif st.session_state.active_tab == "BLNK":
         desc = re.sub(r"\s+", " ", desc).strip()
         return desc
 
+    # EXACT RECT OVERWRITE (NO BORDER LINE OVERFLOW)
+    def overwrite_exact_area(page, rect, new_text, font_size=7.2):
+        # Precise boundary without cutting horizontal/vertical table borders
+        safe_rect = fitz.Rect(rect.x0, rect.y0 + 0.3, rect.x1, rect.y1 - 0.3)
+        page.draw_rect(safe_rect, color=None, fill=(1, 1, 1))
+        page.insert_text((safe_rect.x0 + 0.5, safe_rect.y1 - 1.0), str(new_text), fontsize=font_size, fontname="helv", color=(0, 0, 0))
+
     def extract_metadata_from_doc(doc):
         full_text = ""
         for p in doc:
@@ -762,10 +769,26 @@ elif st.session_state.active_tab == "BLNK":
         page0 = doc[0]
         words = page0.get_text("words")
 
+        # SMART EXTERNAL ORDER EXTRACTION (COMBINES WRAPPED NUMBERS E.G., 5192561000664 + 6)
         ext_order_id = None
-        ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\sA-Za-z\-]+?)(?=\n|Invoice|Date|$)", full_text, re.IGNORECASE)
-        if ext_match:
-            ext_order_id = "".join(ext_match.group(1).split())
+        ext_matches = [w for w in words if "extern" in w[4].lower()]
+        if ext_matches:
+            anchor = ext_matches[0]
+            # Capture words on the right or immediately below in the same block
+            num_words = [
+                w for w in words 
+                if (anchor[1] - 4 <= w[1] <= anchor[3] + 16) 
+                and (anchor[0] + 50 <= w[0] <= 320)
+                and re.search(r'\d', w[4])
+            ]
+            num_words.sort(key=lambda w: (round(w[1] / 6) * 6, w[0]))
+            if num_words:
+                ext_order_id = "".join([re.sub(r'[^\w\-]', '', w[4]) for w in num_words])
+
+        if not ext_order_id:
+            ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\sA-Za-z\-]+?)(?=\n\s*[A-Za-z]|Invoice|Date|$)", full_text, re.IGNORECASE)
+            if ext_match:
+                ext_order_id = "".join(ext_match.group(1).split())
         if not ext_order_id:
             digits_match = re.findall(r"\b(49\d{8,14}|5\d{8,14}|\d{12,18})\b", full_text)
             if digits_match:
@@ -825,7 +848,7 @@ elif st.session_state.active_tab == "BLNK":
         billing_text = page0.get_text("text", clip=billing_rect).strip()
         b_lines = [l.strip() for l in billing_text.split("\n") if l.strip() and not re.search(r"billing\s*addr", l, re.I)]
 
-        buyer_name = b_lines[0] if b_lines else "TRACK Manufacturing Co. Pvt. Ltd."
+        buyer_name = b_lines[0] if b_lines else "BLINK COMMERCE PRIVATE LIMITED"
         b_addr_candidates = [l for l in b_lines[1:] if not re.search(r"(@|contact|phone|mob|gstin|pan|india)", l, re.I)]
         buyer_addr1 = ", ".join(b_addr_candidates[:2]) if b_addr_candidates else (b_lines[1] if len(b_lines) > 1 else "Commercial Facility")
 
@@ -840,7 +863,7 @@ elif st.session_state.active_tab == "BLNK":
 
         if not buyer_gstin:
             all_gstins = re.findall(r"\b\d{2}[A-Z]{5}\d{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}\b", full_text)
-            buyer_gstin = all_gstins[1] if len(all_gstins) > 1 else (all_gstins[0] if all_gstins else "07AACCT5680N1ZS")
+            buyer_gstin = all_gstins[1] if len(all_gstins) > 1 else (all_gstins[0] if all_gstins else "06AAFCG9846E1ZF")
 
         buyer_state_code = buyer_gstin[:2]
         buyer_state_name = STATE_CODE_MAP.get(buyer_state_code, "DELHI")
@@ -903,6 +926,7 @@ elif st.session_state.active_tab == "BLNK":
 
         return {
             "invoice_no": invoice_no,
+            "ext_order_id": ext_order_id,
             "doc_date": std_date_for_json,
             "clean_date": clean_date,
             "pdf_filename": pdf_filename,
@@ -938,19 +962,42 @@ elif st.session_state.active_tab == "BLNK":
             "printed_grand_total": printed_grand_total
         }
 
-    def overwrite_area(page, rect, new_text, font_size=7):
-        pad_rect = fitz.Rect(rect.x0 - 1.5, rect.y0 - 1, rect.x1 + 1.5, rect.y1 + 1)
-        page.draw_rect(pad_rect, color=None, fill=(1, 1, 1))
-        page.insert_text((rect.x0, rect.y1 - 1.2), str(new_text), fontsize=font_size, fontname="helv", color=(0, 0, 0))
-
     def process_and_reconcile_pdf(pdf_bytes):
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         meta = extract_metadata_from_doc(doc)
         is_blinkit = meta["is_blinkit"]
+        ext_order_str = meta["ext_order_id"]
         line_items = []
 
-        for page in doc:
+        for p_idx, page in enumerate(doc):
             words = page.get_text("words")
+
+            # FIX: Clean and unite multi-line External Order ID in PDF Page 1
+            if p_idx == 0 and ext_order_str and ext_order_str != "ExtOrder":
+                ext_matches = [w for w in words if "extern" in w[4].lower()]
+                if ext_matches:
+                    anchor = ext_matches[0]
+                    # Clean out previous split digits
+                    num_rects = [
+                        fitz.Rect(w[0], w[1], w[2], w[3]) 
+                        for w in words 
+                        if (anchor[1] - 3 <= w[1] <= anchor[3] + 16) 
+                        and (anchor[0] + 45 <= w[0] <= 320)
+                        and re.search(r'\d', w[4])
+                    ]
+                    if num_rects:
+                        comb_rect = num_rects[0]
+                        for nr in num_rects[1:]:
+                            comb_rect |= nr
+                        # Whiteout only that narrow box and print unified number on one line
+                        page.draw_rect(comb_rect, color=None, fill=(1, 1, 1))
+                        page.insert_text(
+                            (num_rects[0].x0, anchor[3] - 1.2), 
+                            str(ext_order_str), 
+                            fontsize=8.5, 
+                            fontname="helv", 
+                            color=(0, 0, 0)
+                        )
 
             table_header_bottom_y = 200
             y_groups = {}
@@ -1002,7 +1049,7 @@ elif st.session_state.active_tab == "BLNK":
                         continue
 
                     hsn_w = None
-                    hsn_code = "90183990"
+                    hsn_code = "63079091"
                     for w in row_words:
                         clean_w = w[4].replace(",", "").strip()
                         if clean_w.isdigit() and len(clean_w) in [6, 7, 8]:
@@ -1055,12 +1102,12 @@ elif st.session_state.active_tab == "BLNK":
                         final_q = int(after_hsn_nums[0]["val"])
                         if factor > 1 and final_q >= factor:
                             final_q = final_q // factor
-                            overwrite_area(page, after_hsn_nums[0]["rect"], f"{final_q}")
+                            overwrite_exact_area(page, after_hsn_nums[0]["rect"], f"{final_q}", font_size=7.2)
 
                         final_p = after_hsn_nums[1]["val"]
                         if factor > 1:
                             final_p = round(final_p * factor, 2)
-                            overwrite_area(page, after_hsn_nums[1]["rect"], f"{final_p:.2f}")
+                            overwrite_exact_area(page, after_hsn_nums[1]["rect"], f"{final_p:.2f}", font_size=7.2)
 
                         if len(after_hsn_nums) >= 3:
                             final_disc = after_hsn_nums[2]["val"]
@@ -1089,12 +1136,23 @@ elif st.session_state.active_tab == "BLNK":
                             "gst_rate": 5.0
                         })
 
-            # TARGETED UOM REPLACEMENT (NO DELETING S OR CHARACTER CORRUPTION)
-            if is_blinkit:
-                # Replace exact UOM text blocks safely
-                for target in ["UOM-PCS", "UOM-PC\nS", "UOM-IBOX", "UOM-BOX"]:
-                    for inst in page.search_for(target):
-                        overwrite_area(page, inst, "UOM-BOX", font_size=6.8)
+                    # SAFE IN-LINE UOM UPDATE (NO HIDING ADJACENT TEXT OR BORDERS)
+                    if is_blinkit and factor > 1:
+                        # Find UOM line strictly inside this item's row boundaries
+                        uom_in_row = [
+                            w for w in row_words 
+                            if "UOM" in w[4].upper() and 30 <= w[0] <= 180
+                        ]
+                        for uw in uom_in_row:
+                            # Also check if S is hanging on newline
+                            hanging_s = [
+                                w for w in row_words 
+                                if w[4].strip() == "S" and abs(w[0] - uw[0]) < 15 and 0 < (w[1] - uw[1]) < 12
+                            ]
+                            uom_r = fitz.Rect(uw[0], uw[1], uw[2] + 4, uw[3])
+                            if hanging_s:
+                                uom_r |= fitz.Rect(hanging_s[0][0], hanging_s[0][1], hanging_s[0][2] + 4, hanging_s[0][3])
+                            overwrite_exact_area(page, uom_r, "UOM-BOX", font_size=6.8)
 
         out_pdf_buf = io.BytesIO()
         doc.save(out_pdf_buf)

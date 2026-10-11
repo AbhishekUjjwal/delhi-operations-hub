@@ -26,57 +26,9 @@ st.markdown("""
         border-right: 1px solid #3a506b;
     }
     
-    /* Pinned Tabs Bar */
-    .tab-bar-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        align-items: center;
-        background-color: #131d3b;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid #2a3d66;
-        margin-bottom: 20px;
-    }
-    .pinned-tab {
-        background: linear-gradient(135deg, #7b2cbf 0%, #9d4edd 100%);
-        color: #ffffff;
-        font-weight: 600;
-        font-size: 13px;
-        padding: 5px 12px;
-        border-radius: 6px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        border: 1px solid #c77dff;
-    }
-    .pinned-tab-active {
-        background: linear-gradient(135deg, #e63946 0%, #d90429 100%) !important;
-        border-color: #ff758f !important;
-    }
-    
-    /* Unit badge card */
-    .unit-card {
-        background: linear-gradient(135deg, #1c2541 0%, #0b132b 100%);
-        border: 1px solid #48cae4;
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 12px;
-    }
-    .unit-badge {
-        background-color: #f77f00;
-        color: #fff;
-        font-weight: bold;
-        font-size: 11px;
-        padding: 3px 8px;
-        border-radius: 4px;
-        display: inline-block;
-        margin-bottom: 6px;
-    }
-    
-    /* Quick Module Buttons in Sidebar */
-    div[data-testid="stSidebar"] button {
-        border-radius: 6px;
+    /* Top Action Bar Styling */
+    div[data-testid="stSelectbox"] label {
+        display: none;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -86,21 +38,24 @@ AVAILABLE_MODULES = {
     "AMZ": {"name": "Amazon Invoice Editor", "code": "AMZ-ED", "icon": "📑"},
     "BLNK": {"name": "Blinkit e-Invoice Tool", "code": "BLNK-INV", "icon": "⚡"},
     "LBL": {"name": "Label Editor", "code": "LBL-ED", "icon": "🏷️"},
+    "HIST": {"name": "History / Downloads", "code": "HISTORY", "icon": "📜"},
     "CONF": {"name": "Settings & Reports", "code": "SETTINGS", "icon": "⚙️"}
 }
 
 if "open_tabs" not in st.session_state:
-    st.session_state.open_tabs = ["AMZ"]
+    st.session_state.open_tabs = ["AMZ", "HIST"]
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "AMZ"
 if "processed_history" not in st.session_state:
     st.session_state.processed_history = []
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
+if "selected_wh" not in st.session_state:
+    st.session_state.selected_wh = "RPPL - DEL"
 
 def reset_all_workspace():
     st.session_state.processed_history = []
-    st.session_state.open_tabs = ["AMZ"]
+    st.session_state.open_tabs = ["AMZ", "HIST"]
     st.session_state.active_tab = "AMZ"
     st.session_state.uploader_key += 1
     st.rerun()
@@ -111,16 +66,6 @@ with st.sidebar:
     st.caption("Romsons prime pvt ltd operation portal")
     st.divider()
 
-    st.markdown("""
-        <div class="unit-card">
-            <span class="unit-badge">🏷️ AMZ-ED</span>
-            <div style="font-weight: 600; font-size: 14px; color: #48cae4;">Amazon Invoice Editor Unit</div>
-            <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">🎯 <b>Target PAN:</b> <code>AALCR5906L</code></div>
-            <div style="font-size: 12px; color: #cbd5e1;">🏢 <b>Seller:</b> Romsons Prime Pvt Ltd</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.divider()
     st.markdown("### 🧭 Workspace Modules")
     st.caption("Click to pin and open workspace:")
 
@@ -136,14 +81,10 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP BAR: RESET & PINNED TABS -----------------
-top_c1, top_c2 = st.columns([5, 1])
+# ----------------- TOP BAR: TABS, WH LOCATION & RESET -----------------
+top_tabs_col, top_wh_col, top_reset_col = st.columns([5, 2, 1])
 
-with top_c2:
-    if st.button("🔄 Reset All", use_container_width=True, type="secondary"):
-        reset_all_workspace()
-
-with top_c1:
+with top_tabs_col:
     tab_cols = st.columns(len(st.session_state.open_tabs) + 1)
     for idx, t_key in enumerate(st.session_state.open_tabs):
         info = AVAILABLE_MODULES[t_key]
@@ -164,13 +105,33 @@ with top_c1:
                             st.session_state.active_tab = st.session_state.open_tabs[0]
                         st.rerun()
 
+with top_wh_col:
+    wh_locations = [
+        "RPPL - HYD",
+        "RPPL - DEL",
+        "RPPL - BLR",
+        "RPPL - KOL",
+        "RPPL - PUN",
+        "RPPL - CHE"
+    ]
+    st.session_state.selected_wh = st.selectbox(
+        "WH | Location",
+        options=wh_locations,
+        index=wh_locations.index(st.session_state.selected_wh) if st.session_state.selected_wh in wh_locations else 1,
+        help="Select Warehouse / Location"
+    )
+
+with top_reset_col:
+    if st.button("🔄 Reset All", use_container_width=True, type="secondary"):
+        reset_all_workspace()
+
 st.divider()
 
 # =========================================================================
 # MODULE 1: AMAZON INVOICE EDITOR
 # =========================================================================
 if st.session_state.active_tab == "AMZ":
-    st.subheader("📑 Amazon Invoice Editor & Barcode Stamper")
+    st.subheader(f"📑 Amazon Invoice Editor & Barcode Stamper [{st.session_state.selected_wh}]")
 
     TARGET_PAN = "aalcr5906l"
 
@@ -211,13 +172,9 @@ if st.session_state.active_tab == "AMZ":
         return {w for w in words if len(w) >= 2 and w not in stop_words}
 
     def has_valid_description(raw_text):
-        """Check karega ki invoice me Description/Product details maujood hai ya nahi"""
         text_lower = raw_text.lower()
-        # Amazon invoice me common description table indicators
         desc_keywords = ["description", "item description", "product description", "title"]
         has_header = any(k in text_lower for k in desc_keywords)
-        
-        # Agar header hai, check karein ki kam se kam koi actual item tokens exist karte hain
         tokens = get_token_words(raw_text)
         return has_header and len(tokens) >= 5
 
@@ -330,12 +287,12 @@ if st.session_state.active_tab == "AMZ":
                         file_removed_pan += 1
                         continue
 
-                    # Rule 2: Description Check Filter (Remove if no valid description)
+                    # Rule 2: Description Check Filter
                     if not has_valid_description(raw_text):
                         file_removed_desc += 1
                         continue
 
-                    # Extract 17-digit Order Number (e.g., 403-1234567-1234567)
+                    # Extract 17-digit Order Number
                     order_clean = None
                     order_match = re.search(r'(\d{3})\s*[-–—\s]\s*(\d{7})\s*[-–—\s]\s*(\d{7})', raw_text)
                     if order_match:
@@ -423,7 +380,8 @@ if st.session_state.active_tab == "AMZ":
                     "pages": len(new_doc),
                     "stamped": file_stamped_count,
                     "removed_pan": file_removed_pan,
-                    "removed_desc": file_removed_desc
+                    "removed_desc": file_removed_desc,
+                    "location": st.session_state.selected_wh
                 })
 
                 progress_bar.progress((file_idx + 1) / total_files)
@@ -431,65 +389,16 @@ if st.session_state.active_tab == "AMZ":
             status_text.empty()
             progress_bar.empty()
 
-            st.session_state.processed_history = current_processed
+            st.session_state.processed_history.extend(current_processed)
             st.balloons()
-            st.success(f"🎉 **Total {len(current_processed)} File(s) Processed Successfully!**")
-
-    # Render History / Saved Preview & Download
-    if st.session_state.processed_history:
-        st.write("---")
-        st.subheader("💾 Saved Session Output & Downloads")
-        
-        if len(st.session_state.processed_history) > 1:
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for item in st.session_state.processed_history:
-                    zip_file.writestr(item["file_name"], item["data"])
-            zip_buffer.seek(0)
-
-            st.download_button(
-                label="📦 Download All Invoices as ZIP",
-                data=zip_buffer,
-                file_name="All_Stamped_Invoices.zip",
-                mime="application/zip",
-                use_container_width=True
-            )
-
-        for idx, item in enumerate(st.session_state.processed_history):
-            d_col1, d_col2 = st.columns([3, 1])
-            with d_col1:
-                st.write(
-                    f"📁 **{item['original_name']}** — `{item['pages']} Pages Kept` | "
-                    f"`{item['stamped']} Stamped` | `{item['removed_pan']} Non-PAN Filtered` | "
-                    f"`{item.get('removed_desc', 0)} No-Description Filtered`"
-                )
-            with d_col2:
-                st.download_button(
-                    label="📥 Download PDF",
-                    data=item["data"],
-                    file_name=item["file_name"],
-                    mime="application/pdf",
-                    key=f"dl_saved_btn_{idx}",
-                    use_container_width=True
-                )
+            st.success(f"🎉 **Total {len(current_processed)} File(s) Processed Successfully!** View saved items in the History tab.")
 
 # =========================================================================
 # MODULE 2: BLINKIT E-INVOICE TOOL
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
-    st.subheader("⚡ Blinkit e-Invoice Management Tool")
-    st.caption("Blinkit Purchase Orders (PO), ASN Generation & E-Invoicing System")
-
-    st.markdown("""
-        <div style="background-color: #1c2541; padding: 18px; border-radius: 8px; border-left: 4px solid #f77f00;">
-            <h4 style="margin: 0; color: #f77f00;">⚡ Blinkit Automation Ready</h4>
-            <p style="margin: 6px 0 0 0; font-size: 13px; color: #cbd5e1;">
-                Blinkit PO aur Invoices yahan se manage honge. Aapka previous script paste karein to integrate seamlessly.
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
+    st.subheader(f"⚡ Blinkit e-Invoice Management Tool [{st.session_state.selected_wh}]")
     
-    st.write("")
     b_col1, b_col2 = st.columns(2)
     with b_col1:
         st.file_uploader("Upload Blinkit PO / Data Sheet (Excel/CSV)", type=["xlsx", "xls", "csv"], key="blinkit_data")
@@ -500,17 +409,62 @@ elif st.session_state.active_tab == "BLNK":
 # MODULE 3: LABEL EDITOR
 # =========================================================================
 elif st.session_state.active_tab == "LBL":
-    st.subheader("🏷️ Shipping & Product Label Editor")
-    st.caption("Bulk crop, resize, rotate aur thermal shipping labels customize karein.")
+    st.subheader(f"🏷️ Shipping & Product Label Editor [{st.session_state.selected_wh}]")
     st.info("Label Editor module ready hai.")
 
 # =========================================================================
-# MODULE 4: SETTINGS & REPORTS
+# MODULE 4: HISTORY / SAVED OUTPUTS (DEDICATED TAB)
+# =========================================================================
+elif st.session_state.active_tab == "HIST":
+    st.subheader("📜 Processed Files History & Downloads")
+    st.caption("Aapka poora processed data yahan save rehta hai.")
+
+    if not st.session_state.processed_history:
+        st.warning("Abhi tak koi files process nahi hui hain. 'AMZ-ED' tab me jakar invoices generate karein.")
+    else:
+        st.info(f"💾 Total Saved Processed Files: **{len(st.session_state.processed_history)}**")
+        
+        if len(st.session_state.processed_history) > 1:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for idx, item in enumerate(st.session_state.processed_history):
+                    zip_file.writestr(f"{idx+1}_{item['file_name']}", item["data"])
+            zip_buffer.seek(0)
+
+            st.download_button(
+                label="📦 Download All History Files as ZIP",
+                data=zip_buffer,
+                file_name="All_History_Invoices.zip",
+                mime="application/zip",
+                use_container_width=True
+            )
+
+        st.write("---")
+        for idx, item in enumerate(st.session_state.processed_history):
+            d_col1, d_col2 = st.columns([3, 1])
+            with d_col1:
+                st.write(
+                    f"📁 **{item['original_name']}** — `[Location: {item.get('location', 'N/A')}]` | "
+                    f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | "
+                    f"`{item['removed_pan']} Non-PAN Filtered` | `{item.get('removed_desc', 0)} No-Desc Filtered`"
+                )
+            with d_col2:
+                st.download_button(
+                    label="📥 Download PDF",
+                    data=item["data"],
+                    file_name=item["file_name"],
+                    mime="application/pdf",
+                    key=f"dl_history_{idx}",
+                    use_container_width=True
+                )
+
+# =========================================================================
+# MODULE 5: SETTINGS & REPORTS
 # =========================================================================
 elif st.session_state.active_tab == "CONF":
     st.subheader("⚙️ System Operations & Units Configuration")
-    st.markdown("""
-    - **Current Active GSTIN/PAN:** `AALCR5906L` (Romsons Prime Pvt Ltd)
+    st.markdown(f"""
+    - **Active Location:** `{st.session_state.selected_wh}`
     - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
     - **Engine Status:** Online & Healthy
     """)

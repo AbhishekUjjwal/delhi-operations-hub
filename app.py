@@ -42,22 +42,44 @@ def load_disk_history():
 
         for m in meta_list:
             created_ts = m.get("created_ts", now_ts)
-            fpath = os.path.join(STORAGE_DIR, m.get("disk_filename", ""))
 
+            # Check 30 days retention
             if created_ts < cutoff_ts:
                 cleaned_up = True
-                if os.path.exists(fpath):
-                    try:
-                        os.remove(fpath)
-                    except Exception:
-                        pass
+                for f_key in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
+                    fname = m.get(f_key)
+                    if fname:
+                        fpath = os.path.join(STORAGE_DIR, fname)
+                        if os.path.exists(fpath):
+                            try:
+                                os.remove(fpath)
+                            except Exception:
+                                pass
                 continue
 
-            if os.path.exists(fpath):
-                with open(fpath, "rb") as f_bin:
-                    m_copy = dict(m)
+            pdf_path = os.path.join(STORAGE_DIR, m.get("disk_filename", ""))
+            if os.path.exists(pdf_path):
+                m_copy = dict(m)
+                with open(pdf_path, "rb") as f_bin:
                     m_copy["data"] = f_bin.read()
-                    valid_items.append(m_copy)
+
+                # Read Excel if saved
+                excel_fname = m.get("disk_excel_filename")
+                if excel_fname:
+                    epath = os.path.join(STORAGE_DIR, excel_fname)
+                    if os.path.exists(epath):
+                        with open(epath, "rb") as fe:
+                            m_copy["excel_data"] = fe.read()
+
+                # Read JSON if saved
+                json_fname = m.get("disk_json_filename")
+                if json_fname:
+                    jpath = os.path.join(STORAGE_DIR, json_fname)
+                    if os.path.exists(jpath):
+                        with open(jpath, "rb") as fj:
+                            m_copy["json_data"] = fj.read()
+
+                valid_items.append(m_copy)
                 updated_meta.append(m)
             else:
                 cleaned_up = True
@@ -92,17 +114,34 @@ def save_item_to_disk_history(item):
 
     current_dt = datetime.now(IST)
     current_ts = current_dt.timestamp()
+    prefix = int(current_ts * 1000)
 
-    disk_fname = f"{int(current_ts * 1000)}_{new_file_name}"
+    # 1. Save PDF binary
+    disk_fname = f"{prefix}_{new_file_name}"
     disk_path = os.path.join(STORAGE_DIR, disk_fname)
-
     with open(disk_path, "wb") as f_out:
         f_out.write(item["data"])
+
+    # 2. Save Excel binary (if available)
+    disk_excel_fname = None
+    if "excel_data" in item and item["excel_data"]:
+        disk_excel_fname = f"{prefix}_{name_root}.xlsx"
+        with open(os.path.join(STORAGE_DIR, disk_excel_fname), "wb") as fe:
+            fe.write(item["excel_data"])
+
+    # 3. Save JSON binary (if available)
+    disk_json_fname = None
+    if "json_data" in item and item["json_data"]:
+        disk_json_fname = f"{prefix}_{name_root}.json"
+        with open(os.path.join(STORAGE_DIR, disk_json_fname), "wb") as fj:
+            fj.write(item["json_data"])
 
     meta_record = {
         "original_name": item.get("original_name", base_name),
         "file_name": new_file_name,
         "disk_filename": disk_fname,
+        "disk_excel_filename": disk_excel_fname,
+        "disk_json_filename": disk_json_fname,
         "pages": item.get("pages", 1),
         "stamped": item.get("stamped", 0),
         "location": wh,
@@ -143,12 +182,15 @@ def clear_disk_history(wh_filter=None, mod_filter=None):
                 should_delete = False
 
             if should_delete:
-                fpath = os.path.join(STORAGE_DIR, m.get("disk_filename", ""))
-                if os.path.exists(fpath):
-                    try:
-                        os.remove(fpath)
-                    except Exception:
-                        pass
+                for f_key in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
+                    fname = m.get(f_key)
+                    if fname:
+                        fpath = os.path.join(STORAGE_DIR, fname)
+                        if os.path.exists(fpath):
+                            try:
+                                os.remove(fpath)
+                            except Exception:
+                                pass
             else:
                 remaining_meta.append(m)
 
@@ -403,7 +445,7 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW
+# HISTORY VIEW (COMPLETE BUNDLE: PDF + EXCEL + JSON DOWNLOADS)
 # =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
@@ -426,20 +468,33 @@ if st.session_state.show_history:
     else:
         st.success(f"💾 Total Saved Files: **{len(loc_history)}** (Auto retained for 30 days)")
 
+        # BULK DOWNLOAD ZIP CONTAINING ALL STORED FILES
         if len(loc_history) > 1:
             zip_buf = io.BytesIO()
             with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                 for idx, item in enumerate(loc_history):
                     loc_tag = item.get("location", "GEN")
-                    safe_fname = f"{idx+1}_{loc_tag}_{item['file_name']}"
-                    zf.writestr(safe_fname, item["data"])
+                    name_root = item['file_name'][:-4] if item['file_name'].endswith(".pdf") else item['file_name']
+
+                    # Add PDF
+                    safe_pdf_name = f"{idx+1}_{loc_tag}_{item['file_name']}"
+                    zf.writestr(safe_pdf_name, item["data"])
+
+                    # Add Excel if stored
+                    if "excel_data" in item and item["excel_data"]:
+                        zf.writestr(f"{idx+1}_{loc_tag}_{name_root}.xlsx", item["excel_data"])
+
+                    # Add JSON if stored
+                    if "json_data" in item and item["json_data"]:
+                        zf.writestr(f"{idx+1}_{loc_tag}_{name_root}.json", item["json_data"])
+
             zip_bytes = zip_buf.getvalue()
 
-            zip_title = f"📦 Download All Central Master Invoices as ZIP ({len(loc_history)} Files)" if st.session_state.selected_wh == "Headoffice" else f"📦 Re-Download All History as ZIP ({len(loc_history)} Files)"
+            zip_title = f"📦 Download All Complete Invoices Bundle as ZIP ({len(loc_history)} Records)"
             st.download_button(
                 label=zip_title,
                 data=zip_bytes,
-                file_name=f"{st.session_state.selected_wh}_{st.session_state.active_tab}_Master_History.zip",
+                file_name=f"{st.session_state.selected_wh}_{st.session_state.active_tab}_Master_Bundle.zip",
                 mime="application/zip",
                 key="btn_zip_history_download",
                 use_container_width=True
@@ -447,23 +502,47 @@ if st.session_state.show_history:
 
         st.write("---")
         for idx, item in enumerate(loc_history):
-            d_col1, d_col2 = st.columns([3, 1])
+            name_root = item['file_name'][:-4] if item['file_name'].endswith(".pdf") else item['file_name']
+            
+            d_col1, d_col2, d_col3, d_col4 = st.columns([3.2, 0.9, 0.9, 0.9])
             with d_col1:
                 st.write(
-                    f"📁 **{item['file_name']}** (Orig: `{item.get('original_name', item['file_name'])}`) — "
-                    f"`[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
-                    f"`{item.get('pages', 1)} Pages` | `{item.get('stamped', 0)} Items` | "
+                    f"📁 **{item['file_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
                     f"⏰ *{item.get('time', '')}*"
                 )
             with d_col2:
                 st.download_button(
-                    label="📥 Download PDF",
+                    label="📥 PDF",
                     data=item["data"],
                     file_name=item["file_name"],
                     mime="application/pdf",
-                    key=f"dl_hist_perm_{st.session_state.selected_wh}_{idx}",
+                    key=f"dl_hist_pdf_{st.session_state.selected_wh}_{idx}",
                     use_container_width=True
                 )
+            with d_col3:
+                if "excel_data" in item and item["excel_data"]:
+                    st.download_button(
+                        label="📊 Excel",
+                        data=item["excel_data"],
+                        file_name=f"{name_root}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"dl_hist_excel_{st.session_state.selected_wh}_{idx}",
+                        use_container_width=True
+                    )
+                else:
+                    st.button("📊 Excel", key=f"dis_xl_{idx}", disabled=True, use_container_width=True)
+            with d_col4:
+                if "json_data" in item and item["json_data"]:
+                    st.download_button(
+                        label="🧾 JSON",
+                        data=item["json_data"],
+                        file_name=f"{name_root}.json",
+                        mime="application/json",
+                        key=f"dl_hist_json_{st.session_state.selected_wh}_{idx}",
+                        use_container_width=True
+                    )
+                else:
+                    st.button("🧾 JSON", key=f"dis_js_{idx}", disabled=True, use_container_width=True)
 
 # =========================================================================
 # MODULE 1: AMAZON INVOICE EDITOR
@@ -809,7 +888,7 @@ elif st.session_state.active_tab == "BLNK_PO":
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
-    st.caption("Matches PDF Taxable Value directly as Gross Amount with zero roundoff mismatch")
+    st.caption("Gross Amount = Taxable Value + Discount | Exact Printed Taxable as Base | Full Package Saved in History")
 
     STATE_CODE_MAP = {
         "01": "JAMMU AND KASHMIR", "02": "HIMACHAL PRADESH", "03": "PUNJAB", "04": "CHANDIGARH",
@@ -1055,7 +1134,6 @@ elif st.session_state.active_tab == "BLNK":
         inv_total_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else None
 
-        # EXTRACT PRINTED TOTAL TAXABLE AND TOTAL TAX FROM PDF FOOTER DIRECTLY
         tot_taxable_m = re.search(r"(?:Total\s*Amount\(\+\)|Taxable\s*Value)[\s\S]*?([0-9,]+\.\d{2})", full_text, re.I)
         printed_taxable_total = float(tot_taxable_m.group(1).replace(",", "")) if tot_taxable_m else None
 
@@ -1230,26 +1308,26 @@ elif st.session_state.active_tab == "BLNK":
                         if len(after_hsn_nums) >= 3:
                             final_disc = after_hsn_nums[2]["val"]
 
-                        # EXACT EXTRACTION OF TAXABLE VALUE (COLUMN AROUND x: 290 - 340)
+                        # EXACT EXTRACTION OF TAXABLE VALUE (COLUMN AROUND x: 290 - 345)
                         taxable_cand = [n for n in after_hsn_nums if 290 <= n["x0"] <= 345]
                         if taxable_cand:
                             final_taxable = taxable_cand[0]["val"]
                         elif len(after_hsn_nums) >= 4:
                             final_taxable = after_hsn_nums[3]["val"]
 
-                        # LAST COLUMN IS ITEM TOTAL (AROUND x: 520+)
+                        # LAST COLUMN IS ITEM TOTAL (x >= 520)
                         tot_cand = [n for n in after_hsn_nums if n["x0"] >= 520]
                         if tot_cand:
                             final_item_tot = tot_cand[0]["val"]
 
                     if final_q is not None and final_p is not None and final_q > 0:
-                        # MANDATORY: TAXABLE AMOUNT IS THE BASE (DIRECT FROM PDF)
+                        # MANDATORY: EXACT PRINTED TAXABLE VALUE AS BASE
                         if final_taxable is not None and final_taxable > 0:
                             taxable_val = round(final_taxable, 2)
                         else:
                             taxable_val = round((final_q * final_p) - final_disc, 2)
 
-                        # GROSS AMOUNT = TAXABLE AMOUNT + DISCOUNT
+                        # GROSS AMOUNT = TAXABLE AMOUNT + DISCOUNT (USER MANDATE)
                         gross_amt = round(taxable_val + final_disc, 2)
                         unit_label = "BOX" if (is_blinkit and factor > 1) else "PAC"
 
@@ -1260,9 +1338,9 @@ elif st.session_state.active_tab == "BLNK":
                             "qty": final_q,
                             "unit": unit_label,
                             "unit_price": final_p,
-                            "gross_amt": gross_amt,       # Base is Taxable + Disc
+                            "gross_amt": gross_amt,       # Taxable + Discount
                             "discount": final_disc,
-                            "taxable_val": taxable_val,   # Exact Printed Taxable
+                            "taxable_val": taxable_val,   # Direct Printed Taxable
                             "gst_rate": 5.0,
                             "item_tot": final_item_tot
                         })
@@ -1559,6 +1637,7 @@ elif st.session_state.active_tab == "BLNK":
 
                 # USE THE EXACT PRINTED TAXABLE VALUE AS BASE
                 taxable = it.get("taxable_val", round(qty * price, 2))
+                # GROSS AMOUNT = TAXABLE + DISCOUNT (USER MANDATE)
                 gross_amt = it.get("gross_amt", round(taxable + disc, 2))
                 gst_rate = it.get("gst_rate", 5.0)
 
@@ -1584,7 +1663,6 @@ elif st.session_state.active_tab == "BLNK":
                     "cgst": cgst, "sgst": sgst, "igst": igst, "item_tot": item_tot
                 })
 
-            # MATCH DIRECTLY WITH PDF PRINTED TOTALS
             final_taxable_sum = inv.get("printed_taxable_total") or round(tot_taxable, 2)
             final_tax_sum = inv.get("printed_tax_total") or round(tot_cgst + tot_sgst + tot_igst, 2)
             final_invoice_val = inv.get("printed_grand_total") or round(final_taxable_sum + final_tax_sum, 2)
@@ -1687,8 +1765,7 @@ elif st.session_state.active_tab == "BLNK":
             taxable = it['taxable_val']
             disc = it.get('discount', 0.0)
             gst_r = it.get('gst_rate', 5.0)
-            tax_amt = round(taxable * (gst_r / 100), 2)
-            tot_val = it.get("item_tot") or round(taxable + tax_amt, 2)
+            tot_val = it.get("item_tot") or round(taxable + round(taxable * (gst_r / 100), 2), 2)
 
             table_rows += f"""
             <tr style="border-bottom: 1px solid #000; font-size: 11px;">
@@ -1878,6 +1955,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             meta = doc["meta"]
             pdf_buf = doc["pdf_buf"]
             json_payload = build_einvoice_json_v101(meta)
+            json_raw_bytes = json.dumps(json_payload, indent=4).encode('utf-8')
             inv_no = meta["invoice_no"]
             pdf_name = meta["pdf_filename"]
             is_blinkit = meta["is_blinkit"]
@@ -1899,6 +1977,8 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 "original_name": doc["original_name"],
                 "file_name": pdf_name,
                 "data": pdf_buf.getvalue(),
+                "excel_data": excel_raw_bytes,
+                "json_data": json_raw_bytes,
                 "pages": 1,
                 "stamped": len(meta["line_items"]),
                 "location": st.session_state.selected_wh,
@@ -1922,14 +2002,18 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     data=excel_raw_bytes,
                     file_name=f"{inv_no}_eInvoice.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    on_click=save_item_to_disk_history,
+                    args=(hist_item,),
                     key="dl_blnk_single_xlsx"
                 )
             with c3:
                 st.download_button(
                     label="🧾 Download e-Invoice JSON (v1.01)",
-                    data=json.dumps(json_payload, indent=4),
+                    data=json_raw_bytes,
                     file_name=f"{inv_no}_eInvoice_v1.01.json",
                     mime="application/json",
+                    on_click=save_item_to_disk_history,
+                    args=(hist_item,),
                     key="dl_blnk_single_json"
                 )
 
@@ -1942,24 +2026,31 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
         else:
             zip_buffer = io.BytesIO()
             batch_hist = []
+            bulk_json = [build_einvoice_json_v101(d["meta"]) for d in active_docs]
+            date_str = datetime.now(IST).strftime('%d-%m-%Y')
+
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for idx, doc in enumerate(active_docs, 1):
                     pdf_name = doc["meta"]["pdf_filename"]
                     raw_data = doc["pdf_buf"].getvalue()
                     zip_file.writestr(pdf_name, raw_data)
+
+                    single_json = bulk_json[idx-1]
+                    single_json_bytes = json.dumps(single_json, indent=4).encode('utf-8')
+                    single_excel_bytes = generate_official_nic_v101_excel_bytes([doc["meta"]])
+
                     batch_hist.append({
                         "original_name": doc["original_name"],
                         "file_name": pdf_name,
                         "data": raw_data,
+                        "excel_data": single_excel_bytes,
+                        "json_data": single_json_bytes,
                         "pages": 1,
                         "stamped": len(doc["meta"]["line_items"]),
                         "location": st.session_state.selected_wh,
                         "module": "BLNK"
                     })
             zip_buffer.seek(0)
-
-            bulk_json = [build_einvoice_json_v101(d["meta"]) for d in active_docs]
-            date_str = datetime.now(IST).strftime('%d-%m-%Y')
 
             c1, c2, c3 = st.columns(3)
             with c1:
@@ -1978,20 +2069,24 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     data=excel_raw_bytes,
                     file_name=f"Bulk_eInvoice_{date_str}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    on_click=save_batch_to_disk_history,
+                    args=(batch_hist,),
                     key="dl_blnk_bulk_xlsx"
                 )
             with c3:
                 st.download_button(
                     label=f"🧾 Download Bulk e-Invoice JSON ({len(bulk_json)} Invoices)",
-                    data=json.dumps(bulk_json, indent=4),
+                    data=json.dumps(bulk_json, indent=4).encode('utf-8'),
                     file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
                     mime="application/json",
+                    on_click=save_batch_to_disk_history,
+                    args=(batch_hist,),
                     key="dl_blnk_bulk_json"
                 )
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### 📄 Invoices Official e-Invoice Preview")
-            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
+            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in active_docs])
             for i, tab in enumerate(preview_tabs):
                 with tab:
                     curr_meta = active_docs[i]['meta']

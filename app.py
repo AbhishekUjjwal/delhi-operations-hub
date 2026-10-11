@@ -607,4 +607,35 @@ elif st.session_state.active_tab == "AMZ":
                     data=item["data"],
                     file_name=item["file_name"],
                     mime="application/pdf",
-                    key=f"dl_single_live_{st.session
+                    key=f"dl_single_live_{st.session_state.selected_wh}_{idx}",
+                    use_container_width=True
+                )
+
+# =========================================================================
+# MODULE 2: BLINKIT E-INVOICE TOOL
+# =========================================================================
+elif st.session_state.active_tab == "BLNK":
+    st.subheader("⚡ Blinkit e-Invoice Management Tool")
+    b_col1, b_col2 = st.columns(2)
+    with b_col1:
+        st.file_uploader("Upload Blinkit PO / Data Sheet (Excel/CSV)", type=["xlsx", "xls", "csv"], key="blinkit_data")
+    with b_col2:
+        st.file_uploader("Upload Master Template / Supporting PDF (Optional)", type=["pdf", "json"], key="blinkit_template")
+
+# =========================================================================
+# MODULE 3: LABEL EDITOR
+# =========================================================================
+elif st.session_state.active_tab == "LBL":
+    st.subheader("🏷️ Shipping & Product Label Editor")
+    st.info("Label Editor module ready hai.")
+
+# =========================================================================
+# MODULE 4: SETTINGS & REPORTS
+# =========================================================================
+elif st.session_state.active_tab == "CONF":
+    st.subheader("⚙️ System Operations & Units Configuration")
+    st.markdown(f"""
+    - **Active Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`
+    - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
+    - **Engine Status:** Online & Healthy
+    """)

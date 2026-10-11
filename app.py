@@ -861,7 +861,7 @@ elif st.session_state.active_tab == "BLNK_PO":
 # ----------------- MODULE 3: BLINKIT E-INVOICE TOOL -----------------
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
-    st.caption("Gross Amount = Taxable Value + Discount | Exact Taxable Base | Clean Address & State Aware")
+    st.caption("Clean Party Name | Dedicated Address Only in Addr1/Addr2 | Exact Taxable Base")
 
     STATE_CODE_MAP = {
         "01": "JAMMU AND KASHMIR", "02": "HIMACHAL PRADESH", "03": "PUNJAB", "04": "CHANDIGARH",
@@ -899,30 +899,43 @@ elif st.session_state.active_tab == "BLNK":
 
         return state_name.title() if state_name else "Delhi"
 
-    def format_best_address(raw_lines, pincode, city, state_name):
+    # STRICT ADDRESS CLEANER: Excludes Buyer Name and metadata
+    def format_best_address(raw_lines, party_name, pincode, city, state_name):
         clean_parts = []
         for l in raw_lines:
             s = l.strip()
             if not s:
                 continue
+            
+            # 1. Skip if it's the party name or header keyword
+            if party_name and party_name.lower() in s.lower():
+                continue
             if re.search(r"(@|contact|phone|mob|gstin|pan|india|cgst|sgst|ugst|igst|s\.no|item code|tax invoice|billing address|shipping address)", s, re.I):
                 continue
+            
+            # 2. Clean city, state, pincode repetitions
             s = re.sub(rf"\b{re.escape(str(pincode))}\b", "", s).strip()
             s = re.sub(rf"\b{re.escape(str(city))}\b", "", s, flags=re.I).strip()
             s = re.sub(rf"\b{re.escape(str(state_name))}\b", "", s, flags=re.I).strip()
             s = re.sub(r'[\,\-\s]+$', '', s).strip()
+            s = re.sub(r'^[\,\-\s]+', '', s).strip()
+            
             if len(s) > 2:
                 clean_parts.append(s)
 
         full_addr = ", ".join(clean_parts) if clean_parts else "Commercial Facility"
         full_addr = re.sub(r"\s+", " ", full_addr).strip()
+        
+        # Remove any residual party name leading the address
+        if party_name:
+            full_addr = re.sub(rf"^{re.escape(party_name)}[\,\s\-]*", "", full_addr, flags=re.I).strip()
 
         if len(full_addr) <= 100:
             addr1 = full_addr
             addr2 = ""
         else:
             split_idx = full_addr[:98].rfind(",")
-            if split_idx > 30:
+            if split_idx > 25:
                 addr1 = full_addr[:split_idx].strip()
                 addr2 = full_addr[split_idx+1:].strip()[:100]
             else:
@@ -1017,7 +1030,6 @@ elif st.session_state.active_tab == "BLNK":
         y_sold = sold_header[0][1] if sold_header else 80
         y_bill = bill_header[0][1] if bill_header else 200
         
-        # Stop shipping box cleanly before table header
         y_table = (table_header[0][1] - 4) if table_header else 285
         split_x = 295
 
@@ -1035,15 +1047,23 @@ elif st.session_state.active_tab == "BLNK":
         seller_state_name = STATE_CODE_MAP.get(seller_state_code, "DELHI")
         seller_loc = clean_extracted_city(seller_text, seller_state_name)
 
-        s_addr1, s_addr2 = format_best_address(s_lines[1:], seller_pin, seller_loc, seller_state_name)
+        s_addr1, s_addr2 = format_best_address(s_lines[1:], seller_name, seller_pin, seller_loc, seller_state_name)
 
         # Precise Billing Address Rect
         billing_rect = fitz.Rect(20, y_bill + 10, split_x, y_table)
         billing_text = page0.get_text("text", clip=billing_rect).strip()
         b_lines = [l.strip() for l in billing_text.split("\n") if l.strip() and not re.search(r"billing\s*addr", l, re.I)]
 
-        buyer_name = b_lines[0] if b_lines else "BLINK COMMERCE PRIVATE LIMITED"
-        buyer_name = re.sub(r"\s+", " ", buyer_name).strip()
+        # PRECISE DETERMINATION OF BUYER LEGAL NAME (NEVER 'g')
+        full_lower = full_text.lower()
+        if "blink" in full_lower or "blinkit" in full_lower:
+            buyer_name = "BLINK COMMERCE PRIVATE LIMITED"
+        elif "g n healthcare" in full_lower or "g. n healthcare" in full_lower or "g.n healthcare" in full_lower:
+            buyer_name = "G N Healthcare"
+        else:
+            cand = b_lines[0] if b_lines else "COMMERCIAL BUYER"
+            cand = re.sub(r"\s+", " ", cand).strip()
+            buyer_name = cand if len(cand) > 2 else "BLINK COMMERCE PRIVATE LIMITED"
 
         em_m = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", billing_text)
         buyer_email = em_m.group(0).strip() if em_m else ""
@@ -1065,16 +1085,15 @@ elif st.session_state.active_tab == "BLNK":
         buyer_pin = int(b_pin_m[0]) if b_pin_m else int(buyer_state_code + "0001")
         buyer_loc = clean_extracted_city(billing_text, buyer_state_name)
 
-        buyer_addr1, buyer_addr2 = format_best_address(b_lines[1:], buyer_pin, buyer_loc, buyer_state_name)
+        # STRICT CLEAN ADDRESS (WITHOUT BUYER NAME)
+        buyer_addr1, buyer_addr2 = format_best_address(b_lines, buyer_name, buyer_pin, buyer_loc, buyer_state_name)
 
-        # Precise Shipping Address Rect (Stops strictly before y_table)
+        # Precise Shipping Address Rect
         shipping_rect = fitz.Rect(split_x + 5, y_bill + 10, 585, y_table)
         shipping_text = page0.get_text("text", clip=shipping_rect).strip()
         shp_lines = [l.strip() for l in shipping_text.split("\n") if l.strip() and not re.search(r"shipping\s*addr", l, re.I)]
 
-        ship_name = shp_lines[0] if shp_lines else buyer_name
-        ship_name = re.sub(r"\s+", " ", ship_name).strip()
-
+        ship_name = buyer_name
         shp_gst_m = re.search(r"GSTIN\s*[:\s]*([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})", shipping_text, re.IGNORECASE)
         ship_gstin = shp_gst_m.group(1).strip() if shp_gst_m else buyer_gstin
         ship_state_code = ship_gstin[:2]
@@ -1084,11 +1103,11 @@ elif st.session_state.active_tab == "BLNK":
         ship_pin = int(shp_pin_m[0]) if shp_pin_m else buyer_pin
         ship_loc = clean_extracted_city(shipping_text, ship_state_name)
 
-        ship_addr1, ship_addr2 = format_best_address(shp_lines[1:], ship_pin, ship_loc, ship_state_name)
+        ship_addr1, ship_addr2 = format_best_address(shp_lines, ship_name, ship_pin, ship_loc, ship_state_name)
 
         is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
 
-        # USER LOGIC: If Buyer GSTIN == Shipping GSTIN or if Blinkit -> SHIPPING DETAILS ARE BLANK!
+        # USER LOGIC: If Buyer GSTIN == Shipping GSTIN or if Blinkit -> SHIPPING DETAILS MUST BE BLANK!
         clean_b_gst = buyer_gstin.strip().upper()
         clean_s_gst = ship_gstin.strip().upper()
         
@@ -1121,7 +1140,6 @@ elif st.session_state.active_tab == "BLNK":
         inv_total_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else None
 
-        # Bottom Summary Box Regex
         summary_m = re.search(r"Total\s*Amount\(\+\)\s*[:\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_taxable_total = float(summary_m.group(1).replace(",", "")) if summary_m else None
 
@@ -1171,7 +1189,7 @@ elif st.session_state.active_tab == "BLNK":
             "printed_tax_total": printed_tax_total
         }
 
-    # RECONCILE AND CAPTURE NUMBERS ACCURATELY BY COLUMN X-COORDINATES
+    # RECONCILE AND CAPTURE NUMBERS ACCURATELY BY COLUMN X-COORDINATES (NO LEN SKIP)
     def process_and_reconcile_pdf(pdf_bytes):
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         meta = extract_metadata_from_doc(doc)
@@ -1263,7 +1281,7 @@ elif st.session_state.active_tab == "BLNK":
                     search_words = [w for w in row_words if w[0] > (hsn_w[2] if hsn_w else (hsn_x0 + 5))]
                     search_words.sort(key=lambda w: w[0])
 
-                    # Extract all valid numbers without skipping lengths >= 9
+                    # Extract all valid numbers without arbitrary length limits
                     after_hsn_nums = []
                     for w in search_words:
                         val = w[4].replace(",", "").strip()
@@ -1313,7 +1331,6 @@ elif st.session_state.active_tab == "BLNK":
                         final_item_tot = tot_cand[0]["val"]
 
                     if final_q is not None and final_p is not None and final_q > 0:
-                        # Taxable Value directly from PDF is base
                         if final_taxable is not None and final_taxable > 0:
                             taxable_val = round(final_taxable, 2)
                         else:
@@ -1476,7 +1493,6 @@ elif st.session_state.active_tab == "BLNK":
             }
         }
 
-    # EXACT 86-COLUMN NIC EXCEL BUILDER (MATCHING PDF TO THE EXACT PAISA)
     def generate_official_nic_v101_excel_bytes(data_list):
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1627,9 +1643,7 @@ elif st.session_state.active_tab == "BLNK":
                 price = it["unit_price"]
                 disc = it.get("discount", 0.0)
 
-                # Direct Taxable Value from PDF
                 taxable = it.get("taxable_val", round(qty * price, 2))
-                # User Rule: Gross Amount = Taxable + Discount
                 gross_amt = round(taxable + disc, 2)
                 gst_rate = it.get("gst_rate", 5.0)
 
@@ -1659,7 +1673,7 @@ elif st.session_state.active_tab == "BLNK":
             final_tax_sum = inv.get("printed_tax_total") or round(tot_cgst + tot_sgst + tot_igst, 2)
             final_invoice_val = inv.get("printed_grand_total") or round(final_taxable_sum + final_tax_sum, 2)
 
-            # Strictly blank out Shipping Details if identical or Blinkit
+            # Blank out Shipping Details if identical or Blinkit
             if inv.get("shipping_is_different", False):
                 ship_vals = [
                     str(inv["ship_gstin"]), str(inv["ship_name"]), str(inv["ship_name"]),

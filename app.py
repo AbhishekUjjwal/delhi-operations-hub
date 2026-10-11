@@ -7,7 +7,7 @@ import zipfile
 import barcode
 from barcode.writer import ImageWriter
 
-# Page Configuration - Enterprise Wide Layout
+# Page Configuration
 st.set_page_config(
     page_title="PAN OPERATIONS HUB | Central Portal",
     page_icon="🏛️",
@@ -15,50 +15,56 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Sleek, Compact & Theme-Adaptive
+# Custom Styling: Hide Fork/GitHub & Perfect Compact Buttons
 st.markdown("""
     <style>
-    /* Metric Cards - Modern Gradient */
-    div[data-testid="stMetric"] {
-        background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        border-radius: 10px;
-        padding: 10px 14px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-    
-    /* Top action selectbox label hide & compact size */
-    div[data-testid="stSelectbox"] label {
-        display: none;
-    }
-    div[data-testid="stSelectbox"] > div > div {
-        padding-top: 2px !important;
-        padding-bottom: 2px !important;
-        min-height: 34px !important;
-        font-size: 13px !important;
-        border-radius: 18px !important;
-    }
-    
-    /* Compact Pill buttons */
+    /* 1. HIDE TOP-RIGHT FORK, GITHUB LOGO & STREAMLIT HEADER */
+    #MainMenu {visibility: hidden; display: none !important;}
+    header {visibility: hidden; display: none !important;}
+    footer {visibility: hidden; display: none !important;}
+    .stDeployButton {display: none !important;}
+    div[data-testid="stToolbar"] {visibility: hidden; display: none !important;}
+    div[data-testid="stDecoration"] {visibility: hidden; display: none !important;}
+    div[data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
+
+    /* 2. COMPACT TAB & PILL BUTTONS (Fitted to text) */
     div[data-testid="stButton"] button {
-        border-radius: 18px !important;
-        font-size: 12.5px !important;
+        border-radius: 16px !important;
+        font-size: 12px !important;
         font-weight: 600 !important;
-        padding: 3px 12px !important;
-        min-height: 34px !important;
-        line-height: 1.2 !important;
-        transition: all 0.2s ease-in-out !important;
-        border: 1px solid rgba(148, 163, 184, 0.25) !important;
-    }
-    
-    div[data-testid="stButton"] button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 3px 10px rgba(56, 189, 248, 0.25);
+        padding: 4px 10px !important;
+        min-height: 30px !important;
+        height: 30px !important;
+        line-height: 1 !important;
+        border: 1px solid rgba(148, 163, 184, 0.3) !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: none !important;
     }
 
-    /* Single line gradient title */
+    div[data-testid="stButton"] button:hover {
+        border-color: #38bdf8 !important;
+        color: #38bdf8 !important;
+    }
+
+    /* 3. COMPACT SELECTBOX */
+    div[data-testid="stSelectbox"] label {
+        display: none !important;
+    }
+    div[data-testid="stSelectbox"] > div > div {
+        min-height: 30px !important;
+        height: 30px !important;
+        padding: 0px 8px !important;
+        font-size: 12px !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(148, 163, 184, 0.3) !important;
+    }
+
+    /* 4. SINGLE LINE GRADIENT TITLE */
     .hub-title {
-        font-size: 19px;
+        font-size: 18px;
         font-weight: 800;
         white-space: nowrap;
         background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
@@ -69,10 +75,14 @@ st.markdown("""
         align-items: center;
         gap: 6px;
     }
+
+    div[data-testid="stMetric"] {
+        border-radius: 10px;
+        padding: 10px 14px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Locations list with icons
 LOCATION_DISPLAY_MAP = {
     "RPPL - DEL": "📍 RPPL - DEL",
     "RPPL - KOL": "📍 RPPL - KOL",
@@ -85,7 +95,6 @@ LOCATION_DISPLAY_MAP = {
 
 ORDERED_LOCATIONS = list(LOCATION_DISPLAY_MAP.keys())
 
-# Short Name + Unique Logo for each tab
 AVAILABLE_MODULES = {
     "AMZ": {"name": "Amazon Invoice Editor", "code": "AMZ-ED", "logo": "📦"},
     "BLNK": {"name": "Blinkit e-Invoice Tool", "code": "BLNK-INV", "logo": "⚡"},
@@ -153,35 +162,36 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP ACTION BAR: SLEEK & COMPACT -----------------
-top_tabs_col, top_wh_col, top_hist_col, top_reset_col = st.columns([4.8, 2.2, 1.6, 1.1])
+# ----------------- TOP ACTION BAR: COMPACT & CLEAN -----------------
+top_tabs_col, top_wh_col, top_hist_col, top_reset_col = st.columns([5.2, 2.0, 1.4, 1.0])
 
 with top_tabs_col:
-    num_tabs = len(st.session_state.open_tabs)
-    tab_cols = st.columns(num_tabs + 1)
+    # Saare tabs ek hi row me
+    cols = st.columns(len(st.session_state.open_tabs) + 1)
     
     for idx, t_key in enumerate(st.session_state.open_tabs):
         info = AVAILABLE_MODULES[t_key]
         is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
-        tab_label = f"{info['logo']} {info['code']}"
         
-        with tab_cols[idx]:
-            sub_col1, sub_col2 = st.columns([3, 1])
-            with sub_col1:
-                if st.button(tab_label, key=f"pin_tab_{t_key}", type="primary" if is_active else "secondary", use_container_width=True):
+        # Agar 1 se zyada tabs open hain to close (✕) tab ke text me hi aayega
+        if len(st.session_state.open_tabs) > 1:
+            tab_label = f"{info['logo']} {info['code']}  ✕"
+        else:
+            tab_label = f"{info['logo']} {info['code']}"
+
+        with cols[idx]:
+            if st.button(tab_label, key=f"tab_chip_{t_key}", type="primary" if is_active else "secondary", use_container_width=True):
+                # Agar active tab par dobara click karein aur multiple tabs hain, to wo close hoga
+                if is_active and len(st.session_state.open_tabs) > 1:
+                    st.session_state.open_tabs.remove(t_key)
+                    st.session_state.active_tab = st.session_state.open_tabs[0]
+                else:
                     st.session_state.active_tab = t_key
                     st.session_state.show_history = False
-                    st.rerun()
-            with sub_col2:
-                if len(st.session_state.open_tabs) > 1:
-                    if st.button("\u2715", key=f"close_tab_{t_key}", help="Close tab"):
-                        st.session_state.open_tabs.remove(t_key)
-                        if st.session_state.active_tab == t_key:
-                            st.session_state.active_tab = st.session_state.open_tabs[0]
-                        st.rerun()
-                        
-    with tab_cols[num_tabs]:
-        if st.button("🔄 Unpin", key="btn_refresh_tabs", help="Clear pinned tabs"):
+                st.rerun()
+
+    with cols[len(st.session_state.open_tabs)]:
+        if st.button("🔄 Unpin", key="btn_unpin_all", use_container_width=True, help="Clear pinned tabs"):
             clear_all_pinned_tabs()
 
 with top_wh_col:
@@ -189,16 +199,14 @@ with top_wh_col:
         "WH | Location",
         options=ORDERED_LOCATIONS,
         format_func=lambda x: LOCATION_DISPLAY_MAP.get(x, x),
-        index=ORDERED_LOCATIONS.index(st.session_state.selected_wh) if st.session_state.selected_wh in ORDERED_LOCATIONS else 0,
-        help="Select Warehouse Location"
+        index=ORDERED_LOCATIONS.index(st.session_state.selected_wh) if st.session_state.selected_wh in ORDERED_LOCATIONS else 0
     )
     st.session_state.selected_wh = selected_display
 
 loc_history = get_current_location_history()
 
 with top_hist_col:
-    hist_btn_label = f"🕒 History ({len(loc_history)})"
-    if st.button(hist_btn_label, use_container_width=True, type="primary" if st.session_state.show_history else "secondary"):
+    if st.button(f"🕒 History ({len(loc_history)})", use_container_width=True, type="primary" if st.session_state.show_history else "secondary"):
         st.session_state.show_history = not st.session_state.show_history
         st.rerun()
 
@@ -255,7 +263,6 @@ if st.session_state.show_history:
 # MODULE 1: AMAZON INVOICE EDITOR
 # =========================================================================
 elif st.session_state.active_tab == "AMZ":
-    # Clean subheader without location brackets
     st.subheader("📑 Amazon Invoice Editor & Barcode Stamper")
 
     TARGET_PAN = "aalcr5906l"

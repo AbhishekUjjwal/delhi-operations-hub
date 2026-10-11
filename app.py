@@ -44,7 +44,6 @@ def load_disk_history():
             created_ts = m.get("created_ts", now_ts)
             fpath = os.path.join(STORAGE_DIR, m.get("disk_filename", ""))
 
-            # 30 din se purani file auto-delete hogi
             if created_ts < cutoff_ts:
                 cleaned_up = True
                 if os.path.exists(fpath):
@@ -166,7 +165,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Zero Top Padding, Compact Actions & Snappy Layout
+# Custom Styling
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden; display: none !important;}
@@ -293,7 +292,7 @@ AVAILABLE_MODULES = {
     "CONF": {"name": "Settings & Reports", "code": "SETTINGS", "logo": "⚙️"}
 }
 
-# ----------------- SESSION STATE MANAGEMENT -----------------
+# ----------------- SESSION STATE -----------------
 if "selected_wh" not in st.session_state:
     st.session_state.selected_wh = "DEL"
 if "open_tabs" not in st.session_state:
@@ -334,7 +333,7 @@ def clear_all_pinned_tabs():
     st.session_state.show_history = False
     st.rerun()
 
-# ----------------- SIDEBAR NAVIGATION -----------------
+# ----------------- SIDEBAR -----------------
 with st.sidebar:
     st.markdown('<div class="hub-title">🏛️ PAN OPERATIONS HUB</div>', unsafe_allow_html=True)
     st.caption("Romsons prime pvt ltd operation portal")
@@ -353,7 +352,7 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP LAYOUT -----------------
+# ----------------- TOP CONTROLS -----------------
 header_left, header_right = st.columns([7.8, 2.2])
 
 with header_left:
@@ -404,7 +403,7 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (30-DAY RETENTION & CLEAR LOGIC)
+# HISTORY VIEW (30-DAY RETENTION)
 # =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
@@ -740,7 +739,6 @@ elif st.session_state.active_tab == "AMZ":
                 </div>
             """, unsafe_allow_html=True)
 
-    # BULK & SINGLE DOWNLOAD SECTION
     batch_list = st.session_state.current_batch_results
     if batch_list:
         st.write("---")
@@ -807,11 +805,11 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL (EXACT EXCEL FORMATE & BEST ADDRESS)
+# MODULE 3: BLINKIT E-INVOICE TOOL (STRICT STATE-AWARE TAX LOGIC)
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
-    st.caption("Generates exact official NIC 86-Column Excel template matching invocie formate.xlsx")
+    st.caption("Delhi se bahar: Only IGST | Delhi me: CGST + SGST (No Round Off)")
 
     STATE_CODE_MAP = {
         "01": "JAMMU AND KASHMIR", "02": "HIMACHAL PRADESH", "03": "PUNJAB", "04": "CHANDIGARH",
@@ -849,7 +847,6 @@ elif st.session_state.active_tab == "BLNK":
 
         return state_name.title() if state_name else "Delhi"
 
-    # BEST ADDRESS SPLITTER (NIC 100-CHAR LIMIT SAFE)
     def format_best_address(raw_lines, pincode, city, state_name):
         clean_parts = []
         for l in raw_lines:
@@ -858,7 +855,6 @@ elif st.session_state.active_tab == "BLNK":
                 continue
             if re.search(r"(@|contact|phone|mob|gstin|pan|india)", s, re.I):
                 continue
-            # Remove city/pincode repetitions from the address line
             s = re.sub(rf"\b{re.escape(str(pincode))}\b", "", s).strip()
             s = re.sub(rf"\b{re.escape(str(city))}\b", "", s, flags=re.I).strip()
             s = re.sub(rf"\b{re.escape(str(state_name))}\b", "", s, flags=re.I).strip()
@@ -869,7 +865,6 @@ elif st.session_state.active_tab == "BLNK":
         full_addr = ", ".join(clean_parts) if clean_parts else "Warehouse Facility"
         full_addr = re.sub(r"\s+", " ", full_addr).strip()
 
-        # Split into Addr1 (<= 100 chars) and Addr2 (<= 100 chars)
         if len(full_addr) <= 100:
             addr1 = full_addr
             addr2 = ""
@@ -914,7 +909,6 @@ elif st.session_state.active_tab == "BLNK":
         page0 = doc[0]
         words = page0.get_text("words")
 
-        # 1. READ ONLY FOR METADATA & FILENAME (STRIP TRAILING DOT)
         ext_order_id = None
         ext_matches = [w for w in words if "extern" in w[4].lower()]
         if ext_matches:
@@ -942,7 +936,6 @@ elif st.session_state.active_tab == "BLNK":
 
         ext_order_id = re.sub(r'[\.\s]+$', '', str(ext_order_id))
 
-        # 2. INVOICE NO EXTRACTION
         inv_match = re.search(r"Invoice\s*No\s*[:\s]*([A-Za-z0-9\-_/]+)", full_text, re.IGNORECASE)
         invoice_no = inv_match.group(1).strip() if inv_match else "INV-001"
 
@@ -1016,7 +1009,6 @@ elif st.session_state.active_tab == "BLNK":
         buyer_pin = int(b_pin_m[0]) if b_pin_m else int(buyer_state_code + "0001")
         buyer_loc = clean_extracted_city(billing_text, buyer_state_name)
 
-        # BEST CLEAN ADDRESS (Addr1 & Addr2)
         buyer_addr1, buyer_addr2 = format_best_address(b_lines[1:], buyer_pin, buyer_loc, buyer_state_name)
 
         shipping_rect = fitz.Rect(split_x + 5, y_bill, 585, y_table)
@@ -1059,14 +1051,10 @@ elif st.session_state.active_tab == "BLNK":
 
         is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
 
-        has_cgst_header = bool(re.search(r"\bCGST\b", full_text, re.I))
-        cgst_vals = re.findall(r"CGST[\s\S]*?(\d+\.\d{2})", full_text)
-        has_positive_cgst = any(float(v) > 0 for v in cgst_vals[:4]) if cgst_vals else False
-
-        if has_cgst_header and has_positive_cgst:
-            is_interstate = False
-        else:
-            is_interstate = (seller_state_code != buyer_pos_code)
+        # STRICT TAX DETERMINATION:
+        # Supplier Delhi ('07') -> Agar Buyer POS Delhi ('07') hai to Intra-State (CGST+SGST)
+        # Delhi se bahar (e.g. '06' Haryana, '09' UP) hai to STRICT INTER-STATE (ONLY IGST)
+        is_interstate = (seller_state_code != buyer_pos_code)
 
         inv_total_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else None
@@ -1118,7 +1106,6 @@ elif st.session_state.active_tab == "BLNK":
         is_blinkit = meta["is_blinkit"]
         line_items = []
 
-        # STRICT: NO ALTERATION ON ORDER ID ON THE PDF PAGE (ORIGINAL INTACT)
         for p_idx, page in enumerate(doc):
             words = page.get_text("words")
 
@@ -1259,7 +1246,6 @@ elif st.session_state.active_tab == "BLNK":
                             "gst_rate": 5.0
                         })
 
-                    # SAFE IN-LINE UOM UPDATE
                     if is_blinkit and factor > 1:
                         uom_in_row = [
                             w for w in row_words 
@@ -1303,6 +1289,7 @@ elif st.session_state.active_tab == "BLNK":
 
             gst_rate = item.get("gst_rate", 5.0)
 
+            # INTER-STATE VS INTRA-STATE CHECK
             if is_interstate:
                 igst_amt = round((taxable_amt * gst_rate) / 100, 2)
                 cgst_amt = 0.0
@@ -1399,7 +1386,7 @@ elif st.session_state.active_tab == "BLNK":
             }
         }
 
-    # EXACT 86-COLUMN NIC EXCEL GENERATOR (MATCHING invocie formate.xlsx WITH ROW 4 KEYS & NO ROUNDOFF)
+    # EXACT 86-COLUMN NIC EXCEL BUILDER
     def generate_official_nic_v101_excel_bytes(data_list):
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1430,7 +1417,6 @@ elif st.session_state.active_tab == "BLNK":
             bottom=Side(style='thin', color='B0B0B0')
         )
 
-        # ROW 1: Title
         ws.merge_cells("B1:Q1")
         ws["B1"] = "E-Invoice System "
         ws["B1"].font = font_title
@@ -1438,7 +1424,6 @@ elif st.session_state.active_tab == "BLNK":
         ws["R1"] = "*  Indicates Mandatory Fields"
         ws["R1"].font = Font(name="Arial", size=9, italic=True, color="FF0000")
 
-        # ROW 2: Sections
         sections = [
             ("Document Details", 5, 7, c_doc),
             ("Buyer Details", 8, 18, c_buyer),
@@ -1460,7 +1445,6 @@ elif st.session_state.active_tab == "BLNK":
             for i in range(sc, ec + 1):
                 ws.cell(row=2, column=i).border = thin_border
 
-        # ROW 3: Column Headers (Exact 86 columns from invocie formate.xlsx)
         col_names = [
             "Supply Type Code *", "Reverse Charge", "e-Comm GSTIN", "Igst On Intra",
             "Document Type *", "Document Number *", "Document Date (DD/MM/YYYY) *",
@@ -1479,7 +1463,6 @@ elif st.session_state.active_tab == "BLNK":
             "Trans ID", "Trans Name", "Trans Mode ", "Distance ", "Trans Doc No.", "Trans Doc Date", "Vehicle No.", "Vehicle Type", "Error List"
         ]
 
-        # ROW 4: Internal Macro Column Keys (Mandatory for Government Utility Macro)
         col_keys = [
             "colSupType", "colRevCharge", "colEcomGstin", "colIgstIntra",
             "colDoctype", "colDocno", "colDocdate",
@@ -1560,6 +1543,7 @@ elif st.session_state.active_tab == "BLNK":
                 tot_taxable += taxable
                 tot_discount += disc
 
+                # STRICT LOGIC: DELHI SE BAHAR ONLY IGST
                 if is_interstate:
                     igst = round(taxable * (gst_rate / 100), 2)
                     cgst = 0.0
@@ -1572,7 +1556,6 @@ elif st.session_state.active_tab == "BLNK":
                     tot_cgst += cgst
                     tot_sgst += sgst
 
-                # Item Total = Taxable + SGST + CGST + IGST
                 item_tot = round(taxable + cgst + sgst + igst, 2)
                 item_rows_data.append({
                     "it": it, "qty": qty, "price": price, "gross_amt": gross_amt,
@@ -1580,7 +1563,6 @@ elif st.session_state.active_tab == "BLNK":
                     "cgst": cgst, "sgst": sgst, "igst": igst, "item_tot": item_tot
                 })
 
-            # EXACT MATCH WITH NO ROUND OFF (Matching user directive & invocie formate.xlsx)
             exact_total_tax = round(tot_cgst + tot_sgst + tot_igst, 2)
             exact_invoice_val = round(tot_taxable + exact_total_tax, 2)
 
@@ -1596,45 +1578,34 @@ elif st.session_state.active_tab == "BLNK":
             for s_no, r_data in enumerate(item_rows_data, 1):
                 it = r_data["it"]
                 row_data = [
-                    # Supply Details (1 to 4: A-D)
                     "B2B", "No", "", "",
-                    # Document Details (5 to 7: E-G)
                     "Tax Invoice", str(inv["invoice_no"]), str(inv["doc_date"]),
-                    # Buyer Details (8 to 18: H-R)
                     str(inv["buyer_gstin"]), str(inv["buyer_name"]), "", pos_str,
                     str(inv.get("buyer_addr1", "")), str(inv.get("buyer_addr2", "")), str(inv["buyer_loc"]), str(inv["buyer_pin"]),
                     str(inv["buyer_state_name"]), str(inv["buyer_phone"]), str(inv["buyer_email"]),
-                    # Dispatch Details (19 to 24: S-X)
                     "", "", "", "", "", "",
-                    # Shipping Details (25 to 32: Y-AF)
                     *ship_vals,
-                    # Product Details (33 to 57: AG-BE)
                     str(s_no), str(it["desc"]), "No", str(it["hsn"]), "", str(r_data["qty"]), "",
                     "BOX" if str(it.get("unit", "")).upper() == "BOX" else "PACKS",
                     fmt_dec(r_data["price"]), fmt_dec(r_data["gross_amt"]),
                     fmt_dec(r_data["disc"]) if r_data["disc"] > 0 else "",
-                    "",  # Pre Tax Value blank
+                    "",
                     fmt_dec(r_data["taxable"]), str(int(r_data["gst_rate"])),
                     fmt_dec(r_data["sgst"]) if r_data["sgst"] > 0 else "",
                     fmt_dec(r_data["cgst"]) if r_data["cgst"] > 0 else "",
                     fmt_dec(r_data["igst"]) if r_data["igst"] > 0 else "",
                     "", "", "", "", "", "", "",
                     fmt_dec(r_data["item_tot"]),
-                    # Batch Details (58 to 60: BF-BH)
                     "", "", "",
-                    # Value Details (61 to 70: BI-BR) (Exact values matching invoice without roundoff)
                     fmt_dec(tot_taxable),
                     fmt_dec(tot_sgst) if tot_sgst > 0 else "",
                     fmt_dec(tot_cgst) if tot_cgst > 0 else "",
                     fmt_dec(tot_igst) if tot_igst > 0 else "",
                     "", "", "", "",
-                    "", # Round off kept strictly BLANK
+                    "", # Round off Strictly BLANK
                     fmt_dec(exact_invoice_val),
-                    # Export Details (71 to 77: BS-BY)
                     "", "", "", "", "", "", "",
-                    # E-way-bill Details (78 to 85: BZ-CG)
                     "", "", "", "", "", "", "", "",
-                    # Error List (86: CH)
                     ""
                 ]
 
@@ -1645,7 +1616,6 @@ elif st.session_state.active_tab == "BLNK":
                     if cell.value is not None:
                         cell.number_format = '@'
 
-                    # Alignment
                     if c_idx in [1, 2, 5, 7, 8, 11, 15, 16, 25, 31, 32, 33, 35, 36, 38, 40, 46]:
                         cell.alignment = Alignment(horizontal="center", vertical="center")
                     elif c_idx in [41, 42, 43, 45, 47, 48, 49, 57, 61, 62, 63, 64, 70]:
@@ -1890,12 +1860,13 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             pdf_name = meta["pdf_filename"]
             is_blinkit = meta["is_blinkit"]
 
+            tax_badge = "🔴 Inter-State (IGST Only)" if meta["is_interstate"] else "🟢 Intra-State (CGST + SGST)"
             channel_badge = "🟢 Blinkit Conversion Active (50x/25x Box Fix)" if is_blinkit else "🔵 Standard Buyer"
             ship_status = "⚠️ Different (Shipping Details Filled)" if meta["shipping_is_different"] else "✅ Same (Shipping Blank in Excel)"
 
             st.markdown(f"""
                 <div style="background-color: #1e293b; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'};">
-                    <b>Buyer Name:</b> <code>{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Rule:</b> <code>{channel_badge}</code><br>
+                    <b>Buyer Name:</b> <code>{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Tax Rule:</b> <code>{tax_badge}</code><br>
                     <b>Address 1:</b> <code>{meta['buyer_addr1']}</code> &nbsp;|&nbsp; <b>Address 2:</b> <code>{meta.get('buyer_addr2', '')}</code><br>
                     <b>City:</b> <code>{meta['buyer_loc']}</code> ({meta['buyer_pin']}) &nbsp;|&nbsp; <b>Shipping Status:</b> <code>{ship_status}</code><br>
                     <b>Seller:</b> {meta['seller_name']} ({meta['seller_gstin']})
@@ -1998,10 +1969,10 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### 📄 Invoices Official e-Invoice Preview")
-            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
+            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in active_docs])
             for i, tab in enumerate(preview_tabs):
                 with tab:
-                    curr_meta = processed_docs[i]['meta']
+                    curr_meta = active_docs[i]['meta']
                     calc_height = 560 + (len(curr_meta['line_items']) * 36)
                     p_html = render_exact_government_einvoice_preview(curr_meta)
                     components.html(p_html, height=calc_height, scrolling=True)

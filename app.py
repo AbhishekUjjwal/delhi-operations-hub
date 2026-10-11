@@ -906,13 +906,11 @@ elif st.session_state.active_tab == "BLNK":
             if not s:
                 continue
             
-            # 1. Skip party name and header keywords
             if party_name and party_name.lower() in s.lower():
                 continue
             if re.search(r"(@|contact|phone|mob|gstin|pan|india|cgst|sgst|ugst|igst|s\.no|item code|tax invoice|billing address|shipping address)", s, re.I):
                 continue
             
-            # 2. Clean city, state, pincode repetitions
             s = re.sub(rf"\b{re.escape(str(pincode))}\b", "", s).strip()
             s = re.sub(rf"\b{re.escape(str(city))}\b", "", s, flags=re.I).strip()
             s = re.sub(rf"\b{re.escape(str(state_name))}\b", "", s, flags=re.I).strip()
@@ -1042,8 +1040,7 @@ elif st.session_state.active_tab == "BLNK":
         seller_loc = clean_extracted_city(seller_text, seller_state_name)
         s_addr1, s_addr2 = format_best_address(s_lines[1:], seller_name, seller_pin, seller_loc, seller_state_name)
 
-        # ----------------- CLEAN BILLING & SHIPPING SEPARATION -----------------
-        # PDF se Billing Address aur Shipping Address blocks nikaalna
+        # ----------------- PARSING BILLING & SHIPPING ADDRESSES -----------------
         b_idx = full_text.find("Billing Address")
         s_idx = full_text.find("Shipping Address")
         t_idx = full_text.find("S.No")
@@ -1055,11 +1052,9 @@ elif st.session_state.active_tab == "BLNK":
         start_addr_pos = min(pos for pos in [b_idx, s_idx] if pos != -1) if (b_idx != -1 or s_idx != -1) else 0
         raw_combined_addr = full_text[start_addr_pos:t_idx]
 
-        # Header clean karein
         cleaned_block = re.sub(r"Billing\s*Address", "", raw_combined_addr, flags=re.I)
         cleaned_block = re.sub(r"Shipping\s*Address", "", cleaned_block, flags=re.I).strip()
 
-        # Dono blocks PAN/IT No ke baad split hote hain
         pan_matches = list(re.finditer(r"PAN/IT\s*No\s*[:\s]*[A-Z0-9]+", cleaned_block, re.I))
         if len(pan_matches) >= 2:
             split_pos = pan_matches[0].end()
@@ -1072,7 +1067,6 @@ elif st.session_state.active_tab == "BLNK":
         b_lines = [l.strip() for l in billing_text_block.split("\n") if l.strip()]
         shp_lines = [l.strip() for l in shipping_text_block.split("\n") if l.strip()]
 
-        # 1. Buyer Name
         full_lower = full_text.lower()
         if "blink" in full_lower or "blinkit" in full_lower:
             buyer_name = "BLINK COMMERCE PRIVATE LIMITED"
@@ -1082,7 +1076,6 @@ elif st.session_state.active_tab == "BLNK":
             cand = b_lines[0] if b_lines else "COMMERCIAL BUYER"
             buyer_name = cand if len(cand) > 2 else "COMMERCIAL BUYER"
 
-        # Buyer Details
         em_m = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", billing_text_block)
         buyer_email = em_m.group(0).strip() if em_m else ""
         ph_m = re.search(r"(?:Contact|Phone|Mob)?\s*[:\s]*([6-9]\d{9})", billing_text_block, re.IGNORECASE)
@@ -1101,7 +1094,7 @@ elif st.session_state.active_tab == "BLNK":
         buyer_loc = clean_extracted_city(billing_text_block, buyer_state_name)
         buyer_addr1, buyer_addr2 = format_best_address(b_lines, buyer_name, buyer_pin, buyer_loc, buyer_state_name)
 
-        # 2. Shipping Details (Right/Second Box)
+        # Shipping Details
         shp_gst_m = re.search(r"GSTIN\s*[:\s]*([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})", shipping_text_block, re.IGNORECASE)
         ship_gstin = shp_gst_m.group(1).strip() if shp_gst_m else buyer_gstin
         ship_state_code = ship_gstin[:2] if len(ship_gstin) >= 2 else buyer_state_code
@@ -1110,7 +1103,6 @@ elif st.session_state.active_tab == "BLNK":
         ship_pin = int(shp_pin_m[0]) if shp_pin_m else buyer_pin
         ship_loc = clean_extracted_city(shipping_text_block, ship_state_name)
 
-        # Shipping Party Name: Never allow header leftovers like "pp g"
         ship_name = buyer_name
         for line in shp_lines:
             clean_l = re.sub(r'[^a-zA-Z0-9\s]', '', line).strip()
@@ -1120,16 +1112,17 @@ elif st.session_state.active_tab == "BLNK":
 
         ship_addr1, ship_addr2 = format_best_address(shp_lines, ship_name, ship_pin, ship_loc, ship_state_name)
 
-        # ----------------- ACCURATE SAME / DIFFERENT COMPARISON -----------------
-        # Sirf core address text aur pincode compare karein
-        norm_b_addr = re.sub(r'[^a-zA-Z0-9]', '', f"{buyer_addr1}{buyer_addr2}{buyer_pin}").lower()
-        norm_s_addr = re.sub(r'[^a-zA-Z0-9]', '', f"{ship_addr1}{ship_addr2}{ship_pin}").lower()
+        is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
 
-        # Agar dono address alag hain (jaise GN Healthcare me), to True hoga; Blinkit me dono same hain to False hoga
-        if norm_s_addr and (norm_s_addr != norm_b_addr):
-            shipping_is_different = True
-        else:
+        # ----------------- AAPKA EXACT SHIPPING RULE -----------------
+        # 1. Blinkit invoice me shipping details hamesha BLANK rahegi (False)
+        # 2. Baaki kisi buyer ka billing address se alag shipping address ho, tabhi fill hogi (True)
+        if is_blinkit:
             shipping_is_different = False
+        else:
+            norm_b_addr = re.sub(r'[^a-zA-Z0-9]', '', f"{buyer_addr1}{buyer_addr2}{buyer_pin}").lower()
+            norm_s_addr = re.sub(r'[^a-zA-Z0-9]', '', f"{ship_addr1}{ship_addr2}{ship_pin}").lower()
+            shipping_is_different = bool(norm_s_addr and (norm_s_addr != norm_b_addr))
 
         pos_match = re.search(r"Place\s*of\s*Supply\s*[:\s]*([A-Za-z0-9\s\-]+?)(?=\n|GST|State|$)", full_text, re.IGNORECASE)
         pos_raw = pos_match.group(1).strip() if pos_match else ""
@@ -1149,7 +1142,6 @@ elif st.session_state.active_tab == "BLNK":
             pos_state_name = STATE_CODE_MAP.get(buyer_pos_code, buyer_state_name)
 
         is_interstate = (seller_state_code != buyer_pos_code)
-        is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
 
         inv_total_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else None
@@ -1440,7 +1432,6 @@ elif st.session_state.active_tab == "BLNK":
 
         exact_calc_total = data.get("printed_grand_total") or round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
 
-        # STRICT: Only include ShipDtls if addresses are different
         ship_dtls = None
         if data.get("shipping_is_different", False):
             ship_dtls = {
@@ -1682,7 +1673,7 @@ elif st.session_state.active_tab == "BLNK":
             final_tax_sum = inv.get("printed_tax_total") or round(tot_cgst + tot_sgst + tot_igst, 2)
             final_invoice_val = inv.get("printed_grand_total") or round(final_taxable_sum + final_tax_sum, 2)
 
-            # STRICT: Yadi Shipping Address aur Billing Address SAME hain to poora ship_vals BLANK rahega
+            # Strictly blank out shipping details if NOT different
             if inv.get("shipping_is_different", False):
                 ship_vals = [
                     str(inv.get("ship_gstin", "")),
@@ -1724,7 +1715,7 @@ elif st.session_state.active_tab == "BLNK":
                     fmt_dec(tot_cgst) if (tot_cgst > 0 and not is_interstate) else "",
                     fmt_dec(final_tax_sum) if is_interstate else "",
                     "", "", "", "",
-                    "",  # Round off strictly blank
+                    "",
                     fmt_dec(final_invoice_val),
                     "", "", "", "", "", "", "",
                     "", "", "", "", "", "", "", "",

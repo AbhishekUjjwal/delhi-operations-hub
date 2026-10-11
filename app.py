@@ -294,92 +294,137 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* CLEAN WHITE CARD COMPONENT DIRECTLY ON STREAMLIT BUTTON */
-    .clean-dashboard-grid div[data-testid="stButton"] {
-        width: 100% !important;
-        margin-bottom: 14px !important;
+    /* LARGE TOOL CARD PARENT WRAPPER */
+    .big-tool-card-wrapper {
+        position: relative;
+        width: 100%;
+        margin-bottom: 20px;
     }
 
-    .clean-dashboard-grid div[data-testid="stButton"] button {
-        width: 100% !important;
-        min-height: 140px !important;
-        height: 140px !important;
-        background: #ffffff !important;
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 26px !important;
-        padding: 20px 24px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        justify-content: space-between !important;
-        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06) !important;
-        cursor: pointer !important;
-        transition: all 0.22s ease-in-out !important;
+    .big-tool-visual-box {
+        width: 100%;
+        min-height: 205px;
+        background: #ffffff;
+        border: 2px solid #e2e8f0;
+        border-radius: 30px;
+        padding: 24px 28px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+        pointer-events: none;
+        transition: all 0.25s ease-in-out;
     }
 
-    .clean-dashboard-grid div[data-testid="stButton"] button p {
-        display: none !important; /* Hide raw button label */
-    }
-
-    /* CARD HOVER BORDERS & HIGHLIGHTS */
-    .clean-dashboard-grid .card-amz div[data-testid="stButton"] button:hover {
-        border-color: #2563eb !important;
-        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18) !important;
-        transform: translateY(-3px) !important;
-    }
-    .clean-dashboard-grid .card-blnk-po div[data-testid="stButton"] button:hover {
-        border-color: #059669 !important;
-        box-shadow: 0 10px 24px rgba(5, 150, 105, 0.18) !important;
-        transform: translateY(-3px) !important;
-    }
-    .clean-dashboard-grid .card-blnk div[data-testid="stButton"] button:hover {
-        border-color: #d97706 !important;
-        box-shadow: 0 10px 24px rgba(217, 119, 6, 0.18) !important;
-        transform: translateY(-3px) !important;
-    }
-    .clean-dashboard-grid .card-lbl div[data-testid="stButton"] button:hover {
-        border-color: #7c3aed !important;
-        box-shadow: 0 10px 24px rgba(124, 58, 237, 0.18) !important;
-        transform: translateY(-3px) !important;
-    }
-    .clean-dashboard-grid .card-conf div[data-testid="stButton"] button:hover {
-        border-color: #475569 !important;
-        box-shadow: 0 10px 24px rgba(71, 85, 105, 0.18) !important;
-        transform: translateY(-3px) !important;
-    }
-
-    /* INNER CARD ELEMENTS (POINTER EVENTS NONE SO CLICK REACHES BUTTON DIRECTLY) */
-    .card-top-inner {
+    /* Top Row: Icon + Badge */
+    .card-top-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         width: 100%;
-        pointer-events: none;
     }
+
     .card-icon-square {
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 22px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        font-size: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
+
     .card-mod-pill {
         font-size: 11px;
         font-weight: 800;
-        padding: 4px 12px;
+        padding: 5px 14px;
         border-radius: 20px;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.6px;
     }
-    .card-title-text {
-        font-size: 18.5px;
-        font-weight: 800;
-        color: #0f172a;
+
+    /* Middle: Big Title + Description */
+    .card-body-section {
         margin-top: 14px;
+        margin-bottom: 12px;
+    }
+
+    .card-title-text {
+        font-size: 19px;
+        font-weight: 900;
+        color: #0f172a;
         letter-spacing: -0.3px;
-        pointer-events: none;
+        margin-bottom: 6px;
+    }
+
+    .card-desc-text {
+        font-size: 13px;
+        font-weight: 500;
+        color: #64748b;
+        line-height: 1.45;
+    }
+
+    /* Bottom: Feature tags list */
+    .card-bottom-tags {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+    }
+
+    .card-mini-tag {
+        font-size: 11px;
+        font-weight: 700;
+        background: #f8fafc;
+        color: #475569;
+        padding: 3px 10px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+
+    /* INVISIBLE BUTTON SITTING EXACTLY OVER ENTIRE CARD */
+    .big-tool-card-wrapper div[data-testid="stButton"] {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: 10 !important;
+        opacity: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .big-tool-card-wrapper div[data-testid="stButton"] button {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 205px !important;
+        cursor: pointer !important;
+        background: transparent !important;
+        border: none !important;
+    }
+
+    /* CARD HOVER BORDER & LIFT EFFECT WHEN HOVERED ANYWHERE */
+    .big-tool-card-wrapper:hover .big-tool-visual-box {
+        transform: translateY(-5px);
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+    }
+    .big-tool-card-wrapper.hover-amz:hover .big-tool-visual-box {
+        border-color: #2563eb !important;
+    }
+    .big-tool-card-wrapper.hover-blnk-po:hover .big-tool-visual-box {
+        border-color: #059669 !important;
+    }
+    .big-tool-card-wrapper.hover-blnk:hover .big-tool-visual-box {
+        border-color: #d97706 !important;
+    }
+    .big-tool-card-wrapper.hover-lbl:hover .big-tool-visual-box {
+        border-color: #7c3aed !important;
+    }
+    .big-tool-card-wrapper.hover-conf:hover .big-tool-visual-box {
+        border-color: #475569 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -401,56 +446,66 @@ AVAILABLE_MODULES = {
         "mod_no": "MODULE 01",
         "name": "1. B2B Invoice Process",
         "code": "AMZ-ED",
+        "desc": "Amazon shipment report linking, PAN & description validation with auto barcode stamping.",
+        "tags": ["Shipment Cross-Check", "Auto Barcoding", "Multi-PDF Batch"],
         "icon": "📄",
         "icon_bg": "#2563eb",
         "badge_bg": "#eff6ff",
         "badge_color": "#2563eb",
         "badge_border": "#bfdbfe",
-        "css_cls": "card-amz"
+        "hover_class": "hover-amz"
     },
     "BLNK_PO": {
         "mod_no": "MODULE 02",
         "name": "2. Blinkit PO Pouch",
         "code": "BLNK-PO",
+        "desc": "Blinkit Purchase Order PDF parser, warehouse dispatch manifest & pouch processing.",
+        "tags": ["PO Extractor", "SKU Mapping", "Manifest Generator"],
         "icon": "🛍️",
         "icon_bg": "#ecfdf5",
         "badge_bg": "#ecfdf5",
         "badge_color": "#059669",
         "badge_border": "#a7f3d0",
-        "css_cls": "card-blnk-po"
+        "hover_class": "hover-blnk-po"
     },
     "BLNK": {
         "mod_no": "MODULE 03",
         "name": "3. Blinkit e-Invoice Tool",
         "code": "BLNK-INV",
+        "desc": "GST e-Invoice NIC JSON v1.01 generator, reconciliation excel sheet & government preview.",
+        "tags": ["NIC v1.01 JSON", "Excel Bulk Export", "Tax Auto-Reconcile"],
         "icon": "🧾",
         "icon_bg": "#fffbeb",
         "badge_bg": "#fffbeb",
         "badge_color": "#d97706",
         "badge_border": "#fde68a",
-        "css_cls": "card-blnk"
+        "hover_class": "hover-blnk"
     },
     "LBL": {
         "mod_no": "MODULE 04",
         "name": "4. Label Editor Tool",
         "code": "LBL-ED",
+        "desc": "E-Commerce shipping label crop, barcode enhancer & thermal printer format optimizer.",
+        "tags": ["Thermal 4x6", "Crop & Align", "Multi-AWB"],
         "icon": "🏷️",
         "icon_bg": "#f5f3ff",
         "badge_bg": "#f5f3ff",
         "badge_color": "#7c3aed",
         "badge_border": "#ddd6fe",
-        "css_cls": "card-lbl"
+        "hover_class": "hover-lbl"
     },
     "CONF": {
         "mod_no": "MODULE 05",
         "name": "5. Settings & Config",
         "code": "SETTINGS",
+        "desc": "Warehouse location routing, Code128 engine settings, storage retention & system logs.",
+        "tags": ["WH Locations", "Barcode Engine", "Master Clear"],
         "icon": "⚙️",
         "icon_bg": "#f1f5f9",
         "badge_bg": "#f8fafc",
         "badge_color": "#475569",
         "badge_border": "#cbd5e1",
-        "css_cls": "card-conf"
+        "hover_class": "hover-conf"
     }
 }
 
@@ -674,7 +729,6 @@ with st.sidebar:
         "Total Value (₹)": [blinkit_val, other_val]
     }).set_index("Category")
 
-    # Double-bar breakdown: Invoices Count & Amount (₹)
     st.bar_chart(chart_df[["Total Value (₹)"]], height=135, use_container_width=True)
 
     total_net_val = blinkit_val + other_val
@@ -742,11 +796,10 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ----------------- DIRECT CLICKABLE TOOL CARDS (NO BOTTOM OPEN BUTTONS) -----------------
+# ----------------- LARGE PROFESSIONAL TOOL CARDS (FULL CLICKABLE SURFACE) -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
-    st.markdown('<div style="font-size: 13px; font-weight: 800; color: #94a3b8; margin-bottom: 14px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size: 13px; font-weight: 800; color: #94a3b8; margin-bottom: 16px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="clean-dashboard-grid">', unsafe_allow_html=True)
     keys = list(AVAILABLE_MODULES.keys())
     for i in range(0, len(keys), 2):
         c1, c2 = st.columns(2)
@@ -755,33 +808,37 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
         for col_obj, m_key in zip([c1, c2], row_keys):
             mod_data = AVAILABLE_MODULES[m_key]
             with col_obj:
-                st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
+                tags_html = "".join([f'<span class="card-mini-tag">{tag}</span>' for tag in mod_data["tags"]])
                 
-                # Render visual card top structure
+                # Card Container
                 st.markdown(f"""
-                    <div style="position: relative; width: 100%; margin-bottom: -140px; pointer-events: none; z-index: 2; padding: 20px 24px;">
-                        <div class="card-top-inner">
-                            <div class="card-icon-square" style="background: {mod_data['icon_bg']};">
-                                {mod_data['icon']}
+                    <div class="big-tool-card-wrapper {mod_data['hover_class']}">
+                        <div class="big-tool-visual-box">
+                            <div class="card-top-header">
+                                <div class="card-icon-square" style="background: {mod_data['icon_bg']};">
+                                    {mod_data['icon']}
+                                </div>
+                                <div class="card-mod-pill" style="background: {mod_data['badge_bg']}; color: {mod_data['badge_color']}; border: 1.5px solid {mod_data['badge_border']};">
+                                    {mod_data['mod_no']}
+                                </div>
                             </div>
-                            <div class="card-mod-pill" style="background: {mod_data['badge_bg']}; color: {mod_data['badge_color']}; border: 1.5px solid {mod_data['badge_border']};">
-                                {mod_data['mod_no']}
+                            <div class="card-body-section">
+                                <div class="card-title-text">{mod_data['name']}</div>
+                                <div class="card-desc-text">{mod_data['desc']}</div>
+                            </div>
+                            <div class="card-bottom-tags">
+                                {tags_html}
                             </div>
                         </div>
-                        <div class="card-title-text">{mod_data['name']}</div>
                     </div>
                 """, unsafe_allow_html=True)
-                
-                # Single direct button that covers the ENTIRE card. Click anywhere opens the module!
-                if st.button("", key=f"direct_card_open_{m_key}", use_container_width=True):
+
+                # Pure invisible overlay button over the whole container
+                if st.button("", key=f"big_tool_click_{m_key}", use_container_width=True):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key
                     st.rerun()
-
-                st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------- HISTORY VIEW -----------------
 elif st.session_state.show_history:

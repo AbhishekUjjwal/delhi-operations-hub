@@ -251,7 +251,6 @@ with header_left:
 with header_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     
-    # Row 1: Refresh Button + Location Dropdown
     loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
     with loc_sub1:
         if st.button("🔄", key="btn_refresh_pinned", help="Click to unpin all extra tabs", use_container_width=True):
@@ -265,7 +264,6 @@ with header_right:
         )
         st.session_state.selected_wh = selected_display
 
-    # Row 2: History & Reset
     loc_history = get_current_location_history()
     hist_col, reset_col = st.columns([1.2, 0.8])
     with hist_col:
@@ -695,7 +693,7 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL (ACCURATE MASKING & EXT ORDER REPAIR)
+# MODULE 3: BLINKIT E-INVOICE TOOL (PERFECT UNIFIED SINGLE-LINE ORDER ID)
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
@@ -754,9 +752,7 @@ elif st.session_state.active_tab == "BLNK":
         desc = re.sub(r"\s+", " ", desc).strip()
         return desc
 
-    # EXACT RECT OVERWRITE (NO BORDER LINE OVERFLOW)
     def overwrite_exact_area(page, rect, new_text, font_size=7.2):
-        # Precise boundary without cutting horizontal/vertical table borders
         safe_rect = fitz.Rect(rect.x0, rect.y0 + 0.3, rect.x1, rect.y1 - 0.3)
         page.draw_rect(safe_rect, color=None, fill=(1, 1, 1))
         page.insert_text((safe_rect.x0 + 0.5, safe_rect.y1 - 1.0), str(new_text), fontsize=font_size, fontname="helv", color=(0, 0, 0))
@@ -769,16 +765,16 @@ elif st.session_state.active_tab == "BLNK":
         page0 = doc[0]
         words = page0.get_text("words")
 
-        # SMART EXTERNAL ORDER EXTRACTION (COMBINES WRAPPED NUMBERS E.G., 5192561000664 + 6)
+        # COMPLETE EXTERNAL ORDER EXTRACTION (COMBINES MULTI-LINE SPLIT NUMBERS)
         ext_order_id = None
         ext_matches = [w for w in words if "extern" in w[4].lower()]
         if ext_matches:
             anchor = ext_matches[0]
-            # Capture words on the right or immediately below in the same block
+            # Capture all digit blocks directly to the right or on the immediate line below
             num_words = [
                 w for w in words 
-                if (anchor[1] - 4 <= w[1] <= anchor[3] + 16) 
-                and (anchor[0] + 50 <= w[0] <= 320)
+                if (anchor[1] - 4 <= w[1] <= anchor[3] + 18) 
+                and (anchor[0] + 45 <= w[0] <= 445)
                 and re.search(r'\d', w[4])
             ]
             num_words.sort(key=lambda w: (round(w[1] / 6) * 6, w[0]))
@@ -972,32 +968,21 @@ elif st.session_state.active_tab == "BLNK":
         for p_idx, page in enumerate(doc):
             words = page.get_text("words")
 
-            # FIX: Clean and unite multi-line External Order ID in PDF Page 1
+            # COMPLETE UNIFIED SINGLE-LINE ORDER ID
             if p_idx == 0 and ext_order_str and ext_order_str != "ExtOrder":
                 ext_matches = [w for w in words if "extern" in w[4].lower()]
                 if ext_matches:
                     anchor = ext_matches[0]
-                    # Clean out previous split digits
-                    num_rects = [
-                        fitz.Rect(w[0], w[1], w[2], w[3]) 
-                        for w in words 
-                        if (anchor[1] - 3 <= w[1] <= anchor[3] + 16) 
-                        and (anchor[0] + 45 <= w[0] <= 320)
-                        and re.search(r'\d', w[4])
-                    ]
-                    if num_rects:
-                        comb_rect = num_rects[0]
-                        for nr in num_rects[1:]:
-                            comb_rect |= nr
-                        # Whiteout only that narrow box and print unified number on one line
-                        page.draw_rect(comb_rect, color=None, fill=(1, 1, 1))
-                        page.insert_text(
-                            (num_rects[0].x0, anchor[3] - 1.2), 
-                            str(ext_order_str), 
-                            fontsize=8.5, 
-                            fontname="helv", 
-                            color=(0, 0, 0)
-                        )
+                    # Exactly target the area right of 'Extern Order No :' (x: 368 to 445, y: from anchor top to next row top)
+                    ext_num_box = fitz.Rect(anchor[2] + 2, anchor[1] - 1, anchor[2] + 80, anchor[3] + 12)
+                    page.draw_rect(ext_num_box, color=None, fill=(1, 1, 1))
+                    page.insert_text(
+                        (anchor[2] + 3, anchor[3] - 1.0), 
+                        str(ext_order_str), 
+                        fontsize=7.2, 
+                        fontname="helv", 
+                        color=(0, 0, 0)
+                    )
 
             table_header_bottom_y = 200
             y_groups = {}
@@ -1136,15 +1121,13 @@ elif st.session_state.active_tab == "BLNK":
                             "gst_rate": 5.0
                         })
 
-                    # SAFE IN-LINE UOM UPDATE (NO HIDING ADJACENT TEXT OR BORDERS)
+                    # SAFE IN-LINE UOM UPDATE (WITHOUT HIDING TEXT/BORDER LINES)
                     if is_blinkit and factor > 1:
-                        # Find UOM line strictly inside this item's row boundaries
                         uom_in_row = [
                             w for w in row_words 
                             if "UOM" in w[4].upper() and 30 <= w[0] <= 180
                         ]
                         for uw in uom_in_row:
-                            # Also check if S is hanging on newline
                             hanging_s = [
                                 w for w in row_words 
                                 if w[4].strip() == "S" and abs(w[0] - uw[0]) < 15 and 0 < (w[1] - uw[1]) < 12

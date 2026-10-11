@@ -166,18 +166,27 @@ if "show_history" not in st.session_state:
 if "current_batch_results" not in st.session_state:
     st.session_state.current_batch_results = []
 
+# HEADOFFICE: Saare locations ka data ek sath consolidate hota hai
 def get_current_location_history():
-    if st.session_state.selected_wh == "Headoffice":
-        return st.session_state.permanent_history
-    return [
+    current_tab = st.session_state.active_tab
+    current_wh = st.session_state.selected_wh
+    
+    module_items = [
         item for item in st.session_state.permanent_history 
-        if item.get("location") == st.session_state.selected_wh
+        if item.get("module") == current_tab
+    ]
+    
+    if current_wh == "Headoffice":
+        return module_items
+        
+    return [
+        item for item in module_items 
+        if item.get("location") == current_wh
     ]
 
-# Function jo sirf downloaded item ko history me record karta hai (Duplicate prevent karke)
 def record_to_history(item):
-    existing_ids = {f"{x.get('file_name')}_{x.get('location')}" for x in st.session_state.permanent_history}
-    item_id = f"{item.get('file_name')}_{item.get('location')}"
+    existing_ids = {f"{x.get('file_name')}_{x.get('location')}_{x.get('module')}" for x in st.session_state.permanent_history}
+    item_id = f"{item.get('file_name')}_{item.get('location')}_{item.get('module')}"
     if item_id not in existing_ids:
         st.session_state.permanent_history.append(item)
 
@@ -252,11 +261,12 @@ with header_right:
         )
         st.session_state.selected_wh = selected_display
 
-    # Row 2: History (Left) aur uske theek Right side me Reset Button
+    # Row 2: History (Active Module & Location/Headoffice Filtered) & Reset
     loc_history = get_current_location_history()
     hist_col, reset_col = st.columns([1.2, 0.8])
     with hist_col:
-        if st.button(f"🕒 History ({len(loc_history)})", key="top_hist_btn", type="primary" if st.session_state.show_history else "secondary", use_container_width=True):
+        hist_title = f"🕒 History ({len(loc_history)})"
+        if st.button(hist_title, key="top_hist_btn", type="primary" if st.session_state.show_history else "secondary", use_container_width=True):
             st.session_state.show_history = not st.session_state.show_history
             st.rerun()
     with reset_col:
@@ -268,42 +278,53 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (ONLY DOWNLOADED FILES GET SAVED HERE)
+# HISTORY VIEW (HEADOFFICE: CONSOLIDATED ALL LOCATIONS IN ONE TAB)
 # =========================================================================
 if st.session_state.show_history:
+    cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
     h_top_c1, h_top_c2 = st.columns([4, 1])
     with h_top_c1:
-        st.subheader("📜 Downloaded Invoices History (Safe Storage)")
+        if st.session_state.selected_wh == "Headoffice":
+            st.subheader(f"📜 {cur_mod_info['logo']} {cur_mod_info['name']} — Central Master History (All Locations)")
+        else:
+            st.subheader(f"📜 {cur_mod_info['logo']} {cur_mod_info['name']} — [{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}]")
+            
     with h_top_c2:
         if loc_history:
-            if st.button("🗑️ Clear History", key="btn_del_hist", use_container_width=True):
+            clear_btn_label = "🗑️ Clear Master History" if st.session_state.selected_wh == "Headoffice" else "🗑️ Clear Location History"
+            if st.button(clear_btn_label, key="btn_del_hist", use_container_width=True):
                 if st.session_state.selected_wh == "Headoffice":
-                    st.session_state.permanent_history = []
+                    st.session_state.permanent_history = [
+                        item for item in st.session_state.permanent_history 
+                        if item.get("module") != st.session_state.active_tab
+                    ]
                 else:
                     st.session_state.permanent_history = [
                         item for item in st.session_state.permanent_history 
-                        if item.get("location") != st.session_state.selected_wh
+                        if not (item.get("module") == st.session_state.active_tab and item.get("location") == st.session_state.selected_wh)
                     ]
                 st.rerun()
 
     if not loc_history:
-        st.info(f"Abhi tak **{st.session_state.selected_wh}** me koi downloaded invoice save nahi hai. Jab aap invoice download karenge, wo yahan show hoga.")
+        st.info("No files")
     else:
-        st.success(f"💾 Total Downloaded Files Recorded: **{len(loc_history)}**")
+        st.success(f"💾 Total Saved Files: **{len(loc_history)}**")
         
-        # BULK ZIP FROM HISTORY
+        # BULK ZIP FROM HISTORY (CONSOLIDATED IN HEADOFFICE)
         if len(loc_history) > 1:
             zip_buf = io.BytesIO()
             with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                 for idx, item in enumerate(loc_history):
-                    safe_fname = f"{idx+1}_{item['file_name']}"
+                    loc_tag = item.get("location", "GEN")
+                    safe_fname = f"{idx+1}_{loc_tag}_{item['file_name']}"
                     zf.writestr(safe_fname, item["data"])
             zip_bytes = zip_buf.getvalue()
 
+            zip_title = f"📦 Download All Central Master Invoices as ZIP ({len(loc_history)} Files)" if st.session_state.selected_wh == "Headoffice" else f"📦 Re-Download All History as ZIP ({len(loc_history)} Files)"
             st.download_button(
-                label=f"📦 Re-Download All History as ZIP ({len(loc_history)} Files)",
+                label=zip_title,
                 data=zip_bytes,
-                file_name=f"{st.session_state.selected_wh}_History_Bulk.zip",
+                file_name=f"{st.session_state.selected_wh}_{st.session_state.active_tab}_Master_History.zip",
                 mime="application/zip",
                 key="btn_zip_history_download",
                 use_container_width=True
@@ -574,6 +595,7 @@ elif st.session_state.active_tab == "AMZ":
                     "removed_pan": file_removed_pan,
                     "removed_desc": file_removed_desc,
                     "location": st.session_state.selected_wh,
+                    "module": "AMZ",
                     "time": datetime.now().strftime("%d-%b %H:%M")
                 })
 
@@ -592,14 +614,14 @@ elif st.session_state.active_tab == "AMZ":
             """, unsafe_allow_html=True)
 
     # =====================================================================
-    # BULK & SINGLE DOWNLOAD SECTION (DOWNLOAD TRIGGERS HISTORY SAVE)
+    # BULK & SINGLE DOWNLOAD SECTION
     # =====================================================================
     batch_list = st.session_state.current_batch_results
     if batch_list:
         st.write("---")
         st.subheader("📥 Download Invoices")
 
-        # 1. BULK ZIP DOWNLOAD (PREPARED ROBUST BUFFER)
+        # 1. BULK ZIP DOWNLOAD
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
             for idx, item in enumerate(batch_list):
@@ -607,7 +629,6 @@ elif st.session_state.active_tab == "AMZ":
                 zip_file.writestr(unique_name, item["data"])
         bulk_zip_bytes = zip_buffer.getvalue()
 
-        # On click of bulk download -> auto-save whole batch to history
         st.download_button(
             label=f"📦 Download All Invoices as ZIP ({len(batch_list)} Files)",
             data=bulk_zip_bytes,
@@ -627,7 +648,6 @@ elif st.session_state.active_tab == "AMZ":
                 st.write(
                     f"📁 **{item['original_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
                     f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | "
-                    f"`{item['removed_pan']} Non-PAN Filtered` | `{item.get('removed_desc', 0)} No-Desc Filtered` | "
                     f"⏰ *{item.get('time', '')}*"
                 )
             with d_col2:
@@ -658,7 +678,7 @@ elif st.session_state.active_tab == "BLNK":
 # =========================================================================
 elif st.session_state.active_tab == "LBL":
     st.subheader("🏷️ Shipping & Product Label Editor")
-    st.info("Label Editor module ready hai.")
+    st.info("No files")
 
 # =========================================================================
 # MODULE 4: SETTINGS & REPORTS

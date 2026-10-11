@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Vibrant, Modern & Theme-Adaptive (Works great in both Dark & Light themes)
+# Custom Styling: Vibrant, Clean & Theme-Adaptive
 st.markdown("""
     <style>
     /* Metric Cards - Modern Gradient */
@@ -32,7 +32,7 @@ st.markdown("""
         display: none;
     }
     
-    /* Pill buttons - Matches custom SaaS look */
+    /* Pill buttons */
     div[data-testid="stButton"] button {
         border-radius: 24px !important;
         font-weight: 600 !important;
@@ -44,29 +44,20 @@ st.markdown("""
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
     }
-    
-    /* File Uploader Cards */
-    div[data-testid="stFileUploader"] {
-        border-radius: 12px;
-        padding: 8px;
+
+    /* Single line gradient title */
+    .hub-title {
+        font-size: 20px;
+        font-weight: 800;
+        white-space: nowrap;
+        background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 2px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
-    
-    /* Status Badge highlight */
-    .status-badge {
-        display: inline-block;
-        padding: 4px 10px;
-        border-radius: 14px;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.3px;
-    }
-    .badge-del { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #3b82f6; }
-    .badge-kol { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
-    .badge-hyd { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
-    .badge-pun { background: rgba(236, 72, 153, 0.2); color: #f472b6; border: 1px solid #ec4899; }
-    .badge-blr { background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid #8b5cf6; }
-    .badge-che { background: rgba(6, 182, 212, 0.2); color: #22d3ee; border: 1px solid #06b6d4; }
-    .badge-ho  { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -83,11 +74,12 @@ LOCATION_DISPLAY_MAP = {
 
 ORDERED_LOCATIONS = list(LOCATION_DISPLAY_MAP.keys())
 
+# Short Name + Unique Logo for each tab
 AVAILABLE_MODULES = {
-    "AMZ": {"name": "Amazon Invoice Editor", "code": "AMZ-ED", "icon": "📑"},
-    "BLNK": {"name": "Blinkit e-Invoice Tool", "code": "BLNK-INV", "icon": "⚡"},
-    "LBL": {"name": "Label Editor", "code": "LBL-ED", "icon": "🏷️"},
-    "CONF": {"name": "Settings & Reports", "code": "SETTINGS", "icon": "⚙️"}
+    "AMZ": {"name": "Amazon Invoice Editor", "code": "AMZ-ED", "logo": "📦"},
+    "BLNK": {"name": "Blinkit e-Invoice Tool", "code": "BLNK-INV", "logo": "⚡"},
+    "LBL": {"name": "Label Editor", "code": "LBL-ED", "logo": "🏷️"},
+    "CONF": {"name": "Settings & Reports", "code": "SETTINGS", "logo": "⚙️"}
 }
 
 # ----------------- SESSION STATE MANAGEMENT -----------------
@@ -127,17 +119,16 @@ def reset_current_workspace():
 
 # ----------------- SIDEBAR NAVIGATION -----------------
 with st.sidebar:
-    st.title("🏛️ PAN OPERATIONS HUB")
+    # Single-line stylish title
+    st.markdown('<div class="hub-title">🏛️ PAN OPERATIONS HUB</div>', unsafe_allow_html=True)
     st.caption("Romsons prime pvt ltd operation portal")
     st.divider()
 
-    st.markdown("### 🧭 Module Navigation")
-    st.caption("Click to pin and open workspace:")
-
+    # Short Name + Logo only (Clean ERP Look)
     for key, info in AVAILABLE_MODULES.items():
         is_pinned = key in st.session_state.open_tabs
-        pin_label = f"📌 {info['code']} | {info['name']}" if is_pinned else f"➕ {info['code']} | {info['name']}"
-        if st.button(pin_label, key=f"side_nav_{key}", use_container_width=True):
+        btn_label = f"📌 {info['logo']} {info['code']}" if is_pinned else f"➕ {info['logo']} {info['code']}"
+        if st.button(btn_label, key=f"side_nav_{key}", use_container_width=True):
             if key not in st.session_state.open_tabs:
                 st.session_state.open_tabs.append(key)
             st.session_state.active_tab = key
@@ -155,18 +146,19 @@ with top_tabs_col:
     for idx, t_key in enumerate(st.session_state.open_tabs):
         info = AVAILABLE_MODULES[t_key]
         is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
-        label = f"📍 {info['code']}" if is_active else f"{info['code']}"
+        tab_label = f"{info['logo']} {info['code']}"
         
         with tab_cols[idx]:
             sub_col1, sub_col2 = st.columns([3, 1])
             with sub_col1:
-                if st.button(label, key=f"pin_tab_{t_key}", type="primary" if is_active else "secondary", use_container_width=True):
+                if st.button(tab_label, key=f"pin_tab_{t_key}", type="primary" if is_active else "secondary", use_container_width=True):
                     st.session_state.active_tab = t_key
                     st.session_state.show_history = False
                     st.rerun()
             with sub_col2:
                 if len(st.session_state.open_tabs) > 1:
-                    if st.button("✖", key=f"close_tab_{t_key}", help="Close Tab"):
+                    # Clean Cancel Mark (✕)
+                    if st.button("✕", key=f"close_tab_{t_key}", help="Close Tab"):
                         st.session_state.open_tabs.remove(t_key)
                         if st.session_state.active_tab == t_key:
                             st.session_state.active_tab = st.session_state.open_tabs[0]
@@ -240,7 +232,7 @@ if st.session_state.show_history:
                 )
 
 # =========================================================================
-# MODULE 1: AMAZON INVOICE EDITOR
+# MODULE 1: AMAZON INVOICE EDITOR (100% UNTOUCHED CORE LOGIC)
 # =========================================================================
 elif st.session_state.active_tab == "AMZ":
     st.subheader(f"📑 Amazon Invoice Editor & Barcode Stamper — [{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}]")
@@ -371,4 +363,187 @@ elif st.session_state.active_tab == "AMZ":
         st.info(f"📊 Unique Orders in CSV: **{len(order_records_map)}** | Selected PDFs: **{len(uploaded_pdfs)} file(s)**")
 
         if st.button("🚀 Process & Generate Stamped Invoices", type="primary", use_container_width=True):
-            progress_bar = st.progress
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+
+            current_processed = []
+            total_files = len(uploaded_pdfs)
+
+            for file_idx, pdf_file in enumerate(uploaded_pdfs):
+                status_text.text(f"Processing File {file_idx+1}/{total_files}: {pdf_file.name}...")
+
+                pdf_bytes = pdf_file.read()
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                new_doc = fitz.open()
+
+                total_pages = len(doc)
+                file_stamped_count = 0
+                file_removed_pan = 0
+                file_removed_desc = 0
+
+                for page_num in range(total_pages):
+                    page = doc[page_num]
+                    raw_text = page.get_text()
+                    text_lower = raw_text.lower()
+
+                    # Rule 1: Strict PAN Filter
+                    if TARGET_PAN not in text_lower:
+                        file_removed_pan += 1
+                        continue
+
+                    # Rule 2: Description Check Filter (Remove if no description)
+                    if not has_valid_description(raw_text):
+                        file_removed_desc += 1
+                        continue
+
+                    # Extract 17-digit Order Number
+                    order_clean = None
+                    order_match = re.search(r'(\d{3})\s*[-–—\s]\s*(\d{7})\s*[-–—\s]\s*(\d{7})', raw_text)
+                    if order_match:
+                        order_clean = f"{order_match.group(1)}{order_match.group(2)}{order_match.group(3)}"
+                    else:
+                        num_match = re.search(r'order\s*number\s*[:\s]*([0-9\-–—\s]{17,25})', raw_text, re.IGNORECASE)
+                        if num_match:
+                            extracted = clean_alphanumeric(num_match.group(1))
+                            if len(extracted) == 17:
+                                order_clean = extracted
+
+                    target_tracking_id = None
+
+                    if order_clean and order_clean in order_records_map:
+                        matching_rows = order_records_map[order_clean]
+
+                        if len(matching_rows) == 1:
+                            target_tracking_id = matching_rows[0]["track"]
+                        else:
+                            page_words = get_token_words(raw_text)
+                            best_match_row = None
+                            highest_overlap = -1
+
+                            for r in matching_rows:
+                                if not r["desc_words"]:
+                                    continue
+                                common = page_words.intersection(r["desc_words"])
+                                overlap_score = len(common)
+
+                                if overlap_score > highest_overlap:
+                                    highest_overlap = overlap_score
+                                    best_match_row = r
+
+                            if best_match_row and highest_overlap > 0:
+                                target_tracking_id = best_match_row["track"]
+                                best_match_row["used"] = True
+                            else:
+                                unused_rows = [r for r in matching_rows if not r["used"]]
+                                if unused_rows:
+                                    target_tracking_id = unused_rows[0]["track"]
+                                    unused_rows[0]["used"] = True
+                                else:
+                                    target_tracking_id = matching_rows[0]["track"]
+
+                    # Stamping Barcode and Tracking ID
+                    if target_tracking_id:
+                        barcode_rect = fitz.Rect(40, 58, 235, 82)
+                        page.draw_rect(barcode_rect, color=(1.0, 1.0, 1.0), fill=(1.0, 1.0, 1.0), width=0)
+
+                        barcode_img_bytes = generate_barcode_image(target_tracking_id)
+                        if barcode_img_bytes:
+                            page.insert_image(barcode_rect, stream=barcode_img_bytes, keep_proportion=False)
+
+                        page.insert_text(
+                            (barcode_rect.x0 + 10, 95),
+                            f"TRACKING: {target_tracking_id}",
+                            fontsize=10.5,
+                            fontname="hebo",
+                            color=(0, 0, 0)
+                        )
+
+                        date_instances = page.search_for("Order Date:") or page.search_for("Order Date")
+                        if date_instances:
+                            first_date_rect = date_instances[0]
+                            page.insert_text(
+                                (first_date_rect.x0, first_date_rect.y1 + 13),
+                                f"Tracking ID: {target_tracking_id}",
+                                fontsize=9.5,
+                                fontname="hebo",
+                                color=(0, 0, 0)
+                            )
+
+                        file_stamped_count += 1
+
+                    new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
+
+                out_buf = io.BytesIO()
+                new_doc.save(out_buf)
+                out_buf.seek(0)
+
+                current_processed.append({
+                    "original_name": pdf_file.name,
+                    "file_name": f"Stamped_{pdf_file.name}",
+                    "data": out_buf.getvalue(),
+                    "pages": len(new_doc),
+                    "stamped": file_stamped_count,
+                    "removed_pan": file_removed_pan,
+                    "removed_desc": file_removed_desc,
+                    "location": st.session_state.selected_wh
+                })
+
+                progress_bar.progress((file_idx + 1) / total_files)
+
+            status_text.empty()
+            progress_bar.empty()
+
+            st.session_state.processed_history.extend(current_processed)
+            st.balloons()
+            st.success(f"🎉 **Total {len(current_processed)} File(s) Processed for {st.session_state.selected_wh}!**")
+
+    # Quick download list for current location
+    if loc_history:
+        st.write("---")
+        st.subheader("📄 Saved Files:")
+        for idx, item in enumerate(loc_history):
+            d_col1, d_col2 = st.columns([3, 1])
+            with d_col1:
+                st.write(
+                    f"📁 **{item['original_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
+                    f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | "
+                    f"`{item['removed_pan']} Non-PAN Filtered` | `{item.get('removed_desc', 0)} No-Desc Filtered`"
+                )
+            with d_col2:
+                st.download_button(
+                    label="📥 Download PDF",
+                    data=item["data"],
+                    file_name=item["file_name"],
+                    mime="application/pdf",
+                    key=f"dl_quick_{st.session_state.selected_wh}_{idx}",
+                    use_container_width=True
+                )
+
+# =========================================================================
+# MODULE 2: BLINKIT E-INVOICE TOOL
+# =========================================================================
+elif st.session_state.active_tab == "BLNK":
+    st.subheader(f"⚡ Blinkit e-Invoice Management Tool [{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}]")
+    b_col1, b_col2 = st.columns(2)
+    with b_col1:
+        st.file_uploader("Upload Blinkit PO / Data Sheet (Excel/CSV)", type=["xlsx", "xls", "csv"], key="blinkit_data")
+    with b_col2:
+        st.file_uploader("Upload Master Template / Supporting PDF (Optional)", type=["pdf", "json"], key="blinkit_template")
+
+# =========================================================================
+# MODULE 3: LABEL EDITOR
+# =========================================================================
+elif st.session_state.active_tab == "LBL":
+    st.subheader(f"🏷️ Shipping & Product Label Editor [{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}]")
+    st.info("Label Editor module ready hai.")
+
+# =========================================================================
+# MODULE 4: SETTINGS & REPORTS
+# =========================================================================
+elif st.session_state.active_tab == "CONF":
+    st.subheader("⚙️ System Operations & Units Configuration")
+    st.markdown(f"""
+    - **Active Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`
+    - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
+    - **Engine Status:** Online & Healthy
+    """)

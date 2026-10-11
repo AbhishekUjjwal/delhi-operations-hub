@@ -9,13 +9,13 @@ from barcode.writer import ImageWriter
 
 # Page Configuration - Enterprise Wide Layout
 st.set_page_config(
-    page_title="Delhi Operations Hub | Central Portal",
+    page_title="Operations Hub | Romsons Prime Pvt Ltd",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Sleek ERP / Enterprise Dashboard
+# Custom Styling: Sleek ERP / Enterprise Multi-Tab Dashboard
 st.markdown("""
     <style>
     .main { background-color: #0b132b; color: #f8fafc; }
@@ -26,12 +26,33 @@ st.markdown("""
         border-right: 1px solid #3a506b;
     }
     
-    /* Metrics card */
-    .stMetric {
-        background-color: #1c2541;
-        padding: 12px;
+    /* Pinned Tabs Bar */
+    .tab-bar-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        background-color: #131d3b;
+        padding: 8px 12px;
         border-radius: 8px;
-        border: 1px solid #3a506b;
+        border: 1px solid #2a3d66;
+        margin-bottom: 20px;
+    }
+    .pinned-tab {
+        background: linear-gradient(135deg, #7b2cbf 0%, #9d4edd 100%);
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 13px;
+        padding: 5px 12px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid #c77dff;
+    }
+    .pinned-tab-active {
+        background: linear-gradient(135deg, #e63946 0%, #d90429 100%) !important;
+        border-color: #ff758f !important;
     }
     
     /* Unit badge card */
@@ -53,32 +74,43 @@ st.markdown("""
         margin-bottom: 6px;
     }
     
-    /* Radio navigation buttons like ERP menu */
-    div[data-testid="stRadio"] > div {
-        gap: 6px;
-    }
-    div[data-testid="stRadio"] label {
-        background-color: #1c2541;
-        padding: 10px 14px;
-        border-radius: 8px;
-        border: 1px solid #3a506b;
-        cursor: pointer;
-        transition: all 0.2s ease-in-out;
-    }
-    div[data-testid="stRadio"] label:hover {
-        border-color: #48cae4;
-        background-color: #24325a;
+    /* Quick Module Buttons in Sidebar */
+    div[data-testid="stSidebar"] button {
+        border-radius: 6px;
     }
     </style>
 """, unsafe_allow_html=True)
 
+# ----------------- SESSION STATE MANAGEMENT -----------------
+AVAILABLE_MODULES = {
+    "AMZ": {"name": "Amazon Invoice Editor", "code": "AMZ-ED", "icon": "📑"},
+    "BLNK": {"name": "Blinkit e-Invoice Tool", "code": "BLNK-INV", "icon": "⚡"},
+    "LBL": {"name": "Label Editor", "code": "LBL-ED", "icon": "🏷️"},
+    "CONF": {"name": "Settings & Reports", "code": "SETTINGS", "icon": "⚙️"}
+}
+
+if "open_tabs" not in st.session_state:
+    st.session_state.open_tabs = ["AMZ"]
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "AMZ"
+if "processed_history" not in st.session_state:
+    st.session_state.processed_history = []
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
+def reset_all_workspace():
+    st.session_state.processed_history = []
+    st.session_state.open_tabs = ["AMZ"]
+    st.session_state.active_tab = "AMZ"
+    st.session_state.uploader_key += 1
+    st.rerun()
+
 # ----------------- SIDEBAR NAVIGATION -----------------
 with st.sidebar:
     st.title("🏛️ Delhi Operations Hub")
-    st.caption("Enterprise E-Commerce Operations Portal")
+    st.caption("Romsons prime pvt ltd operation portal")
     st.divider()
 
-    st.markdown("**Active Unit Config:**")
     st.markdown("""
         <div class="unit-card">
             <span class="unit-badge">🏷️ AMZ-ED</span>
@@ -89,37 +121,73 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.divider()
-    st.markdown("### 🧭 Module Navigation")
-    
-    selected_module = st.radio(
-        label="Select Tool / Workspace",
-        options=[
-            "📑 Amazon Invoice Editor",
-            "⚡ Blinkit e-Invoice Tool",
-            "🏷️ Label Editor",
-            "⚙️ Unit Settings & Reports"
-        ],
-        index=0,
-        label_visibility="collapsed"
-    )
-    
+    st.markdown("### 🧭 Workspace Modules")
+    st.caption("Click to pin and open workspace:")
+
+    for key, info in AVAILABLE_MODULES.items():
+        is_pinned = key in st.session_state.open_tabs
+        pin_label = f"📌 {info['code']} | {info['name']}" if is_pinned else f"➕ {info['code']} | {info['name']}"
+        if st.button(pin_label, key=f"side_nav_{key}", use_container_width=True):
+            if key not in st.session_state.open_tabs:
+                st.session_state.open_tabs.append(key)
+            st.session_state.active_tab = key
+            st.rerun()
+
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
+
+# ----------------- TOP BAR: RESET & PINNED TABS -----------------
+top_c1, top_c2 = st.columns([5, 1])
+
+with top_c2:
+    if st.button("🔄 Reset All", use_container_width=True, type="secondary"):
+        reset_all_workspace()
+
+with top_c1:
+    tab_cols = st.columns(len(st.session_state.open_tabs) + 1)
+    for idx, t_key in enumerate(st.session_state.open_tabs):
+        info = AVAILABLE_MODULES[t_key]
+        is_active = (t_key == st.session_state.active_tab)
+        label = f"📍 {info['code']}" if is_active else f"{info['code']}"
+        
+        with tab_cols[idx]:
+            sub_col1, sub_col2 = st.columns([3, 1])
+            with sub_col1:
+                if st.button(label, key=f"pin_tab_{t_key}", type="primary" if is_active else "secondary", use_container_width=True):
+                    st.session_state.active_tab = t_key
+                    st.rerun()
+            with sub_col2:
+                if len(st.session_state.open_tabs) > 1:
+                    if st.button("✖", key=f"close_tab_{t_key}", help="Close Tab"):
+                        st.session_state.open_tabs.remove(t_key)
+                        if st.session_state.active_tab == t_key:
+                            st.session_state.active_tab = st.session_state.open_tabs[0]
+                        st.rerun()
+
+st.divider()
 
 # =========================================================================
 # MODULE 1: AMAZON INVOICE EDITOR
 # =========================================================================
-if selected_module == "📑 Amazon Invoice Editor":
+if st.session_state.active_tab == "AMZ":
     st.subheader("📑 Amazon Invoice Editor & Barcode Stamper")
-    st.caption("Shipment Report aur multiple Invoice PDFs upload karein. Automatic PAN filter (AALCR5906L) + **Full Product Description Matching** apply hogi.")
 
     TARGET_PAN = "aalcr5906l"
 
     col_u1, col_u2 = st.columns(2)
     with col_u1:
-        uploaded_csv = st.file_uploader("1. Upload Shipment Report (CSV / Excel)", type=["csv", "xlsx", "xls"], key="amz_csv")
+        uploaded_csv = st.file_uploader(
+            "1. Upload Shipment Report (CSV / Excel)", 
+            type=["csv", "xlsx", "xls"], 
+            key=f"amz_csv_{st.session_state.uploader_key}"
+        )
     with col_u2:
-        uploaded_pdfs = st.file_uploader("2. Upload Invoice PDF(s) [Multiple Files Allowed]", type=["pdf"], accept_multiple_files=True, key="amz_pdf")
+        uploaded_pdfs = st.file_uploader(
+            "2. Upload Invoice PDF(s) [Multiple Files Allowed]", 
+            type=["pdf"], 
+            accept_multiple_files=True, 
+            key=f"amz_pdf_{st.session_state.uploader_key}"
+        )
 
     def clean_val(v):
         if pd.isna(v):
@@ -141,6 +209,17 @@ if selected_module == "📑 Amazon Invoice Editor":
             'rate', 'amount', 'shipping', 'charges', 'state', 'code', 'pan', 'bill', 'to'
         }
         return {w for w in words if len(w) >= 2 and w not in stop_words}
+
+    def has_valid_description(raw_text):
+        """Check karega ki invoice me Description/Product details maujood hai ya nahi"""
+        text_lower = raw_text.lower()
+        # Amazon invoice me common description table indicators
+        desc_keywords = ["description", "item description", "product description", "title"]
+        has_header = any(k in text_lower for k in desc_keywords)
+        
+        # Agar header hai, check karein ki kam se kam koi actual item tokens exist karte hain
+        tokens = get_token_words(raw_text)
+        return has_header and len(tokens) >= 5
 
     def generate_barcode_image(code_text):
         try:
@@ -226,7 +305,7 @@ if selected_module == "📑 Amazon Invoice Editor":
             progress_bar = st.progress(0)
             status_text = st.empty()
 
-            processed_files = []
+            current_processed = []
             total_files = len(uploaded_pdfs)
 
             for file_idx, pdf_file in enumerate(uploaded_pdfs):
@@ -239,6 +318,7 @@ if selected_module == "📑 Amazon Invoice Editor":
                 total_pages = len(doc)
                 file_stamped_count = 0
                 file_removed_pan = 0
+                file_removed_desc = 0
 
                 for page_num in range(total_pages):
                     page = doc[page_num]
@@ -250,7 +330,12 @@ if selected_module == "📑 Amazon Invoice Editor":
                         file_removed_pan += 1
                         continue
 
-                    # Extract 17-digit Order Number (Format: 403-1234567-1234567)
+                    # Rule 2: Description Check Filter (Remove if no valid description)
+                    if not has_valid_description(raw_text):
+                        file_removed_desc += 1
+                        continue
+
+                    # Extract 17-digit Order Number (e.g., 403-1234567-1234567)
                     order_clean = None
                     order_match = re.search(r'(\d{3})\s*[-–—\s]\s*(\d{7})\s*[-–—\s]\s*(\d{7})', raw_text)
                     if order_match:
@@ -331,13 +416,14 @@ if selected_module == "📑 Amazon Invoice Editor":
                 new_doc.save(out_buf)
                 out_buf.seek(0)
 
-                processed_files.append({
+                current_processed.append({
                     "original_name": pdf_file.name,
                     "file_name": f"Stamped_{pdf_file.name}",
                     "data": out_buf.getvalue(),
                     "pages": len(new_doc),
                     "stamped": file_stamped_count,
-                    "removed": file_removed_pan
+                    "removed_pan": file_removed_pan,
+                    "removed_desc": file_removed_desc
                 })
 
                 progress_bar.progress((file_idx + 1) / total_files)
@@ -345,44 +431,52 @@ if selected_module == "📑 Amazon Invoice Editor":
             status_text.empty()
             progress_bar.empty()
 
+            st.session_state.processed_history = current_processed
             st.balloons()
-            st.success(f"🎉 **Total {len(processed_files)} File(s) Processed Successfully!**")
+            st.success(f"🎉 **Total {len(current_processed)} File(s) Processed Successfully!**")
 
-            if len(processed_files) > 1:
-                zip_buffer = io.BytesIO()
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    for item in processed_files:
-                        zip_file.writestr(item["file_name"], item["data"])
-                zip_buffer.seek(0)
+    # Render History / Saved Preview & Download
+    if st.session_state.processed_history:
+        st.write("---")
+        st.subheader("💾 Saved Session Output & Downloads")
+        
+        if len(st.session_state.processed_history) > 1:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for item in st.session_state.processed_history:
+                    zip_file.writestr(item["file_name"], item["data"])
+            zip_buffer.seek(0)
 
+            st.download_button(
+                label="📦 Download All Invoices as ZIP",
+                data=zip_buffer,
+                file_name="All_Stamped_Invoices.zip",
+                mime="application/zip",
+                use_container_width=True
+            )
+
+        for idx, item in enumerate(st.session_state.processed_history):
+            d_col1, d_col2 = st.columns([3, 1])
+            with d_col1:
+                st.write(
+                    f"📁 **{item['original_name']}** — `{item['pages']} Pages Kept` | "
+                    f"`{item['stamped']} Stamped` | `{item['removed_pan']} Non-PAN Filtered` | "
+                    f"`{item.get('removed_desc', 0)} No-Description Filtered`"
+                )
+            with d_col2:
                 st.download_button(
-                    label="📦 Download All Invoices as ZIP",
-                    data=zip_buffer,
-                    file_name="All_Stamped_Invoices.zip",
-                    mime="application/zip",
+                    label="📥 Download PDF",
+                    data=item["data"],
+                    file_name=item["file_name"],
+                    mime="application/pdf",
+                    key=f"dl_saved_btn_{idx}",
                     use_container_width=True
                 )
-
-            st.write("---")
-            st.subheader("📄 Individual Download Files:")
-            for idx, item in enumerate(processed_files):
-                d_col1, d_col2 = st.columns([3, 1])
-                with d_col1:
-                    st.write(f"📁 **{item['original_name']}** — `{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | `{item['removed']} Non-PAN Filtered`")
-                with d_col2:
-                    st.download_button(
-                        label="📥 Download PDF",
-                        data=item["data"],
-                        file_name=item["file_name"],
-                        mime="application/pdf",
-                        key=f"dl_btn_{idx}",
-                        use_container_width=True
-                    )
 
 # =========================================================================
 # MODULE 2: BLINKIT E-INVOICE TOOL
 # =========================================================================
-elif selected_module == "⚡ Blinkit e-Invoice Tool":
+elif st.session_state.active_tab == "BLNK":
     st.subheader("⚡ Blinkit e-Invoice Management Tool")
     st.caption("Blinkit Purchase Orders (PO), ASN Generation & E-Invoicing System")
 
@@ -390,7 +484,7 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
         <div style="background-color: #1c2541; padding: 18px; border-radius: 8px; border-left: 4px solid #f77f00;">
             <h4 style="margin: 0; color: #f77f00;">⚡ Blinkit Automation Ready</h4>
             <p style="margin: 6px 0 0 0; font-size: 13px; color: #cbd5e1;">
-                Aapke purane Blinkit e-invoice tool ka script / code share karein. Hum use yahan seamlessly integrate kar denge taaki PO upload, IRN generation, ya tax invoice creation isi dashboard se ho sake.
+                Blinkit PO aur Invoices yahan se manage honge. Aapka previous script paste karein to integrate seamlessly.
             </p>
         </div>
     """, unsafe_allow_html=True)
@@ -405,16 +499,15 @@ elif selected_module == "⚡ Blinkit e-Invoice Tool":
 # =========================================================================
 # MODULE 3: LABEL EDITOR
 # =========================================================================
-elif selected_module == "🏷️ Label Editor":
+elif st.session_state.active_tab == "LBL":
     st.subheader("🏷️ Shipping & Product Label Editor")
-    st.caption("Bulk crop, resize, rotate aur customize thermal shipping labels.")
-    
-    st.info("Label Editor module ready hai. Isme aapko thermal label crop (4x6 format), rotation, ya barcode adding jo bhi requirement ho, batayein.")
+    st.caption("Bulk crop, resize, rotate aur thermal shipping labels customize karein.")
+    st.info("Label Editor module ready hai.")
 
 # =========================================================================
 # MODULE 4: SETTINGS & REPORTS
 # =========================================================================
-elif selected_module == "⚙️ Unit Settings & Reports":
+elif st.session_state.active_tab == "CONF":
     st.subheader("⚙️ System Operations & Units Configuration")
     st.markdown("""
     - **Current Active GSTIN/PAN:** `AALCR5906L` (Romsons Prime Pvt Ltd)

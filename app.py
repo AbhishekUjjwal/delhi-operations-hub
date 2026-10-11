@@ -28,14 +28,14 @@ st.markdown("""
     div[data-testid="stDecoration"] {visibility: hidden; display: none !important;}
     div[data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
 
-    /* 2. COMPACT TAB & PILL BUTTONS */
+    /* 2. COMPACT TAB & PILL BUTTONS (Fitted to text) */
     div[data-testid="stButton"] button {
         border-radius: 16px !important;
         font-size: 12px !important;
         font-weight: 600 !important;
-        padding: 4px 10px !important;
-        min-height: 30px !important;
-        height: 30px !important;
+        padding: 3px 10px !important;
+        min-height: 28px !important;
+        height: 28px !important;
         line-height: 1 !important;
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
         white-space: nowrap !important;
@@ -50,13 +50,17 @@ st.markdown("""
         color: #38bdf8 !important;
     }
 
-    /* 3. COMPACT SELECTBOX */
+    /* 3. COMPACT SELECTBOX (Letter ke hisaab se fixed size) */
     div[data-testid="stSelectbox"] label {
         display: none !important;
     }
+    div[data-testid="stSelectbox"] {
+        width: 145px !important;
+        min-width: 135px !important;
+    }
     div[data-testid="stSelectbox"] > div > div {
-        min-height: 30px !important;
-        height: 30px !important;
+        min-height: 28px !important;
+        height: 28px !important;
         padding: 0px 8px !important;
         font-size: 12px !important;
         border-radius: 16px !important;
@@ -130,7 +134,6 @@ def get_current_location_history():
         if item.get("location") == st.session_state.selected_wh
     ]
 
-# RESET SIRF WORKSPACE UPLOADERS KO CLEAR KAREGA, HISTORY KO NAHI CHHEDEGA
 def reset_current_workspace():
     st.session_state.uploader_key += 1
     st.session_state.show_history = False
@@ -161,11 +164,13 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP ACTION BAR -----------------
-top_tabs_col, top_wh_col, top_hist_col, top_reset_col = st.columns([5.2, 2.0, 1.4, 1.0])
+# ----------------- TOP ACTION BAR: UNPIN WITH LOGO & COMPACT LOCATION -----------------
+top_tabs_col, top_wh_col, top_hist_col, top_reset_col = st.columns([5.2, 1.8, 1.4, 0.9])
 
 with top_tabs_col:
-    cols = st.columns(len(st.session_state.open_tabs) + 1)
+    # Open Tabs + 1 slot for Unpin button
+    num_tabs = len(st.session_state.open_tabs)
+    cols = st.columns(num_tabs + 1)
     
     for idx, t_key in enumerate(st.session_state.open_tabs):
         info = AVAILABLE_MODULES[t_key]
@@ -186,8 +191,9 @@ with top_tabs_col:
                     st.session_state.show_history = False
                 st.rerun()
 
-    with cols[len(st.session_state.open_tabs)]:
-        if st.button("🔄 Unpin", key="btn_unpin_all", use_container_width=True, help="Clear pinned tabs"):
+    # Dedicated Unpin tab with logo
+    with cols[num_tabs]:
+        if st.button("🔄 Unpin", key="btn_unpin_with_logo", use_container_width=True, help="Clear all extra pinned tabs"):
             clear_all_pinned_tabs()
 
 with top_wh_col:
@@ -221,7 +227,7 @@ if st.session_state.show_history:
         st.subheader("📜 Processed History & Downloads (Safe Storage)")
     with h_top_c2:
         if loc_history:
-            if st.button("🗑️ Clear This Location History", key="btn_del_hist", use_container_width=True):
+            if st.button("🗑️ Clear History", key="btn_del_hist", use_container_width=True):
                 if st.session_state.selected_wh == "Headoffice":
                     st.session_state.permanent_history = []
                 else:
@@ -425,17 +431,14 @@ elif st.session_state.active_tab == "AMZ":
                     raw_text = page.get_text()
                     text_lower = raw_text.lower()
 
-                    # Rule 1: Strict PAN Filter
                     if TARGET_PAN not in text_lower:
                         file_removed_pan += 1
                         continue
 
-                    # Rule 2: Description Check Filter
                     if not has_valid_description(raw_text):
                         file_removed_desc += 1
                         continue
 
-                    # Extract 17-digit Order Number
                     order_clean = None
                     order_match = re.search(r'(\d{3})\s*[-–—\s]\s*(\d{7})\s*[-–—\s]\s*(\d{7})', raw_text)
                     if order_match:
@@ -480,7 +483,6 @@ elif st.session_state.active_tab == "AMZ":
                                 else:
                                     target_tracking_id = matching_rows[0]["track"]
 
-                    # Stamping Barcode and Tracking ID
                     if target_tracking_id:
                         barcode_rect = fitz.Rect(40, 58, 235, 82)
                         page.draw_rect(barcode_rect, color=(1.0, 1.0, 1.0), fill=(1.0, 1.0, 1.0), width=0)
@@ -533,10 +535,8 @@ elif st.session_state.active_tab == "AMZ":
             status_text.empty()
             progress_bar.empty()
 
-            # PERMANENT HISTORY ME ADD KAREIN
             st.session_state.permanent_history.extend(current_processed)
             
-            # Professional Banner
             st.markdown(f"""
                 <div class="pro-success-card">
                     <b style="font-size: 15px; color: #34d399;">✔ Operation Completed Successfully!</b><br>
@@ -545,15 +545,12 @@ elif st.session_state.active_tab == "AMZ":
             """, unsafe_allow_html=True)
             st.rerun()
 
-    # =====================================================================
     # LIVE & SAVED DOWNLOAD SECTION
-    # =====================================================================
     active_loc_data = get_current_location_history()
     if active_loc_data:
         st.write("---")
         st.subheader("📥 Download Invoices")
 
-        # 1. BULK ZIP DOWNLOAD BUTTON
         if len(active_loc_data) > 1:
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -571,7 +568,6 @@ elif st.session_state.active_tab == "AMZ":
             )
             st.write("")
 
-        # 2. INDIVIDUAL DOWNLOAD BUTTONS
         for idx, item in enumerate(active_loc_data):
             d_col1, d_col2 = st.columns([3, 1])
             with d_col1:

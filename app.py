@@ -5,6 +5,7 @@ import pymupdf as fitz
 import re
 import io
 import json
+import os
 import zipfile
 import barcode
 from barcode.writer import ImageWriter
@@ -18,6 +19,146 @@ IST = timezone(timedelta(hours=5, minutes=30))
 def get_current_ist_str():
     return datetime.now(IST).strftime("%d-%b %I:%M %p")
 
+# ----------------- PERMANENT DISK STORAGE ENGINE (30 DAYS AUTO-PURGE) -----------------
+STORAGE_DIR = ".pan_history"
+METADATA_FILE = os.path.join(STORAGE_DIR, "history_db.json")
+RETENTION_DAYS = 30
+
+os.makedirs(STORAGE_DIR, exist_ok=True)
+
+def load_disk_history():
+    if not os.path.exists(METADATA_FILE):
+        return []
+    try:
+        with open(METADATA_FILE, "r", encoding="utf-8") as f:
+            meta_list = json.load(f)
+
+        now_ts = datetime.now(IST).timestamp()
+        cutoff_ts = now_ts - (RETENTION_DAYS * 24 * 60 * 60)
+
+        valid_items = []
+        updated_meta = []
+        cleaned_up = False
+
+        for m in meta_list:
+            created_ts = m.get("created_ts", now_ts)
+            fpath = os.path.join(STORAGE_DIR, m.get("disk_filename", ""))
+
+            # 30 din se purani file auto-delete hogi
+            if created_ts < cutoff_ts:
+                cleaned_up = True
+                if os.path.exists(fpath):
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
+                continue
+
+            if os.path.exists(fpath):
+                with open(fpath, "rb") as f_bin:
+                    m_copy = dict(m)
+                    m_copy["data"] = f_bin.read()
+                    valid_items.append(m_copy)
+                updated_meta.append(m)
+            else:
+                cleaned_up = True
+
+        # Agar koi file delete hui hai toh metadata file update karein
+        if cleaned_up:
+            with open(METADATA_FILE, "w", encoding="utf-8") as f:
+                json.dump(updated_meta, f, indent=2)
+
+        return valid_items
+    except Exception:
+        return []
+
+def save_item_to_disk_history(item):
+    base_name = item.get("file_name", "invoice.pdf")
+    wh = item.get("location", "DEL")
+    mod = item.get("module", "GEN")
+
+    existing_items = load_disk_history()
+    existing_fnames = [
+        x.get("file_name") for x in existing_items
+        if x.get("location") == wh and x.get("module") == mod
+    ]
+
+    new_file_name = base_name
+    count = 1
+    name_root = base_name[:-4] if base_name.endswith(".pdf") else base_name
+    ext = ".pdf" if base_name.endswith(".pdf") else ""
+
+    while new_file_name in existing_fnames:
+        new_file_name = f"{name_root}_edit_{count}{ext}"
+        count += 1
+
+    current_dt = datetime.now(IST)
+    current_ts = current_dt.timestamp()
+
+    disk_fname = f"{int(current_ts * 1000)}_{new_file_name}"
+    disk_path = os.path.join(STORAGE_DIR, disk_fname)
+
+    with open(disk_path, "wb") as f_out:
+        f_out.write(item["data"])
+
+    meta_record = {
+        "original_name": item.get("original_name", base_name),
+        "file_name": new_file_name,
+        "disk_filename": disk_fname,
+        "pages": item.get("pages", 1),
+        "stamped": item.get("stamped", 0),
+        "location": wh,
+        "module": mod,
+        "created_ts": current_ts,
+        "time": get_current_ist_str()
+    }
+
+    current_meta = []
+    if os.path.exists(METADATA_FILE):
+        try:
+            with open(METADATA_FILE, "r", encoding="utf-8") as f:
+                current_meta = json.load(f)
+        except Exception:
+            current_meta = []
+
+    current_meta.append(meta_record)
+    with open(METADATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(current_meta, f, indent=2)
+
+def save_batch_to_disk_history(batch_items):
+    for item in batch_items:
+        save_item_to_disk_history(item)
+
+def clear_disk_history(wh_filter=None, mod_filter=None):
+    if not os.path.exists(METADATA_FILE):
+        return
+    try:
+        with open(METADATA_FILE, "r", encoding="utf-8") as f:
+            meta_list = json.load(f)
+
+        remaining_meta = []
+        for m in meta_list:
+            should_delete = True
+            if mod_filter and m.get("module") != mod_filter:
+                should_delete = False
+            if wh_filter and wh_filter != "Headoffice" and m.get("location") != wh_filter:
+                should_delete = False
+
+            if should_delete:
+                fpath = os.path.join(STORAGE_DIR, m.get("disk_filename", ""))
+                if os.path.exists(fpath):
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
+            else:
+                remaining_meta.append(m)
+
+        with open(METADATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(remaining_meta, f, indent=2)
+    except Exception:
+        pass
+
 # Page Configuration
 st.set_page_config(
     page_title="PAN OPERATIONS HUB | Central Portal",
@@ -29,7 +170,6 @@ st.set_page_config(
 # Custom Styling: Zero Top Padding, Compact Actions & Snappy Layout
 st.markdown("""
     <style>
-    /* 1. HIDE TOP-RIGHT FORK, GITHUB LOGO & STREAMLIT HEADER */
     #MainMenu {visibility: hidden; display: none !important;}
     header {visibility: hidden; display: none !important;}
     footer {visibility: hidden; display: none !important;}
@@ -38,7 +178,6 @@ st.markdown("""
     div[data-testid="stDecoration"] {visibility: hidden; display: none !important;}
     div[data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
 
-    /* 2. HIDE BOTTOM RIGHT BADGES & WATERMARKS */
     [data-testid="stViewerBadge"] {display: none !important; visibility: hidden !important;}
     div[class*="viewerBadge"] {display: none !important; visibility: hidden !important;}
     iframe[title*="streamlit"] {display: none !important;}
@@ -46,7 +185,6 @@ st.markdown("""
     div[class*="manage-app"] {display: none !important;}
     div[class*="floating"] {display: none !important;}
 
-    /* 3. ZERO EXTRA TOP GAP */
     .block-container {
         padding-top: 0.2rem !important;
         padding-bottom: 0.8rem !important;
@@ -60,7 +198,6 @@ st.markdown("""
         border-color: rgba(58, 80, 107, 0.4) !important;
     }
 
-    /* 4. TIGHT LETTER-FIT BUTTONS */
     div[data-testid="stButton"] {
         width: fit-content !important;
     }
@@ -85,7 +222,6 @@ st.markdown("""
         color: #38bdf8 !important;
     }
 
-    /* 5. RIGHT STACK ACTION ROW BUTTONS */
     .right-action-cluster div[data-testid="stButton"] {
         width: 100% !important;
     }
@@ -93,7 +229,6 @@ st.markdown("""
         width: 100% !important;
     }
 
-    /* 6. COMPACT SELECTBOX (LOCATION) */
     div[data-testid="stSelectbox"] label {
         display: none !important;
     }
@@ -109,14 +244,12 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }
 
-    /* 7. HEADINGS SPACING COMPACT */
     h2, h3, h4 {
         margin-top: 0px !important;
         margin-bottom: 4px !important;
         padding-top: 0px !important;
     }
 
-    /* 8. SIDEBAR TITLE */
     .hub-title {
         font-size: 18px;
         font-weight: 800;
@@ -168,8 +301,6 @@ if "open_tabs" not in st.session_state:
     st.session_state.open_tabs = ["AMZ"]
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "AMZ"
-if "permanent_history" not in st.session_state:
-    st.session_state.permanent_history = []
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 if "show_history" not in st.session_state:
@@ -182,49 +313,14 @@ if "blnk_batch_results" not in st.session_state:
 def get_current_location_history():
     current_tab = st.session_state.active_tab
     current_wh = st.session_state.selected_wh
-    
-    module_items = [
-        item for item in st.session_state.permanent_history 
-        if item.get("module") == current_tab
-    ]
+
+    all_disk_history = load_disk_history()
+    module_items = [item for item in all_disk_history if item.get("module") == current_tab]
+
     if current_wh == "Headoffice":
         return module_items
-        
-    return [
-        item for item in module_items 
-        if item.get("location") == current_wh
-    ]
 
-# RE-UPLOAD AUTO-VERSIONING: Adds _edit_1, _edit_2 if uploaded multiple times
-def record_to_history(item):
-    base_name = item.get("file_name", "invoice.pdf")
-    wh = item.get("location")
-    mod = item.get("module")
-
-    # Match existing filenames for same module and warehouse
-    existing_names = [
-        x.get("file_name") for x in st.session_state.permanent_history
-        if x.get("location") == wh and x.get("module") == mod
-    ]
-
-    new_file_name = base_name
-    count = 1
-    # Check if duplicate exists
-    name_root = base_name[:-4] if base_name.endswith(".pdf") else base_name
-    ext = ".pdf" if base_name.endswith(".pdf") else ""
-    
-    while new_file_name in existing_names:
-        new_file_name = f"{name_root}_edit_{count}{ext}"
-        count += 1
-
-    item_to_save = dict(item)
-    item_to_save["file_name"] = new_file_name
-    item_to_save["time"] = get_current_ist_str()
-    st.session_state.permanent_history.append(item_to_save)
-
-def record_batch_to_history(batch_items):
-    for item in batch_items:
-        record_to_history(item)
+    return [item for item in module_items if item.get("location") == current_wh]
 
 def reset_current_workspace():
     st.session_state.uploader_key += 1
@@ -279,7 +375,7 @@ with header_left:
 
 with header_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
-    
+
     loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
     with loc_sub1:
         if st.button("🔄", key="btn_refresh_pinned", help="Click to unpin all extra tabs", use_container_width=True):
@@ -303,13 +399,13 @@ with header_right:
     with reset_col:
         if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset upload area", use_container_width=True):
             reset_current_workspace()
-        
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (IST TIME & SAFE DOWNLOADS)
+# HISTORY VIEW (30-DAY RETENTION & CLEAR LOGIC)
 # =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
@@ -319,28 +415,19 @@ if st.session_state.show_history:
             st.subheader(f"📜 {cur_mod_info['logo']} {cur_mod_info['name']} — Central Master History (All Locations)")
         else:
             st.subheader(f"📜 {cur_mod_info['logo']} {cur_mod_info['name']} — [{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}]")
-            
+
     with h_top_c2:
         if loc_history:
             clear_btn_label = "🗑️ Clear Master History" if st.session_state.selected_wh == "Headoffice" else "🗑️ Clear Location History"
             if st.button(clear_btn_label, key="btn_del_hist", use_container_width=True):
-                if st.session_state.selected_wh == "Headoffice":
-                    st.session_state.permanent_history = [
-                        item for item in st.session_state.permanent_history 
-                        if item.get("module") != st.session_state.active_tab
-                    ]
-                else:
-                    st.session_state.permanent_history = [
-                        item for item in st.session_state.permanent_history 
-                        if not (item.get("module") == st.session_state.active_tab and item.get("location") == st.session_state.selected_wh)
-                    ]
+                clear_disk_history(wh_filter=st.session_state.selected_wh, mod_filter=st.session_state.active_tab)
                 st.rerun()
 
     if not loc_history:
         st.info("No files in history.")
     else:
-        st.success(f"💾 Total Saved Files: **{len(loc_history)}**")
-        
+        st.success(f"💾 Total Saved Files: **{len(loc_history)}** (Files automatically retained for 30 days)")
+
         if len(loc_history) > 1:
             zip_buf = io.BytesIO()
             with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -637,8 +724,7 @@ elif st.session_state.active_tab == "AMZ":
                     "removed_pan": file_removed_pan,
                     "removed_desc": file_removed_desc,
                     "location": st.session_state.selected_wh,
-                    "module": "AMZ",
-                    "time": get_current_ist_str()
+                    "module": "AMZ"
                 })
 
                 progress_bar.progress((file_idx + 1) / total_files)
@@ -647,7 +733,7 @@ elif st.session_state.active_tab == "AMZ":
             progress_bar.empty()
 
             st.session_state.current_batch_results = processed_items
-            
+
             st.markdown(f"""
                 <div class="pro-success-card">
                     <b style="font-size: 15px; color: #34d399;">✔ Operation Completed Successfully!</b><br>
@@ -674,7 +760,7 @@ elif st.session_state.active_tab == "AMZ":
             file_name=f"{st.session_state.selected_wh}_All_Invoices.zip",
             mime="application/zip",
             key="btn_live_zip_download",
-            on_click=record_batch_to_history,
+            on_click=save_batch_to_disk_history,
             args=(batch_list,),
             use_container_width=True
         )
@@ -685,8 +771,7 @@ elif st.session_state.active_tab == "AMZ":
             with d_col1:
                 st.write(
                     f"📁 **{item['original_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
-                    f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | "
-                    f"⏰ *{item.get('time', '')}*"
+                    f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped`"
                 )
             with d_col2:
                 st.download_button(
@@ -695,7 +780,7 @@ elif st.session_state.active_tab == "AMZ":
                     file_name=item["file_name"],
                     mime="application/pdf",
                     key=f"dl_single_live_{st.session_state.selected_wh}_{idx}",
-                    on_click=record_to_history,
+                    on_click=save_item_to_disk_history,
                     args=(item,),
                     use_container_width=True
                 )
@@ -706,7 +791,7 @@ elif st.session_state.active_tab == "AMZ":
 elif st.session_state.active_tab == "BLNK_PO":
     st.subheader("⚡ Blinkit PO Uploader & Converter")
     st.caption("Upload Blinkit Purchase Order (PO) PDFs for extraction and dispatch processing.")
-    
+
     po_col1, po_col2 = st.columns(2)
     with po_col1:
         st.file_uploader(
@@ -723,7 +808,7 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL (PERSISTENT STATE & ORIGINAL ORDER TEXT)
+# MODULE 3: BLINKIT E-INVOICE TOOL
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
@@ -795,7 +880,7 @@ elif st.session_state.active_tab == "BLNK":
         page0 = doc[0]
         words = page0.get_text("words")
 
-        # 1. READ ONLY FOR FILENAME & METADATA (STRIPS TRAILING DOT)
+        # 1. READ ONLY FOR METADATA & FILENAME (STRIP TRAILING DOT)
         ext_order_id = None
         ext_matches = [w for w in words if "extern" in w[4].lower()]
         if ext_matches:
@@ -821,7 +906,6 @@ elif st.session_state.active_tab == "BLNK":
         if not ext_order_id:
             ext_order_id = "ExtOrder"
 
-        # REMOVE ANY TRAILING DOT OR SPACE
         ext_order_id = re.sub(r'[\.\s]+$', '', str(ext_order_id))
 
         # 2. INVOICE NO EXTRACTION
@@ -997,7 +1081,7 @@ elif st.session_state.active_tab == "BLNK":
         is_blinkit = meta["is_blinkit"]
         line_items = []
 
-        # STRICT INSTRUCTION: DO NOT ALTER ORDER ID ON PDF PAGE!
+        # STRICT: NO ALTERATION ON ORDER ID ON THE PDF PAGE (ORIGINAL LAYOUT INTACT)
         for p_idx, page in enumerate(doc):
             words = page.get_text("words")
 
@@ -1138,7 +1222,7 @@ elif st.session_state.active_tab == "BLNK":
                             "gst_rate": 5.0
                         })
 
-                    # SAFE IN-LINE UOM UPDATE (REPLACES UOM-PCS SAFELY WITHOUT TOUCHING OTHER TEXT)
+                    # SAFE IN-LINE UOM UPDATE
                     if is_blinkit and factor > 1:
                         uom_in_row = [
                             w for w in row_words 
@@ -1706,7 +1790,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
         if processed_docs:
             st.session_state.blnk_batch_results = processed_docs
 
-    # WORKSPACE PERSISTENCE: Data remains visible even after visiting History tab
+    # WORKSPACE PERSISTENCE
     if st.session_state.blnk_batch_results:
         active_docs = st.session_state.blnk_batch_results
         st.success(f"✅ Successfully processed {len(active_docs)} Invoices!")
@@ -1740,8 +1824,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 "pages": 1,
                 "stamped": len(meta["line_items"]),
                 "location": st.session_state.selected_wh,
-                "module": "BLNK",
-                "time": get_current_ist_str()
+                "module": "BLNK"
             }
 
             c1, c2, c3 = st.columns(3)
@@ -1751,7 +1834,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     data=pdf_buf.getvalue(),
                     file_name=pdf_name,
                     mime="application/pdf",
-                    on_click=record_to_history,
+                    on_click=save_item_to_disk_history,
                     args=(hist_item,),
                     key="dl_blnk_single_pdf"
                 )
@@ -1793,8 +1876,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                         "pages": 1,
                         "stamped": len(doc["meta"]["line_items"]),
                         "location": st.session_state.selected_wh,
-                        "module": "BLNK",
-                        "time": get_current_ist_str()
+                        "module": "BLNK"
                     })
             zip_buffer.seek(0)
 
@@ -1808,7 +1890,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     data=zip_buffer.getvalue(),
                     file_name=f"Invoices_Processed_{date_str}.zip",
                     mime="application/zip",
-                    on_click=record_batch_to_history,
+                    on_click=save_batch_to_disk_history,
                     args=(batch_hist,),
                     key="dl_blnk_bulk_zip"
                 )

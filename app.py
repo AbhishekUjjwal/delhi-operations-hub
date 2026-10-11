@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Right Stack 3 Boxes & Tight Tabs
+# Custom Styling: Right Stack 3 Boxes & Tight Tabs with Left Refresh Icon
 st.markdown("""
     <style>
     /* 1. HIDE TOP-RIGHT FORK, GITHUB LOGO & STREAMLIT HEADER */
@@ -36,7 +36,7 @@ st.markdown("""
         border-radius: 16px !important;
         font-size: 12px !important;
         font-weight: 600 !important;
-        padding: 4px 12px !important;
+        padding: 4px 10px !important;
         min-height: 28px !important;
         height: 28px !important;
         line-height: 1 !important;
@@ -149,6 +149,12 @@ def reset_current_workspace():
     st.session_state.show_history = False
     st.rerun()
 
+def clear_all_pinned_tabs():
+    st.session_state.open_tabs = ["AMZ"]
+    st.session_state.active_tab = "AMZ"
+    st.session_state.show_history = False
+    st.rerun()
+
 # ----------------- SIDEBAR NAVIGATION -----------------
 with st.sidebar:
     st.markdown('<div class="hub-title">🏛️ PAN OPERATIONS HUB</div>', unsafe_allow_html=True)
@@ -172,7 +178,7 @@ with st.sidebar:
 header_left, header_right = st.columns([8.2, 1.8])
 
 with header_left:
-    # Pinned Tabs Row (No Banner, Direct Clean Tabs)
+    # Pinned Tabs Row
     tab_cols = st.columns([0.8] * len(st.session_state.open_tabs) + [4.0])
     for idx, t_key in enumerate(st.session_state.open_tabs):
         info = AVAILABLE_MODULES[t_key]
@@ -189,17 +195,21 @@ with header_left:
                 st.rerun()
 
 with header_right:
-    # Right Side Vertical 3 Boxes
     st.markdown('<div class="right-stack-col">', unsafe_allow_html=True)
     
-    # 1. Box 1: Location (Sabse Upar)
-    selected_display = st.selectbox(
-        "WH | Location",
-        options=ORDERED_LOCATIONS,
-        format_func=lambda x: LOCATION_DISPLAY_MAP.get(x, x),
-        index=ORDERED_LOCATIONS.index(st.session_state.selected_wh) if st.session_state.selected_wh in ORDERED_LOCATIONS else 0
-    )
-    st.session_state.selected_wh = selected_display
+    # 1. Box 1: Refresh Button (Left) + Location Dropdown (Right)
+    loc_sub1, loc_sub2 = st.columns([0.45, 1.55])
+    with loc_sub1:
+        if st.button("🔄", key="btn_refresh_pinned", help="Click to unpin all extra tabs"):
+            clear_all_pinned_tabs()
+    with loc_sub2:
+        selected_display = st.selectbox(
+            "WH | Location",
+            options=ORDERED_LOCATIONS,
+            format_func=lambda x: LOCATION_DISPLAY_MAP.get(x, x),
+            index=ORDERED_LOCATIONS.index(st.session_state.selected_wh) if st.session_state.selected_wh in ORDERED_LOCATIONS else 0
+        )
+        st.session_state.selected_wh = selected_display
 
     # 2. Box 2: History (Bich me)
     loc_history = get_current_location_history()

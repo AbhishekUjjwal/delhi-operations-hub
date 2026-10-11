@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-import pymupdf as fitz
+import fitz  # PyMuPDF
 import re
 import io
 import json
@@ -668,7 +668,7 @@ elif st.session_state.active_tab == "AMZ":
 
             for file_idx, pdf_file in enumerate(uploaded_pdfs):
                 status_text.text(f"Processing File {file_idx+1}/{total_files}: {pdf_file.name}...")
-
+                pdf_file.seek(0)
                 pdf_bytes = pdf_file.read()
                 doc = fitz.open(stream=pdf_bytes, filetype="pdf")
                 new_doc = fitz.open()
@@ -1052,9 +1052,9 @@ elif st.session_state.active_tab == "BLNK":
         # Precise Billing Address Rect
         billing_rect = fitz.Rect(20, y_bill + 10, split_x, y_table)
         billing_text = page0.get_text("text", clip=billing_rect).strip()
-        b_lines = [l.strip() for l in billing_text.split("\n") if l.strip() and not re.search(r"billing\s*addr", l, re.I)]
+        b_lines = [l.strip() for l in billing_text.split("\n") if l.strip() and not re.search(r"billing\s*(addr|address)", l, re.I)]
 
-        # PRECISE DETERMINATION OF BUYER LEGAL NAME (NEVER 'g')
+        # Buyer Legal Name
         full_lower = full_text.lower()
         if "blink" in full_lower or "blinkit" in full_lower:
             buyer_name = "BLINK COMMERCE PRIVATE LIMITED"
@@ -1085,38 +1085,43 @@ elif st.session_state.active_tab == "BLNK":
         buyer_pin = int(b_pin_m[0]) if b_pin_m else int(buyer_state_code + "0001")
         buyer_loc = clean_extracted_city(billing_text, buyer_state_name)
 
-        # STRICT CLEAN ADDRESS (WITHOUT BUYER NAME)
         buyer_addr1, buyer_addr2 = format_best_address(b_lines, buyer_name, buyer_pin, buyer_loc, buyer_state_name)
 
-        # Precise Shipping Address Rect
+        # ----------------- STRICT SHIPPING DETAILS BOX EXTRACTION -----------------
         shipping_rect = fitz.Rect(split_x + 5, y_bill + 10, 585, y_table)
         shipping_text = page0.get_text("text", clip=shipping_rect).strip()
-        shp_lines = [l.strip() for l in shipping_text.split("\n") if l.strip() and not re.search(r"shipping\s*addr", l, re.I)]
+        raw_shp_lines = [
+            l.strip() for l in shipping_text.split("\n") 
+            if l.strip() and not re.search(r"shipping\s*(addr|address|details)", l, re.I)
+        ]
 
-        ship_name = buyer_name
+        ship_name = ""
+        for line in raw_shp_lines:
+            if not re.search(r"(gstin|contact|phone|mob|email|state|code|tax invoice)", line, re.I):
+                ship_name = line
+                break
+        if not ship_name:
+            ship_name = buyer_name
+
         shp_gst_m = re.search(r"GSTIN\s*[:\s]*([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})", shipping_text, re.IGNORECASE)
         ship_gstin = shp_gst_m.group(1).strip() if shp_gst_m else buyer_gstin
-        ship_state_code = ship_gstin[:2]
+        ship_state_code = ship_gstin[:2] if len(ship_gstin) >= 2 else buyer_state_code
         ship_state_name = STATE_CODE_MAP.get(ship_state_code, buyer_state_name)
 
         shp_pin_m = re.findall(r"\b[1-9][0-9]{5}\b", shipping_text)
         ship_pin = int(shp_pin_m[0]) if shp_pin_m else buyer_pin
         ship_loc = clean_extracted_city(shipping_text, ship_state_name)
 
-        ship_addr1, ship_addr2 = format_best_address(shp_lines, ship_name, ship_pin, ship_loc, ship_state_name)
+        ship_addr1, ship_addr2 = format_best_address(raw_shp_lines, ship_name, ship_pin, ship_loc, ship_state_name)
 
-        is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
+        # Compare Billing Address vs Shipping Address Strictly
+        norm_b_addr = re.sub(r'[^a-zA-Z0-9]', '', f"{buyer_addr1}{buyer_addr2}{buyer_pin}").lower()
+        norm_s_addr = re.sub(r'[^a-zA-Z0-9]', '', f"{ship_addr1}{ship_addr2}{ship_pin}").lower()
 
-        # USER LOGIC: If Buyer GSTIN == Shipping GSTIN or if Blinkit -> SHIPPING DETAILS MUST BE BLANK!
-        clean_b_gst = buyer_gstin.strip().upper()
-        clean_s_gst = ship_gstin.strip().upper()
-        
-        if is_blinkit or (clean_b_gst == clean_s_gst and clean_b_gst != ""):
-            shipping_is_different = False
+        if norm_s_addr and (norm_s_addr != norm_b_addr):
+            shipping_is_different = True
         else:
-            clean_b_str = re.sub(r'[^A-Za-z0-9]', '', f"{buyer_name}{buyer_addr1}{buyer_pin}").lower()
-            clean_s_str = re.sub(r'[^A-Za-z0-9]', '', f"{ship_name}{ship_addr1}{ship_pin}").lower()
-            shipping_is_different = (clean_b_str != clean_s_str)
+            shipping_is_different = False
 
         pos_match = re.search(r"Place\s*of\s*Supply\s*[:\s]*([A-Za-z0-9\s\-]+?)(?=\n|GST|State|$)", full_text, re.IGNORECASE)
         pos_raw = pos_match.group(1).strip() if pos_match else ""
@@ -1136,6 +1141,7 @@ elif st.session_state.active_tab == "BLNK":
             pos_state_name = STATE_CODE_MAP.get(buyer_pos_code, buyer_state_name)
 
         is_interstate = (seller_state_code != buyer_pos_code)
+        is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
 
         inv_total_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else None
@@ -1189,7 +1195,6 @@ elif st.session_state.active_tab == "BLNK":
             "printed_tax_total": printed_tax_total
         }
 
-    # RECONCILE AND CAPTURE NUMBERS ACCURATELY BY COLUMN X-COORDINATES (NO LEN SKIP)
     def process_and_reconcile_pdf(pdf_bytes):
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         meta = extract_metadata_from_doc(doc)
@@ -1281,7 +1286,6 @@ elif st.session_state.active_tab == "BLNK":
                     search_words = [w for w in row_words if w[0] > (hsn_w[2] if hsn_w else (hsn_x0 + 5))]
                     search_words.sort(key=lambda w: w[0])
 
-                    # Extract all valid numbers without arbitrary length limits
                     after_hsn_nums = []
                     for w in search_words:
                         val = w[4].replace(",", "").strip()
@@ -1299,7 +1303,6 @@ elif st.session_state.active_tab == "BLNK":
                     final_taxable = None
                     final_item_tot = None
 
-                    # 1. Quantity & Unit Price
                     if len(after_hsn_nums) >= 2:
                         final_q = int(after_hsn_nums[0]["val"])
                         if factor > 1 and final_q >= factor:
@@ -1311,21 +1314,18 @@ elif st.session_state.active_tab == "BLNK":
                             final_p = round(final_p * factor, 2)
                             overwrite_exact_area(page, after_hsn_nums[1]["rect"], f"{final_p:.2f}", font_size=7.2)
 
-                    # 2. Extract Discount (x: 245 to 295)
                     disc_cand = [n for n in after_hsn_nums if 245 <= n["x0"] <= 295]
                     if disc_cand:
                         final_disc = disc_cand[0]["val"]
                     elif len(after_hsn_nums) >= 3 and after_hsn_nums[2]["x0"] < 298:
                         final_disc = after_hsn_nums[2]["val"]
 
-                    # 3. Extract Taxable Value (x: 298 to 345)
                     taxable_cand = [n for n in after_hsn_nums if 298 <= n["x0"] <= 345]
                     if taxable_cand:
                         final_taxable = taxable_cand[0]["val"]
                     elif len(after_hsn_nums) >= 4:
                         final_taxable = after_hsn_nums[3]["val"]
 
-                    # 4. Item Total (x >= 520)
                     tot_cand = [n for n in after_hsn_nums if n["x0"] >= 520]
                     if tot_cand:
                         final_item_tot = tot_cand[0]["val"]
@@ -1336,7 +1336,6 @@ elif st.session_state.active_tab == "BLNK":
                         else:
                             taxable_val = round((final_q * final_p) - final_disc, 2)
 
-                        # User Mandate: Gross Amount = Taxable Value + Discount
                         gross_amt = round(taxable_val + final_disc, 2)
                         unit_label = "BOX" if (is_blinkit and factor > 1) else "PACKS"
 
@@ -1347,9 +1346,9 @@ elif st.session_state.active_tab == "BLNK":
                             "qty": final_q,
                             "unit": unit_label,
                             "unit_price": final_p,
-                            "gross_amt": gross_amt,       # Taxable + Discount
-                            "discount": final_disc,       # Exact Discount
-                            "taxable_val": taxable_val,   # Direct Printed Taxable
+                            "gross_amt": gross_amt,
+                            "discount": final_disc,
+                            "taxable_val": taxable_val,
                             "gst_rate": 5.0,
                             "item_tot": final_item_tot
                         })
@@ -1437,12 +1436,13 @@ elif st.session_state.active_tab == "BLNK":
         if data.get("shipping_is_different", False):
             ship_dtls = {
                 "Gstin": data["ship_gstin"],
-                "LglNm": data["ship_name"],
-                "TrdNm": data["ship_name"],
+                "LglNm": data["ship_name"][:100],
+                "TrdNm": data["ship_name"][:100],
                 "Addr1": data["ship_addr1"][:100],
+                "Addr2": data.get("ship_addr2", "")[:100] if data.get("ship_addr2") else None,
                 "Loc": data["ship_loc"],
-                "Pin": data["ship_pin"],
-                "Stcd": data["ship_state_code"]
+                "Pin": int(data["ship_pin"]),
+                "Stcd": str(data["ship_state_code"])
             }
 
         return {
@@ -1673,12 +1673,17 @@ elif st.session_state.active_tab == "BLNK":
             final_tax_sum = inv.get("printed_tax_total") or round(tot_cgst + tot_sgst + tot_igst, 2)
             final_invoice_val = inv.get("printed_grand_total") or round(final_taxable_sum + final_tax_sum, 2)
 
-            # Blank out Shipping Details if identical or Blinkit
+            # Strictly blank out shipping details if NOT different
             if inv.get("shipping_is_different", False):
                 ship_vals = [
-                    str(inv["ship_gstin"]), str(inv["ship_name"]), str(inv["ship_name"]),
-                    str(inv.get("ship_addr1", "")), str(inv.get("ship_addr2", "")),
-                    str(inv["ship_loc"]), str(inv["ship_pin"]), str(inv["ship_state_name"])
+                    str(inv.get("ship_gstin", "")),
+                    str(inv.get("ship_name", "")),
+                    str(inv.get("ship_name", "")),
+                    str(inv.get("ship_addr1", "")),
+                    str(inv.get("ship_addr2", "")),
+                    str(inv.get("ship_loc", "")),
+                    str(inv.get("ship_pin", "")),
+                    str(inv.get("ship_state_name", ""))
                 ]
             else:
                 ship_vals = ["", "", "", "", "", "", "", ""]
@@ -1710,7 +1715,7 @@ elif st.session_state.active_tab == "BLNK":
                     fmt_dec(tot_cgst) if (tot_cgst > 0 and not is_interstate) else "",
                     fmt_dec(final_tax_sum) if is_interstate else "",
                     "", "", "", "",
-                    "", # Round off Strictly BLANK
+                    "",  # Round off strictly blank
                     fmt_dec(final_invoice_val),
                     "", "", "", "", "", "", "",
                     "", "", "", "", "", "", "", "",
@@ -1930,7 +1935,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
     uploaded_invoices = st.file_uploader(
         "Upload Invoices (PDF) - Single ya Bulk", 
         type=["pdf"], 
-        accept_multiple_files=True,
+        accept_multiple_files=True, 
         key=f"blnk_inv_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
     )
 
@@ -1938,6 +1943,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
         processed_docs = []
         for file in uploaded_invoices:
             try:
+                file.seek(0)
                 pdf_bytes = file.read()
                 reconciled_pdf_buf, meta = process_and_reconcile_pdf(pdf_bytes)
                 processed_docs.append({
@@ -1968,7 +1974,6 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             is_blinkit = meta["is_blinkit"]
 
             tax_badge = "🔴 Inter-State (IGST Only)" if meta["is_interstate"] else "🟢 Intra-State (CGST + SGST)"
-            channel_badge = "🟢 Blinkit Conversion Active (50x/25x Box Fix)" if is_blinkit else "🔵 Standard Buyer"
             ship_status = "⚠️ Different (Shipping Details Filled)" if meta["shipping_is_different"] else "✅ Same (Shipping Blank in Excel)"
 
             st.markdown(f"""
@@ -2077,7 +2082,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 )
             with c2:
                 st.download_button(
-                    label="📊 Download Bulk eInvoice.xlsx ({len(active_docs)} Invoices)",
+                    label=f"📊 Download Bulk eInvoice.xlsx ({len(active_docs)} Invoices)",
                     data=excel_raw_bytes,
                     file_name=f"Bulk_eInvoice_{date_str}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

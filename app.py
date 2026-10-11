@@ -234,6 +234,7 @@ st.markdown("""
         border-color: rgba(58, 80, 107, 0.3) !important;
     }
 
+    /* Small action buttons in top bar */
     .right-action-cluster div[data-testid="stButton"] button {
         border-radius: 16px !important;
         font-size: 12px !important;
@@ -283,6 +284,7 @@ st.markdown("""
         margin: 8px 0px;
     }
 
+    /* Pinned Tabs Styling */
     .top-tab-strip div[data-testid="stButton"] button {
         border-radius: 18px !important;
         font-size: 12px !important;
@@ -300,17 +302,17 @@ st.markdown("""
 
     .dashboard-tool-container div[data-testid="stButton"] button {
         width: 100% !important;
-        min-height: 160px !important;
+        min-height: 145px !important;
         height: auto !important;
-        background: #ffffff !important; /* Pure white surface to contrast dark/light themes */
-        color: #0f172a !important; /* Dark bold letters */
+        background: #ffffff !important;
+        color: #0f172a !important;
         border: 2px solid #cbd5e1 !important;
-        border-radius: 28px !important;
+        border-radius: 26px !important;
         padding: 24px 30px !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: flex-start !important;
-        justify-content: flex-start !important;
+        justify-content: center !important;
         text-align: left !important;
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12) !important;
         cursor: pointer !important;
@@ -325,14 +327,30 @@ st.markdown("""
         font-family: inherit !important;
     }
 
-    /* TOOL TITLE BIG & CRISP */
+    /* TOOL ICON & TITLE BIG & CRISP */
+    .dashboard-tool-container div[data-testid="stButton"] button p .tool-icon {
+        font-size: 32px !important;
+        display: block !important;
+        margin-bottom: 12px !important;
+    }
+
     .dashboard-tool-container div[data-testid="stButton"] button p strong {
-        font-size: 24px !important;
+        font-size: 23px !important;
         font-weight: 900 !important;
         color: #0f172a !important;
         display: block !important;
-        margin-top: 14px !important;
         letter-spacing: -0.3px !important;
+    }
+
+    /* DARK THEME ADAPTATION */
+    @media (prefers-color-scheme: dark) {
+        .dashboard-tool-container div[data-testid="stButton"] button {
+            background: #1e293b !important;
+            border-color: rgba(148, 163, 184, 0.25) !important;
+        }
+        .dashboard-tool-container div[data-testid="stButton"] button p strong {
+            color: #ffffff !important;
+        }
     }
 
     /* DYNAMIC OUTLINE HOVER HIGHLIGHTS */
@@ -378,35 +396,30 @@ ORDERED_LOCATIONS = list(LOCATION_DISPLAY_MAP.keys())
 
 AVAILABLE_MODULES = {
     "AMZ": {
-        "mod_no": "MODULE 01",
         "name": "1. B2B Invoice Process",
         "code": "AMZ-ED",
         "icon": "📄",
         "css_cls": "card-amz"
     },
     "BLNK_PO": {
-        "mod_no": "MODULE 02",
         "name": "2. Blinkit PO Pounch",
         "code": "BLNK-PO",
         "icon": "🛍️",
         "css_cls": "card-blnk-po"
     },
     "BLNK": {
-        "mod_no": "MODULE 03",
         "name": "3. Blinkit e-Invoice Tool",
         "code": "BLNK-INV",
         "icon": "🧾",
         "css_cls": "card-blnk"
     },
     "LBL": {
-        "mod_no": "MODULE 04",
         "name": "4. Label Editor Tool",
         "code": "LBL-ED",
         "icon": "🏷️",
         "css_cls": "card-lbl"
     },
     "CONF": {
-        "mod_no": "MODULE 05",
         "name": "5. Settings & Config",
         "code": "SETTINGS",
         "icon": "⚙️",
@@ -697,7 +710,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ----------------- PURE DIRECT WHITE TOOL CARDS (NO FAKE LAYERS / NO EXTRA BUTTONS) -----------------
+# ----------------- CLEAN BOX DESIGN: ONLY TOOL NAME & ICON (MODULE 1/2 REMOVED) -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
     st.markdown('<div style="font-size: 13.5px; font-weight: 800; color: #94a3b8; margin-bottom: 18px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
@@ -712,8 +725,8 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
             with col_obj:
                 st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Single clean card button text with clear icon, module pill, and bold title
-                button_content = f"{mod_data['icon']}                     [{mod_data['mod_no']}]\n\n**{mod_data['name']}**"
+                # Single clean card button text with clear icon and big bold title (NO MODULE BADGE)
+                button_content = f"{mod_data['icon']}\n\n**{mod_data['name']}**"
                 
                 if st.button(button_content, key=f"box_card_{m_key}", use_container_width=True):
                     if m_key not in st.session_state.open_tabs:

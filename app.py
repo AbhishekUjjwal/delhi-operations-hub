@@ -8,10 +8,15 @@ import json
 import zipfile
 import barcode
 from barcode.writer import ImageWriter
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+# IST TIME HELPER (Exact Indian Standard Time)
+IST = timezone(timedelta(hours=5, minutes=30))
+def get_current_ist_str():
+    return datetime.now(IST).strftime("%d-%b %I:%M %p")
 
 # Page Configuration
 st.set_page_config(
@@ -171,6 +176,8 @@ if "show_history" not in st.session_state:
     st.session_state.show_history = False
 if "current_batch_results" not in st.session_state:
     st.session_state.current_batch_results = []
+if "blnk_batch_results" not in st.session_state:
+    st.session_state.blnk_batch_results = []
 
 def get_current_location_history():
     current_tab = st.session_state.active_tab
@@ -188,11 +195,32 @@ def get_current_location_history():
         if item.get("location") == current_wh
     ]
 
+# RE-UPLOAD AUTO-VERSIONING: Adds _edit_1, _edit_2 if uploaded multiple times
 def record_to_history(item):
-    existing_ids = {f"{x.get('file_name')}_{x.get('location')}_{x.get('module')}" for x in st.session_state.permanent_history}
-    item_id = f"{item.get('file_name')}_{item.get('location')}_{item.get('module')}"
-    if item_id not in existing_ids:
-        st.session_state.permanent_history.append(item)
+    base_name = item.get("file_name", "invoice.pdf")
+    wh = item.get("location")
+    mod = item.get("module")
+
+    # Match existing filenames for same module and warehouse
+    existing_names = [
+        x.get("file_name") for x in st.session_state.permanent_history
+        if x.get("location") == wh and x.get("module") == mod
+    ]
+
+    new_file_name = base_name
+    count = 1
+    # Check if duplicate exists
+    name_root = base_name[:-4] if base_name.endswith(".pdf") else base_name
+    ext = ".pdf" if base_name.endswith(".pdf") else ""
+    
+    while new_file_name in existing_names:
+        new_file_name = f"{name_root}_edit_{count}{ext}"
+        count += 1
+
+    item_to_save = dict(item)
+    item_to_save["file_name"] = new_file_name
+    item_to_save["time"] = get_current_ist_str()
+    st.session_state.permanent_history.append(item_to_save)
 
 def record_batch_to_history(batch_items):
     for item in batch_items:
@@ -201,6 +229,7 @@ def record_batch_to_history(batch_items):
 def reset_current_workspace():
     st.session_state.uploader_key += 1
     st.session_state.current_batch_results = []
+    st.session_state.blnk_batch_results = []
     st.session_state.show_history = False
     st.rerun()
 
@@ -229,7 +258,7 @@ with st.sidebar:
     st.divider()
     st.caption("System Version: v3.2 Enterprise")
 
-# ----------------- TOP LAYOUT: LEFT TABS & RIGHT CONTROLS -----------------
+# ----------------- TOP LAYOUT -----------------
 header_left, header_right = st.columns([7.8, 2.2])
 
 with header_left:
@@ -251,7 +280,6 @@ with header_left:
 with header_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     
-    # Row 1: Refresh Button + Location Dropdown
     loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
     with loc_sub1:
         if st.button("🔄", key="btn_refresh_pinned", help="Click to unpin all extra tabs", use_container_width=True):
@@ -265,7 +293,6 @@ with header_right:
         )
         st.session_state.selected_wh = selected_display
 
-    # Row 2: History & Reset
     loc_history = get_current_location_history()
     hist_col, reset_col = st.columns([1.2, 0.8])
     with hist_col:
@@ -282,7 +309,7 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW
+# HISTORY VIEW (IST TIME & SAFE DOWNLOADS)
 # =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
@@ -310,7 +337,7 @@ if st.session_state.show_history:
                 st.rerun()
 
     if not loc_history:
-        st.info("No files")
+        st.info("No files in history.")
     else:
         st.success(f"💾 Total Saved Files: **{len(loc_history)}**")
         
@@ -338,8 +365,9 @@ if st.session_state.show_history:
             d_col1, d_col2 = st.columns([3, 1])
             with d_col1:
                 st.write(
-                    f"📁 **{item['original_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
-                    f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | "
+                    f"📁 **{item['file_name']}** (Orig: `{item.get('original_name', item['file_name'])}`) — "
+                    f"`[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
+                    f"`{item.get('pages', 1)} Pages` | `{item.get('stamped', 0)} Items` | "
                     f"⏰ *{item.get('time', '')}*"
                 )
             with d_col2:
@@ -610,7 +638,7 @@ elif st.session_state.active_tab == "AMZ":
                     "removed_desc": file_removed_desc,
                     "location": st.session_state.selected_wh,
                     "module": "AMZ",
-                    "time": datetime.now().strftime("%d-%b %H:%M")
+                    "time": get_current_ist_str()
                 })
 
                 progress_bar.progress((file_idx + 1) / total_files)
@@ -695,7 +723,7 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL (ACCURATE MASKING & EXT ORDER REPAIR)
+# MODULE 3: BLINKIT E-INVOICE TOOL (PERSISTENT STATE & ORIGINAL ORDER TEXT)
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
@@ -754,9 +782,7 @@ elif st.session_state.active_tab == "BLNK":
         desc = re.sub(r"\s+", " ", desc).strip()
         return desc
 
-    # EXACT RECT OVERWRITE (NO BORDER LINE OVERFLOW)
     def overwrite_exact_area(page, rect, new_text, font_size=7.2):
-        # Precise boundary without cutting horizontal/vertical table borders
         safe_rect = fitz.Rect(rect.x0, rect.y0 + 0.3, rect.x1, rect.y1 - 0.3)
         page.draw_rect(safe_rect, color=None, fill=(1, 1, 1))
         page.insert_text((safe_rect.x0 + 0.5, safe_rect.y1 - 1.0), str(new_text), fontsize=font_size, fontname="helv", color=(0, 0, 0))
@@ -769,26 +795,25 @@ elif st.session_state.active_tab == "BLNK":
         page0 = doc[0]
         words = page0.get_text("words")
 
-        # SMART EXTERNAL ORDER EXTRACTION (COMBINES WRAPPED NUMBERS E.G., 5192561000664 + 6)
+        # 1. READ ONLY FOR FILENAME & METADATA (STRIPS TRAILING DOT)
         ext_order_id = None
         ext_matches = [w for w in words if "extern" in w[4].lower()]
         if ext_matches:
             anchor = ext_matches[0]
-            # Capture words on the right or immediately below in the same block
             num_words = [
                 w for w in words 
-                if (anchor[1] - 4 <= w[1] <= anchor[3] + 16) 
-                and (anchor[0] + 50 <= w[0] <= 320)
-                and re.search(r'\d', w[4])
+                if (anchor[1] - 4 <= w[1] <= anchor[3] + 11.5) 
+                and (anchor[0] + 45 <= w[0] <= 445)
+                and w[4].strip().rstrip('.').isdigit()
             ]
             num_words.sort(key=lambda w: (round(w[1] / 6) * 6, w[0]))
             if num_words:
-                ext_order_id = "".join([re.sub(r'[^\w\-]', '', w[4]) for w in num_words])
+                ext_order_id = "".join([w[4].strip().rstrip('.') for w in num_words])
 
         if not ext_order_id:
-            ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\sA-Za-z\-]+?)(?=\n\s*[A-Za-z]|Invoice|Date|$)", full_text, re.IGNORECASE)
+            ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\s]+?)(?=\n\s*[A-Za-z]|Invoice|Date|$)", full_text, re.IGNORECASE)
             if ext_match:
-                ext_order_id = "".join(ext_match.group(1).split())
+                ext_order_id = "".join(ext_match.group(1).split()).rstrip('.')
         if not ext_order_id:
             digits_match = re.findall(r"\b(49\d{8,14}|5\d{8,14}|\d{12,18})\b", full_text)
             if digits_match:
@@ -796,6 +821,10 @@ elif st.session_state.active_tab == "BLNK":
         if not ext_order_id:
             ext_order_id = "ExtOrder"
 
+        # REMOVE ANY TRAILING DOT OR SPACE
+        ext_order_id = re.sub(r'[\.\s]+$', '', str(ext_order_id))
+
+        # 2. INVOICE NO EXTRACTION
         inv_match = re.search(r"Invoice\s*No\s*[:\s]*([A-Za-z0-9\-_/]+)", full_text, re.IGNORECASE)
         invoice_no = inv_match.group(1).strip() if inv_match else "INV-001"
 
@@ -803,7 +832,7 @@ elif st.session_state.active_tab == "BLNK":
         raw_date = date_match.group(1).strip() if date_match else "Date"
 
         clean_date = raw_date
-        std_date_for_json = datetime.now().strftime("%d/%m/%Y")
+        std_date_for_json = datetime.now(IST).strftime("%d/%m/%Y")
         for fmt in ("%b %d, %Y", "%B %d, %Y", "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
             try:
                 d_obj = datetime.strptime(raw_date, fmt)
@@ -966,38 +995,11 @@ elif st.session_state.active_tab == "BLNK":
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         meta = extract_metadata_from_doc(doc)
         is_blinkit = meta["is_blinkit"]
-        ext_order_str = meta["ext_order_id"]
         line_items = []
 
+        # STRICT INSTRUCTION: DO NOT ALTER ORDER ID ON PDF PAGE!
         for p_idx, page in enumerate(doc):
             words = page.get_text("words")
-
-            # FIX: Clean and unite multi-line External Order ID in PDF Page 1
-            if p_idx == 0 and ext_order_str and ext_order_str != "ExtOrder":
-                ext_matches = [w for w in words if "extern" in w[4].lower()]
-                if ext_matches:
-                    anchor = ext_matches[0]
-                    # Clean out previous split digits
-                    num_rects = [
-                        fitz.Rect(w[0], w[1], w[2], w[3]) 
-                        for w in words 
-                        if (anchor[1] - 3 <= w[1] <= anchor[3] + 16) 
-                        and (anchor[0] + 45 <= w[0] <= 320)
-                        and re.search(r'\d', w[4])
-                    ]
-                    if num_rects:
-                        comb_rect = num_rects[0]
-                        for nr in num_rects[1:]:
-                            comb_rect |= nr
-                        # Whiteout only that narrow box and print unified number on one line
-                        page.draw_rect(comb_rect, color=None, fill=(1, 1, 1))
-                        page.insert_text(
-                            (num_rects[0].x0, anchor[3] - 1.2), 
-                            str(ext_order_str), 
-                            fontsize=8.5, 
-                            fontname="helv", 
-                            color=(0, 0, 0)
-                        )
 
             table_header_bottom_y = 200
             y_groups = {}
@@ -1136,15 +1138,13 @@ elif st.session_state.active_tab == "BLNK":
                             "gst_rate": 5.0
                         })
 
-                    # SAFE IN-LINE UOM UPDATE (NO HIDING ADJACENT TEXT OR BORDERS)
+                    # SAFE IN-LINE UOM UPDATE (REPLACES UOM-PCS SAFELY WITHOUT TOUCHING OTHER TEXT)
                     if is_blinkit and factor > 1:
-                        # Find UOM line strictly inside this item's row boundaries
                         uom_in_row = [
                             w for w in row_words 
                             if "UOM" in w[4].upper() and 30 <= w[0] <= 180
                         ]
                         for uw in uom_in_row:
-                            # Also check if S is hanging on newline
                             hanging_s = [
                                 w for w in row_words 
                                 if w[4].strip() == "S" and abs(w[0] - uw[0]) < 15 and 0 < (w[1] - uw[1]) < 12
@@ -1516,7 +1516,7 @@ elif st.session_state.active_tab == "BLNK":
         exact_total = round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
         grand_total = round(exact_total)
         round_off = round(grand_total - exact_total, 2)
-        ack_date_str = f"{meta['clean_date']} 17:0:00"
+        ack_date_str = f"{meta['clean_date']} 17:00:00"
 
         table_rows = ""
         for idx, it in enumerate(meta['line_items'], 1):
@@ -1704,135 +1704,140 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 st.error(f"Error processing {file.name}: {str(e)}")
 
         if processed_docs:
-            st.success(f"✅ Successfully processed {len(processed_docs)} Invoices!")
-            parsed_invoices = [doc["meta"] for doc in processed_docs]
-            excel_raw_bytes = generate_official_nic_v101_excel_bytes(parsed_invoices)
+            st.session_state.blnk_batch_results = processed_docs
 
-            if len(processed_docs) == 1:
-                doc = processed_docs[0]
-                meta = doc["meta"]
-                pdf_buf = doc["pdf_buf"]
-                json_payload = build_einvoice_json_v101(meta)
-                inv_no = meta["invoice_no"]
-                pdf_name = meta["pdf_filename"]
-                is_blinkit = meta["is_blinkit"]
+    # WORKSPACE PERSISTENCE: Data remains visible even after visiting History tab
+    if st.session_state.blnk_batch_results:
+        active_docs = st.session_state.blnk_batch_results
+        st.success(f"✅ Successfully processed {len(active_docs)} Invoices!")
+        parsed_invoices = [doc["meta"] for doc in active_docs]
+        excel_raw_bytes = generate_official_nic_v101_excel_bytes(parsed_invoices)
 
-                channel_badge = "🟢 Blinkit Conversion Active (50x/25x Box Fix)" if is_blinkit else "🔵 Standard Buyer"
-                ship_status = "⚠️ Different (Shipping Details Filled)" if meta["shipping_is_different"] else "✅ Same (Shipping Blank in Excel)"
+        if len(active_docs) == 1:
+            doc = active_docs[0]
+            meta = doc["meta"]
+            pdf_buf = doc["pdf_buf"]
+            json_payload = build_einvoice_json_v101(meta)
+            inv_no = meta["invoice_no"]
+            pdf_name = meta["pdf_filename"]
+            is_blinkit = meta["is_blinkit"]
 
-                st.markdown(f"""
-                    <div style="background-color: #1e293b; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'};">
-                        <b>Buyer Name:</b> <code>{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Rule:</b> <code>{channel_badge}</code><br>
-                        <b>City:</b> <code>{meta['buyer_loc']}</code> ({meta['buyer_pin']}) &nbsp;|&nbsp; <b>Shipping Status:</b> <code>{ship_status}</code><br>
-                        <b>Seller:</b> {meta['seller_name']} ({meta['seller_gstin']})
-                    </div>
-                """, unsafe_allow_html=True)
+            channel_badge = "🟢 Blinkit Conversion Active (50x/25x Box Fix)" if is_blinkit else "🔵 Standard Buyer"
+            ship_status = "⚠️ Different (Shipping Details Filled)" if meta["shipping_is_different"] else "✅ Same (Shipping Blank in Excel)"
 
-                hist_item = {
-                    "original_name": doc["original_name"],
-                    "file_name": pdf_name,
-                    "data": pdf_buf.getvalue(),
-                    "pages": 1,
-                    "stamped": len(meta["line_items"]),
-                    "location": st.session_state.selected_wh,
-                    "module": "BLNK",
-                    "time": datetime.now().strftime("%d-%b %H:%M")
-                }
+            st.markdown(f"""
+                <div style="background-color: #1e293b; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'};">
+                    <b>Buyer Name:</b> <code>{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Rule:</b> <code>{channel_badge}</code><br>
+                    <b>City:</b> <code>{meta['buyer_loc']}</code> ({meta['buyer_pin']}) &nbsp;|&nbsp; <b>Shipping Status:</b> <code>{ship_status}</code><br>
+                    <b>Seller:</b> {meta['seller_name']} ({meta['seller_gstin']})
+                </div>
+            """, unsafe_allow_html=True)
 
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    st.download_button(
-                        label="📥 Download Processed PDF",
-                        data=pdf_buf.getvalue(),
-                        file_name=pdf_name,
-                        mime="application/pdf",
-                        on_click=record_to_history,
-                        args=(hist_item,),
-                        key="dl_blnk_single_pdf"
-                    )
-                with c2:
-                    st.download_button(
-                        label="📊 Download eInvoice.xlsx (Exact Template)",
-                        data=excel_raw_bytes,
-                        file_name=f"{inv_no}_eInvoice.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="dl_blnk_single_xlsx"
-                    )
-                with c3:
-                    st.download_button(
-                        label="🧾 Download e-Invoice JSON (v1.01)",
-                        data=json.dumps(json_payload, indent=4),
-                        file_name=f"{inv_no}_eInvoice_v1.01.json",
-                        mime="application/json",
-                        key="dl_blnk_single_json"
-                    )
+            hist_item = {
+                "original_name": doc["original_name"],
+                "file_name": pdf_name,
+                "data": pdf_buf.getvalue(),
+                "pages": 1,
+                "stamped": len(meta["line_items"]),
+                "location": st.session_state.selected_wh,
+                "module": "BLNK",
+                "time": get_current_ist_str()
+            }
 
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("### 📄 Official Government e-Invoice Live Preview")
-                calc_height = 560 + (len(meta['line_items']) * 36)
-                preview_html = render_exact_government_einvoice_preview(meta)
-                components.html(preview_html, height=calc_height, scrolling=True)
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.download_button(
+                    label="📥 Download Processed PDF",
+                    data=pdf_buf.getvalue(),
+                    file_name=pdf_name,
+                    mime="application/pdf",
+                    on_click=record_to_history,
+                    args=(hist_item,),
+                    key="dl_blnk_single_pdf"
+                )
+            with c2:
+                st.download_button(
+                    label="📊 Download eInvoice.xlsx (Exact Template)",
+                    data=excel_raw_bytes,
+                    file_name=f"{inv_no}_eInvoice.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dl_blnk_single_xlsx"
+                )
+            with c3:
+                st.download_button(
+                    label="🧾 Download e-Invoice JSON (v1.01)",
+                    data=json.dumps(json_payload, indent=4),
+                    file_name=f"{inv_no}_eInvoice_v1.01.json",
+                    mime="application/json",
+                    key="dl_blnk_single_json"
+                )
 
-            else:
-                zip_buffer = io.BytesIO()
-                batch_hist = []
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    for idx, doc in enumerate(processed_docs, 1):
-                        pdf_name = doc["meta"]["pdf_filename"]
-                        raw_data = doc["pdf_buf"].getvalue()
-                        zip_file.writestr(pdf_name, raw_data)
-                        batch_hist.append({
-                            "original_name": doc["original_name"],
-                            "file_name": pdf_name,
-                            "data": raw_data,
-                            "pages": 1,
-                            "stamped": len(doc["meta"]["line_items"]),
-                            "location": st.session_state.selected_wh,
-                            "module": "BLNK",
-                            "time": datetime.now().strftime("%d-%b %H:%M")
-                        })
-                zip_buffer.seek(0)
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("### 📄 Official Government e-Invoice Live Preview")
+            calc_height = 560 + (len(meta['line_items']) * 36)
+            preview_html = render_exact_government_einvoice_preview(meta)
+            components.html(preview_html, height=calc_height, scrolling=True)
 
-                bulk_json = [build_einvoice_json_v101(d["meta"]) for d in processed_docs]
-                date_str = datetime.now().strftime('%d-%m-%Y')
+        else:
+            zip_buffer = io.BytesIO()
+            batch_hist = []
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for idx, doc in enumerate(active_docs, 1):
+                    pdf_name = doc["meta"]["pdf_filename"]
+                    raw_data = doc["pdf_buf"].getvalue()
+                    zip_file.writestr(pdf_name, raw_data)
+                    batch_hist.append({
+                        "original_name": doc["original_name"],
+                        "file_name": pdf_name,
+                        "data": raw_data,
+                        "pages": 1,
+                        "stamped": len(doc["meta"]["line_items"]),
+                        "location": st.session_state.selected_wh,
+                        "module": "BLNK",
+                        "time": get_current_ist_str()
+                    })
+            zip_buffer.seek(0)
 
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    st.download_button(
-                        label=f"📦 Download All Processed PDFs ({len(processed_docs)} Files - ZIP)",
-                        data=zip_buffer.getvalue(),
-                        file_name=f"Invoices_Processed_{date_str}.zip",
-                        mime="application/zip",
-                        on_click=record_batch_to_history,
-                        args=(batch_hist,),
-                        key="dl_blnk_bulk_zip"
-                    )
-                with c2:
-                    st.download_button(
-                        label=f"📊 Download Bulk eInvoice.xlsx ({len(processed_docs)} Invoices)",
-                        data=excel_raw_bytes,
-                        file_name=f"Bulk_eInvoice_{date_str}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="dl_blnk_bulk_xlsx"
-                    )
-                with c3:
-                    st.download_button(
-                        label=f"🧾 Download Bulk e-Invoice JSON ({len(bulk_json)} Invoices)",
-                        data=json.dumps(bulk_json, indent=4),
-                        file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
-                        mime="application/json",
-                        key="dl_blnk_bulk_json"
-                    )
+            bulk_json = [build_einvoice_json_v101(d["meta"]) for d in active_docs]
+            date_str = datetime.now(IST).strftime('%d-%m-%Y')
 
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("### 📄 Invoices Official e-Invoice Preview")
-                preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
-                for i, tab in enumerate(preview_tabs):
-                    with tab:
-                        curr_meta = processed_docs[i]['meta']
-                        calc_height = 560 + (len(curr_meta['line_items']) * 36)
-                        p_html = render_exact_government_einvoice_preview(curr_meta)
-                        components.html(p_html, height=calc_height, scrolling=True)
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.download_button(
+                    label=f"📦 Download All Processed PDFs ({len(active_docs)} Files - ZIP)",
+                    data=zip_buffer.getvalue(),
+                    file_name=f"Invoices_Processed_{date_str}.zip",
+                    mime="application/zip",
+                    on_click=record_batch_to_history,
+                    args=(batch_hist,),
+                    key="dl_blnk_bulk_zip"
+                )
+            with c2:
+                st.download_button(
+                    label=f"📊 Download Bulk eInvoice.xlsx ({len(active_docs)} Invoices)",
+                    data=excel_raw_bytes,
+                    file_name=f"Bulk_eInvoice_{date_str}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dl_blnk_bulk_xlsx"
+                )
+            with c3:
+                st.download_button(
+                    label=f"🧾 Download Bulk e-Invoice JSON ({len(bulk_json)} Invoices)",
+                    data=json.dumps(bulk_json, indent=4),
+                    file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
+                    mime="application/json",
+                    key="dl_blnk_bulk_json"
+                )
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("### 📄 Invoices Official e-Invoice Preview")
+            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in active_docs])
+            for i, tab in enumerate(preview_tabs):
+                with tab:
+                    curr_meta = active_docs[i]['meta']
+                    calc_height = 560 + (len(curr_meta['line_items']) * 36)
+                    p_html = render_exact_government_einvoice_preview(curr_meta)
+                    components.html(p_html, height=calc_height, scrolling=True)
 
 # =========================================================================
 # MODULE 4: LABEL EDITOR

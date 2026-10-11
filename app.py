@@ -289,73 +289,96 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* EXACT OVAL SHAPED MODULE CARDS */
-    .dashboard-grid-area div[data-testid="stButton"] {
-        width: 100% !important;
-        margin-bottom: 18px !important;
+    /* EXACT IMAGE MATCH CARD DESIGN */
+    .module-card-box {
+        position: relative;
+        width: 100%;
+        min-height: 175px;
+        background: #ffffff;
+        border: 2px solid #e2e8f0;
+        border-radius: 28px;
+        padding: 22px 24px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+        transition: all 0.25s ease-in-out;
+        cursor: pointer;
+        margin-bottom: 16px;
     }
 
-    .dashboard-grid-area div[data-testid="stButton"] button {
+    .module-card-box:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    }
+
+    .card-top-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+
+    .card-icon-container {
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .card-badge {
+        font-size: 11px;
+        font-weight: 800;
+        padding: 4px 12px;
+        border-radius: 20px;
+        letter-spacing: 0.5px;
+    }
+
+    .card-title {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-top: 14px;
+        margin-bottom: 12px;
+        letter-spacing: -0.2px;
+    }
+
+    .card-footer-line {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #64748b;
+    }
+
+    /* FULL CARD INVISIBLE CLICK OVERLAY (CLICK ANYWHERE TO TRIGGER) */
+    .card-wrapper-rel {
+        position: relative;
+        width: 100%;
+    }
+
+    .card-wrapper-rel div[data-testid="stButton"] {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
         width: 100% !important;
-        min-height: 155px !important;
-        height: auto !important;
-        background: #1e293b !important;
-        color: #ffffff !important;
-        border: 2px solid rgba(148, 163, 184, 0.3) !important;
-        border-radius: 46px !important; /* Perfect Oval Curves */
-        padding: 22px 34px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        justify-content: space-between !important;
-        text-align: left !important;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28) !important;
-        white-space: pre-wrap !important;
-        transition: all 0.25s ease-in-out !important;
+        height: 100% !important;
+        opacity: 0 !important;
+        z-index: 10 !important;
+    }
+
+    .card-wrapper-rel div[data-testid="stButton"] button {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 175px !important;
         cursor: pointer !important;
-    }
-
-    /* Prevent text truncate or ellipsis (...) */
-    .dashboard-grid-area div[data-testid="stButton"] button p,
-    .dashboard-grid-area div[data-testid="stButton"] button div {
-        white-space: pre-wrap !important;
-        word-break: break-word !important;
-        text-align: left !important;
-        line-height: 1.55 !important;
-        font-size: 13.5px !important;
-        width: 100% !important;
-    }
-
-    /* DYNAMIC OVAL ACCENT HOVER EFFECTS */
-    .dashboard-grid-area .btn-amz div[data-testid="stButton"] button:hover {
-        border-color: #38bdf8 !important;
-        background: #0f172a !important;
-        transform: translateY(-4px) !important;
-        box-shadow: 0 10px 25px rgba(56, 189, 248, 0.3) !important;
-    }
-    .dashboard-grid-area .btn-blnk-po div[data-testid="stButton"] button:hover {
-        border-color: #10b981 !important;
-        background: #0f172a !important;
-        transform: translateY(-4px) !important;
-        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3) !important;
-    }
-    .dashboard-grid-area .btn-blnk div[data-testid="stButton"] button:hover {
-        border-color: #f59e0b !important;
-        background: #0f172a !important;
-        transform: translateY(-4px) !important;
-        box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3) !important;
-    }
-    .dashboard-grid-area .btn-lbl div[data-testid="stButton"] button:hover {
-        border-color: #a855f7 !important;
-        background: #0f172a !important;
-        transform: translateY(-4px) !important;
-        box-shadow: 0 10px 25px rgba(168, 85, 247, 0.3) !important;
-    }
-    .dashboard-grid-area .btn-conf div[data-testid="stButton"] button:hover {
-        border-color: #94a3b8 !important;
-        background: #0f172a !important;
-        transform: translateY(-4px) !important;
-        box-shadow: 0 10px 25px rgba(148, 163, 184, 0.3) !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -375,43 +398,68 @@ ORDERED_LOCATIONS = list(LOCATION_DISPLAY_MAP.keys())
 AVAILABLE_MODULES = {
     "AMZ": {
         "mod_no": "MODULE 01",
-        "name": "1. Amazon Invoice Editor",
+        "name": "1. B2B Invoice Process",
         "code": "AMZ-ED",
         "short_open": "Open AMZ-ED ➔",
-        "logo": "📄",
-        "css_cls": "btn-amz"
+        "icon": "📄",
+        "icon_bg": "#2563eb",
+        "icon_color": "#ffffff",
+        "badge_bg": "#eff6ff",
+        "badge_color": "#2563eb",
+        "badge_border": "#bfdbfe",
+        "active_border": "#2563eb"
     },
     "BLNK_PO": {
         "mod_no": "MODULE 02",
         "name": "2. Blinkit PO Pouch",
         "code": "BLNK-PO",
         "short_open": "Open BLNK-PO ➔",
-        "logo": "🛍️",
-        "css_cls": "btn-blnk-po"
+        "icon": "🛍️",
+        "icon_bg": "#ecfdf5",
+        "icon_color": "#059669",
+        "badge_bg": "#ecfdf5",
+        "badge_color": "#059669",
+        "badge_border": "#a7f3d0",
+        "active_border": "#059669"
     },
     "BLNK": {
         "mod_no": "MODULE 03",
         "name": "3. Blinkit e-Invoice Tool",
         "code": "BLNK-INV",
         "short_open": "Open BLNK-INV ➔",
-        "logo": "🧾",
-        "css_cls": "btn-blnk"
+        "icon": "🧾",
+        "icon_bg": "#fffbeb",
+        "icon_color": "#d97706",
+        "badge_bg": "#fffbeb",
+        "badge_color": "#d97706",
+        "badge_border": "#fde68a",
+        "active_border": "#d97706"
     },
     "LBL": {
         "mod_no": "MODULE 04",
         "name": "4. Label Editor Tool",
         "code": "LBL-ED",
         "short_open": "Open LBL-ED ➔",
-        "logo": "🏷️",
-        "css_cls": "btn-lbl"
+        "icon": "🏷️",
+        "icon_bg": "#f5f3ff",
+        "icon_color": "#7c3aed",
+        "badge_bg": "#f5f3ff",
+        "badge_color": "#7c3aed",
+        "badge_border": "#ddd6fe",
+        "active_border": "#7c3aed"
     },
     "CONF": {
         "mod_no": "MODULE 05",
         "name": "5. Settings & Config",
         "code": "SETTINGS",
         "short_open": "Open SETTINGS ➔",
-        "logo": "⚙️",
-        "css_cls": "btn-conf"
+        "icon": "⚙️",
+        "icon_bg": "#f1f5f9",
+        "icon_color": "#475569",
+        "badge_bg": "#f8fafc",
+        "badge_color": "#475569",
+        "badge_border": "#cbd5e1",
+        "active_border": "#475569"
     }
 }
 
@@ -689,7 +737,7 @@ for idx, t_key in enumerate(st.session_state.open_tabs):
         tab_label = "🏠 HOME"
     else:
         info = AVAILABLE_MODULES[t_key]
-        tab_label = f"{info['logo']} {info['code']} ✕" if len(st.session_state.open_tabs) > 1 else f"{info['logo']} {info['code']}"
+        tab_label = f"{info['icon']} {info['code']} ✕" if len(st.session_state.open_tabs) > 1 else f"{info['icon']} {info['code']}"
 
     is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
     with tab_cols[idx]:
@@ -705,11 +753,10 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ----------------- EXACT OVAL CARD BOXES (CLICK ANYWHERE DIRECTLY ON THE CARD) -----------------
+# ----------------- EXACT CUSTOM CARDS (CLICK ANYWHERE DIRECTLY TO OPEN) -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
     st.markdown('<div style="font-size: 13px; font-weight: 800; color: #94a3b8; margin-bottom: 14px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="dashboard-grid-area">', unsafe_allow_html=True)
     keys = list(AVAILABLE_MODULES.keys())
     for i in range(0, len(keys), 2):
         c1, c2 = st.columns(2)
@@ -718,35 +765,46 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
         for col_obj, m_key in zip([c1, c2], row_keys):
             mod_data = AVAILABLE_MODULES[m_key]
             with col_obj:
-                st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
-                
-                # Multi-line oval card text
-                card_text = (
-                    f"{mod_data['logo']}   [{mod_data['mod_no']}]\n\n"
-                    f"{mod_data['name']}\n"
-                    f"────────────────────────\n"
-                    f"{mod_data['short_open']}"
-                )
-                
-                if st.button(card_text, key=f"card_btn_{m_key}", use_container_width=True):
+                st.markdown(f"""
+                    <div class="card-wrapper-rel">
+                        <div class="module-card-box" style="border-color: {mod_data['active_border']}35;" 
+                             onmouseover="this.style.borderColor='{mod_data['active_border']}';" 
+                             onmouseout="this.style.borderColor='{mod_data['active_border']}35';">
+                            <div class="card-top-row">
+                                <div class="card-icon-container" style="background: {mod_data['icon_bg']}; color: {mod_data['icon_color']};">
+                                    {mod_data['icon']}
+                                </div>
+                                <div class="card-badge" style="background: {mod_data['badge_bg']}; color: {mod_data['badge_color']}; border: 1.5px solid {mod_data['badge_border']};">
+                                    {mod_data['mod_no']}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="card-title">{mod_data['name']}</div>
+                            </div>
+                            <div class="card-footer-line">
+                                <span>Action</span>
+                                <span style="color: {mod_data['active_border']};">{mod_data['short_open']}</span>
+                            </div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                # Invisible overlay button covering entire card area
+                if st.button(f"open_{m_key}", key=f"overlay_click_{m_key}", use_container_width=True):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key
                     st.rerun()
 
-                st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
 # ----------------- HISTORY VIEW -----------------
 elif st.session_state.show_history:
-    cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
+    cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "icon": "📁"})
     h_top_c1, h_top_c2 = st.columns([4, 1])
     with h_top_c1:
         if st.session_state.selected_wh == "Headoffice":
-            st.subheader(f"📜 {cur_mod_info['logo']} {cur_mod_info['name']} — Central Master History (All Locations)")
+            st.subheader(f"📜 {cur_mod_info['icon']} {cur_mod_info['name']} — Central Master History (All Locations)")
         else:
-            st.subheader(f"📜 {cur_mod_info['logo']} {cur_mod_info['name']} — [{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}]")
+            st.subheader(f"📜 {cur_mod_info['icon']} {cur_mod_info['name']} — [{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}]")
 
     with h_top_c2:
         if loc_history:

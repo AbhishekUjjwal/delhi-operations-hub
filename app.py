@@ -63,7 +63,6 @@ def load_disk_history():
             else:
                 cleaned_up = True
 
-        # Agar koi file delete hui hai toh metadata file update karein
         if cleaned_up:
             with open(METADATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(updated_meta, f, indent=2)
@@ -426,7 +425,7 @@ if st.session_state.show_history:
     if not loc_history:
         st.info("No files in history.")
     else:
-        st.success(f"💾 Total Saved Files: **{len(loc_history)}** (Files automatically retained for 30 days)")
+        st.success(f"💾 Total Saved Files: **{len(loc_history)}** (Auto retained for 30 days)")
 
         if len(loc_history) > 1:
             zip_buf = io.BytesIO()
@@ -808,11 +807,11 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL
+# MODULE 3: BLINKIT E-INVOICE TOOL (EXACT EXCEL FORMATE & BEST ADDRESS)
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
-    st.caption("Reconciles Blinkit 50x/25x Box factor, generates 85-Column NIC standard Excel, JSON v1.01, and preview.")
+    st.caption("Generates exact official NIC 86-Column Excel template matching invocie formate.xlsx")
 
     STATE_CODE_MAP = {
         "01": "JAMMU AND KASHMIR", "02": "HIMACHAL PRADESH", "03": "PUNJAB", "04": "CHANDIGARH",
@@ -832,7 +831,7 @@ elif st.session_state.active_tab == "BLNK":
     MAJOR_CITIES = [
         "New Delhi", "Delhi", "Varanasi", "Lucknow", "Jaipur", "Gurgaon", "Gurugram", 
         "Noida", "Ghaziabad", "Kanpur", "Bengaluru", "Bangalore", "Mumbai", "Pune", 
-        "Kolkata", "Ahmedabad", "Patna", "Ranchi", "Chandigarh", "Faridabad", "Agra", "Meerut"
+        "Kolkata", "Ahmedabad", "Patna", "Ranchi", "Chandigarh", "Faridabad", "Agra", "Meerut", "Hapur"
     ]
 
     def clean_extracted_city(text, state_name):
@@ -849,6 +848,41 @@ elif st.session_state.active_tab == "BLNK":
                 return city
 
         return state_name.title() if state_name else "Delhi"
+
+    # BEST ADDRESS SPLITTER (NIC 100-CHAR LIMIT SAFE)
+    def format_best_address(raw_lines, pincode, city, state_name):
+        clean_parts = []
+        for l in raw_lines:
+            s = l.strip()
+            if not s:
+                continue
+            if re.search(r"(@|contact|phone|mob|gstin|pan|india)", s, re.I):
+                continue
+            # Remove city/pincode repetitions from the address line
+            s = re.sub(rf"\b{re.escape(str(pincode))}\b", "", s).strip()
+            s = re.sub(rf"\b{re.escape(str(city))}\b", "", s, flags=re.I).strip()
+            s = re.sub(rf"\b{re.escape(str(state_name))}\b", "", s, flags=re.I).strip()
+            s = re.sub(r'[\,\-\s]+$', '', s).strip()
+            if len(s) > 2:
+                clean_parts.append(s)
+
+        full_addr = ", ".join(clean_parts) if clean_parts else "Warehouse Facility"
+        full_addr = re.sub(r"\s+", " ", full_addr).strip()
+
+        # Split into Addr1 (<= 100 chars) and Addr2 (<= 100 chars)
+        if len(full_addr) <= 100:
+            addr1 = full_addr
+            addr2 = ""
+        else:
+            split_idx = full_addr[:98].rfind(",")
+            if split_idx > 30:
+                addr1 = full_addr[:split_idx].strip()
+                addr2 = full_addr[split_idx+1:].strip()[:100]
+            else:
+                addr1 = full_addr[:98].strip()
+                addr2 = full_addr[98:].strip()[:100]
+
+        return addr1, addr2
 
     def fmt_dec(val):
         try:
@@ -954,16 +988,13 @@ elif st.session_state.active_tab == "BLNK":
         seller_state_name = STATE_CODE_MAP.get(seller_state_code, "DELHI")
         seller_loc = clean_extracted_city(seller_text, seller_state_name)
 
-        seller_addr_candidates = [l for l in s_lines[1:] if not re.search(r"(@|contact|phone|mob|gstin|pan|india)", l, re.I)]
-        seller_addr = ", ".join(seller_addr_candidates[:2]) if seller_addr_candidates else "Ground Floor, B-248 B Block, Naraina Industrial Area, Phase 1"
+        s_addr1, s_addr2 = format_best_address(s_lines[1:], seller_pin, seller_loc, seller_state_name)
 
         billing_rect = fitz.Rect(20, y_bill, split_x, y_table)
         billing_text = page0.get_text("text", clip=billing_rect).strip()
         b_lines = [l.strip() for l in billing_text.split("\n") if l.strip() and not re.search(r"billing\s*addr", l, re.I)]
 
         buyer_name = b_lines[0] if b_lines else "BLINK COMMERCE PRIVATE LIMITED"
-        b_addr_candidates = [l for l in b_lines[1:] if not re.search(r"(@|contact|phone|mob|gstin|pan|india)", l, re.I)]
-        buyer_addr1 = ", ".join(b_addr_candidates[:2]) if b_addr_candidates else (b_lines[1] if len(b_lines) > 1 else "Commercial Facility")
 
         em_m = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", billing_text)
         buyer_email = em_m.group(0).strip() if em_m else ""
@@ -985,13 +1016,14 @@ elif st.session_state.active_tab == "BLNK":
         buyer_pin = int(b_pin_m[0]) if b_pin_m else int(buyer_state_code + "0001")
         buyer_loc = clean_extracted_city(billing_text, buyer_state_name)
 
+        # BEST CLEAN ADDRESS (Addr1 & Addr2)
+        buyer_addr1, buyer_addr2 = format_best_address(b_lines[1:], buyer_pin, buyer_loc, buyer_state_name)
+
         shipping_rect = fitz.Rect(split_x + 5, y_bill, 585, y_table)
         shipping_text = page0.get_text("text", clip=shipping_rect).strip()
         shp_lines = [l.strip() for l in shipping_text.split("\n") if l.strip() and not re.search(r"shipping\s*addr", l, re.I)]
 
         ship_name = shp_lines[0] if shp_lines else buyer_name
-        s_addr_candidates = [l for l in shp_lines[1:] if not re.search(r"(@|contact|phone|mob|gstin|pan|india)", l, re.I)]
-        ship_addr1 = ", ".join(s_addr_candidates[:2]) if s_addr_candidates else (shp_lines[1] if len(shp_lines) > 1 else buyer_addr1)
 
         shp_gst_m = re.search(r"GSTIN\s*[:\s]*([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})", shipping_text, re.IGNORECASE)
         ship_gstin = shp_gst_m.group(1).strip() if shp_gst_m else buyer_gstin
@@ -1001,6 +1033,8 @@ elif st.session_state.active_tab == "BLNK":
         shp_pin_m = re.findall(r"\b[1-9][0-9]{5}\b", shipping_text)
         ship_pin = int(shp_pin_m[0]) if shp_pin_m else buyer_pin
         ship_loc = clean_extracted_city(shipping_text, ship_state_name)
+
+        ship_addr1, ship_addr2 = format_best_address(shp_lines[1:], ship_pin, ship_loc, ship_state_name)
 
         clean_b_str = re.sub(r'[^A-Za-z0-9]', '', f"{buyer_addr1}{buyer_pin}").lower()
         clean_s_str = re.sub(r'[^A-Za-z0-9]', '', f"{ship_addr1}{ship_pin}").lower()
@@ -1046,13 +1080,15 @@ elif st.session_state.active_tab == "BLNK":
             "seller_name": seller_name,
             "seller_gstin": seller_gstin,
             "seller_pin": seller_pin,
-            "seller_addr": seller_addr,
+            "seller_addr1": s_addr1,
+            "seller_addr2": s_addr2,
             "seller_loc": seller_loc,
             "seller_state_code": seller_state_code,
             "seller_state_name": seller_state_name,
             "buyer_name": buyer_name,
             "buyer_trade_name": buyer_name,
             "buyer_addr1": buyer_addr1,
+            "buyer_addr2": buyer_addr2,
             "buyer_loc": buyer_loc,
             "buyer_pin": buyer_pin,
             "buyer_phone": buyer_phone,
@@ -1066,6 +1102,7 @@ elif st.session_state.active_tab == "BLNK":
             "shipping_is_different": shipping_is_different,
             "ship_name": ship_name,
             "ship_addr1": ship_addr1,
+            "ship_addr2": ship_addr2,
             "ship_loc": ship_loc,
             "ship_pin": ship_pin,
             "ship_gstin": ship_gstin,
@@ -1081,7 +1118,7 @@ elif st.session_state.active_tab == "BLNK":
         is_blinkit = meta["is_blinkit"]
         line_items = []
 
-        # STRICT: NO ALTERATION ON ORDER ID ON THE PDF PAGE (ORIGINAL LAYOUT INTACT)
+        # STRICT: NO ALTERATION ON ORDER ID ON THE PDF PAGE (ORIGINAL INTACT)
         for p_idx, page in enumerate(doc):
             words = page.get_text("words")
 
@@ -1301,8 +1338,6 @@ elif st.session_state.active_tab == "BLNK":
             })
 
         exact_calc_total = round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
-        final_rounded_total = round(exact_calc_total)
-        round_off_amt = round(final_rounded_total - exact_calc_total, 2)
 
         ship_dtls = None
         if data.get("shipping_is_different", False):
@@ -1334,7 +1369,7 @@ elif st.session_state.active_tab == "BLNK":
                 "Gstin": data["seller_gstin"],
                 "LglNm": data["seller_name"],
                 "TrdNm": data["seller_name"],
-                "Addr1": f"Warehouse Facility, {data['seller_loc']}",
+                "Addr1": data["seller_addr1"][:100],
                 "Loc": data["seller_loc"],
                 "Pin": data["seller_pin"],
                 "Stcd": seller_state_code
@@ -1359,15 +1394,16 @@ elif st.session_state.active_tab == "BLNK":
                 "IgstVal": round(tot_igst, 2),
                 "CesVal": 0.0,
                 "StCesVal": 0.0,
-                "RndOffAmt": round_off_amt,
-                "TotInvVal": round(final_rounded_total, 2)
+                "RndOffAmt": 0.0,
+                "TotInvVal": round(exact_calc_total, 2)
             }
         }
 
+    # EXACT 86-COLUMN NIC EXCEL GENERATOR (MATCHING invocie formate.xlsx WITH ROW 4 KEYS & NO ROUNDOFF)
     def generate_official_nic_v101_excel_bytes(data_list):
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "eInvoice"
+        ws.title = "Sheet1"
         ws.views.sheetView[0].showGridLines = True
 
         c_supply = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid")
@@ -1376,15 +1412,16 @@ elif st.session_state.active_tab == "BLNK":
         c_disp = PatternFill(start_color="FDE9D9", end_color="FDE9D9", fill_type="solid")
         c_ship = PatternFill(start_color="B8CCE4", end_color="B8CCE4", fill_type="solid")
         c_item = PatternFill(start_color="D8E4BC", end_color="D8E4BC", fill_type="solid")
+        c_bch = PatternFill(start_color="D8E4BC", end_color="D8E4BC", fill_type="solid")
         c_val = PatternFill(start_color="B8CCE4", end_color="B8CCE4", fill_type="solid")
         c_export = PatternFill(start_color="F2DCDB", end_color="F2DCDB", fill_type="solid")
         c_eway = PatternFill(start_color="E6B8B7", end_color="E6B8B7", fill_type="solid")
 
         font_title = Font(name="Arial", size=18, bold=True)
-        font_btn = Font(name="Arial", size=11, bold=True, color="FFFFFF")
         font_sec = Font(name="Arial", size=10, bold=True)
         font_col = Font(name="Arial", size=9, bold=True)
         font_data = Font(name="Arial", size=9)
+        font_code = Font(name="Arial", size=8, color="555555")
 
         thin_border = Border(
             left=Side(style='thin', color='B0B0B0'),
@@ -1393,81 +1430,112 @@ elif st.session_state.active_tab == "BLNK":
             bottom=Side(style='thin', color='B0B0B0')
         )
 
-        ws.merge_cells("H1:L2")
-        ws["H1"] = "E-Invoice System"
-        ws["H1"].font = font_title
-        ws["H1"].alignment = Alignment(horizontal="center", vertical="center")
+        # ROW 1: Title
+        ws.merge_cells("B1:Q1")
+        ws["B1"] = "E-Invoice System "
+        ws["B1"].font = font_title
+        ws["B1"].alignment = Alignment(horizontal="center", vertical="center")
+        ws["R1"] = "*  Indicates Mandatory Fields"
+        ws["R1"].font = Font(name="Arial", size=9, italic=True, color="FF0000")
 
-        ws.merge_cells("M1:N2")
-        ws["M1"] = "Validate"
-        ws["M1"].fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
-        ws["M1"].font = font_btn
-        ws["M1"].alignment = Alignment(horizontal="center", vertical="center")
-
+        # ROW 2: Sections
         sections = [
-            ("Supply Details", 1, 4, c_supply),
             ("Document Details", 5, 7, c_doc),
             ("Buyer Details", 8, 18, c_buyer),
             ("Dispatch Details", 19, 24, c_disp),
             ("Shipping Details", 25, 32, c_ship),
             ("Product Details", 33, 57, c_item),
+            ("Batch Details", 58, 60, c_bch),
             ("Value Details", 61, 70, c_val),
             ("Export Details", 71, 77, c_export),
             ("E-way-bill Details", 78, 85, c_eway)
         ]
 
         for name, sc, ec, fill in sections:
-            ws.merge_cells(start_row=3, start_column=sc, end_row=3, end_column=ec)
-            c = ws.cell(row=3, column=sc, value=name)
+            ws.merge_cells(start_row=2, start_column=sc, end_row=2, end_column=ec)
+            c = ws.cell(row=2, column=sc, value=name)
             c.fill = fill
             c.font = font_sec
             c.alignment = Alignment(horizontal="center", vertical="center")
             for i in range(sc, ec + 1):
-                ws.cell(row=3, column=i).border = thin_border
+                ws.cell(row=2, column=i).border = thin_border
 
+        # ROW 3: Column Headers (Exact 86 columns from invocie formate.xlsx)
         col_names = [
             "Supply Type Code *", "Reverse Charge", "e-Comm GSTIN", "Igst On Intra",
             "Document Type *", "Document Number *", "Document Date (DD/MM/YYYY) *",
-            "Buyer GSTIN *", "Buyer Legal Name *", "Buyer Trade Name", "Buyer POS *",
-            "Buyer Addr1 *", "Buyer Addr2", "Buyer Location *", "Buyer Pin Code *",
+            "Buyer GSTIN *", "Buyer Legal Name *", "Buyer Trade Name ", "Buyer POS *",
+            "Buyer Addr1 *", "Buyer Addr2", "Buyer Location *", "Buyer Pin Code",
             "Buyer State *", "Buyer Phone Number", "Buyer Email Id",
-            "Dispatch Name", "Dispatch Addr1", "Dispatch Addr2", "Dispatch Location", "Dispatch Pin Code", "Dispatch State",
-            "Shipping GSTIN", "Shipping Legal Name", "Shipping Trade Name", "Shipping Addr1", "Shipping Addr2", "Shipping Location", "Shipping Pin Code", "Shipping State",
-            "Sl.No. *", "Product Description", "Is Service *", "HSN Code *", "Bar Code", "Quantity *", "Free Quantity", "Unit *", "Unit Price *",
-            "Gross Amount", "Discount", "Pre Tax Value", "Taxable value *", "GST Rate (%) *", "Sgst Amt(Rs)", "Cgst Amt(Rs)",
-            "Igst Amt(Rs)", "Cess Rate (%)", "Cess Amt Adval (Rs)", "Cess Non Adval Amt (Rs)", "State Cess Rate (%)",
-            "State Cess Adval Amt (Rs)", "State Cess Non-Adval Amt (Rs)", "Other Charges", "Item Total *",
-            "", "", "",
+            "Dispatch Name ", "Dispatch Addr1 ", "Dispatch Addr2", "Dispatch Location ", "Dispatch Pin Code ", "Dispatch State ",
+            "Shipping GSTIN ", "Shipping Legal Name ", "Shipping Trade Name ", "Shipping Addr1 ", "Shipping Addr2", "Shipping Location ", "Shipping Pin Code ", "Shipping State ",
+            "Sl.No. *", "Product Description", "Is_Service *", "HSN code *", "Bar code ", "Quantity *", "Free Quantity", "Unit *", "Unit Price *",
+            "Gross Amount *", "Discount", "Pre Tax Value", "Taxable value *", "GST Rate (%) *", "Sgst Amt(Rs)", "Cgst Amt (Rs)",
+            "Igst Amt (Rs)", "Cess Rate (%)", "Cess Amt Adval (Rs)", "Cess Non Adval Amt (Rs)", "State Cess Rate (%)",
+            "State Cess Adval Amt (Rs)", "State Cess Non-Adval Amt (Rs)", "Other Charges  ", "Item Total *",
+            "Batch Name", "Batch Expiry Dt", "Warranty Dt",
             "Total Taxable value *", "Sgst Amt", "Cgst Amt", "Igst Amt", "Cess Amt", "State Cess Amt", "Discount", "Other charges", "Round off", "Total Invoice value *",
-            "Shipping Bill No", "Shipping Bill Dt", "Port", "Refund claim", "Foreign Currency", "Country Code", "Export Duty Amount",
-            "Trans ID", "Trans Name", "Trans Mode", "Distance", "Trans Doc No", "Trans Doc Date", "Vehicle No", "Vehicle Type"
+            "Shipping Bill No", "Shipping Bill Dt", "Port", "Refund claim", "Foreign Currency ", "Country Code ", "Export Duty Amount",
+            "Trans ID", "Trans Name", "Trans Mode ", "Distance ", "Trans Doc No.", "Trans Doc Date", "Vehicle No.", "Vehicle Type", "Error List"
+        ]
+
+        # ROW 4: Internal Macro Column Keys (Mandatory for Government Utility Macro)
+        col_keys = [
+            "colSupType", "colRevCharge", "colEcomGstin", "colIgstIntra",
+            "colDoctype", "colDocno", "colDocdate",
+            "colBgstin", "colBLegalname", "colBTradname", "colPos",
+            "colBaddr1", "colBaddr2", "colBLoc", "colBPin",
+            "colBState", "colBPhno", "colBEmail",
+            "colDName", "colDaddr1", "colDaddr2", "colDLoc", "colDPin", "colDState",
+            "colSgstin", "colSLegalname", "colSTradname", "colSaddr1", "colSaddr2", "colSLoc", "colSPin", "colSState",
+            "colProdSlno", "colProddesc", "colProdservice", "colHsn", "colBar", "colQuantity", "colFreeQuanty", "colUnit", "colUnitPrice",
+            "colTotal", "colDiscount", "colPreTaxValue", "colAssValue", "colGstrate", "colSgst", "colCgst",
+            "colIgst", "colCessrate", "colCessadval", "colCessnonad", "colStCessrate",
+            "colStCessadval", "colStCessnonad", "colOthChrgs", "colTolitemval",
+            "colBchname", "colBchExpDt", "colBchWarDt",
+            "colTotTaxval", "colTsgstval", "colTcgstval", "colTigstval", "colTcessval", "colTstcessval", "colTDiscount", "colTOthChrgs", "colRoundOff", "colTinvoiceval",
+            "colShipBilNo", "colShipBilDt", "colPort", "colSupRefund", "colForCur", "colCntryCode", "colExpDty",
+            "colTid", "colTName", "colTMode", "colTDistance", "colTDocNo", "colTDocDt", "colTVehno", "colTVehTyp", ""
         ]
 
         for c_idx, col_name in enumerate(col_names, 1):
-            cell = ws.cell(row=4, column=c_idx, value=col_name)
-            if c_idx <= 4:
-                cell.fill = c_supply
-            elif c_idx <= 7:
-                cell.fill = c_doc
-            elif c_idx <= 18:
-                cell.fill = c_buyer
-            elif c_idx <= 24:
-                cell.fill = c_disp
-            elif c_idx <= 32:
-                cell.fill = c_ship
-            elif c_idx <= 57:
-                cell.fill = c_item
-            elif 61 <= c_idx <= 70:
-                cell.fill = c_val
-            elif 71 <= c_idx <= 77:
-                cell.fill = c_export
-            elif 78 <= c_idx <= 85:
-                cell.fill = c_eway
-            cell.font = font_col
-            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-            cell.border = thin_border
+            cell_h = ws.cell(row=3, column=c_idx, value=col_name)
+            cell_k = ws.cell(row=4, column=c_idx, value=col_keys[c_idx-1])
 
-        ws.row_dimensions[4].height = 42
+            if c_idx <= 4:
+                fill_target = c_supply
+            elif c_idx <= 7:
+                fill_target = c_doc
+            elif c_idx <= 18:
+                fill_target = c_buyer
+            elif c_idx <= 24:
+                fill_target = c_disp
+            elif c_idx <= 32:
+                fill_target = c_ship
+            elif c_idx <= 57:
+                fill_target = c_item
+            elif c_idx <= 60:
+                fill_target = c_bch
+            elif 61 <= c_idx <= 70:
+                fill_target = c_val
+            elif 71 <= c_idx <= 77:
+                fill_target = c_export
+            elif 78 <= c_idx <= 85:
+                fill_target = c_eway
+            else:
+                fill_target = PatternFill(fill_type=None)
+
+            cell_h.fill = fill_target
+            cell_h.font = font_col
+            cell_h.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell_h.border = thin_border
+
+            cell_k.font = font_code
+            cell_k.alignment = Alignment(horizontal="center", vertical="center")
+            cell_k.border = thin_border
+
+        ws.row_dimensions[3].height = 36
+        ws.row_dimensions[4].height = 18
 
         curr_row = 5
         for inv in data_list:
@@ -1504,6 +1572,7 @@ elif st.session_state.active_tab == "BLNK":
                     tot_cgst += cgst
                     tot_sgst += sgst
 
+                # Item Total = Taxable + SGST + CGST + IGST
                 item_tot = round(taxable + cgst + sgst + igst, 2)
                 item_rows_data.append({
                     "it": it, "qty": qty, "price": price, "gross_amt": gross_amt,
@@ -1511,14 +1580,15 @@ elif st.session_state.active_tab == "BLNK":
                     "cgst": cgst, "sgst": sgst, "igst": igst, "item_tot": item_tot
                 })
 
-            exact_total = round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
-            final_inv_val = round(exact_total)
-            exact_round_off = round(final_inv_val - exact_total, 2)
+            # EXACT MATCH WITH NO ROUND OFF (Matching user directive & invocie formate.xlsx)
+            exact_total_tax = round(tot_cgst + tot_sgst + tot_igst, 2)
+            exact_invoice_val = round(tot_taxable + exact_total_tax, 2)
 
             if inv.get("shipping_is_different", False):
                 ship_vals = [
                     str(inv["ship_gstin"]), str(inv["ship_name"]), str(inv["ship_name"]),
-                    str(inv["ship_addr1"]), "", str(inv["ship_loc"]), str(inv["ship_pin"]), str(inv["ship_state_name"])
+                    str(inv.get("ship_addr1", "")), str(inv.get("ship_addr2", "")),
+                    str(inv["ship_loc"]), str(inv["ship_pin"]), str(inv["ship_state_name"])
                 ]
             else:
                 ship_vals = ["", "", "", "", "", "", "", ""]
@@ -1526,34 +1596,59 @@ elif st.session_state.active_tab == "BLNK":
             for s_no, r_data in enumerate(item_rows_data, 1):
                 it = r_data["it"]
                 row_data = [
-                    "B2B", "N", "", "N",
+                    # Supply Details (1 to 4: A-D)
+                    "B2B", "No", "", "",
+                    # Document Details (5 to 7: E-G)
                     "Tax Invoice", str(inv["invoice_no"]), str(inv["doc_date"]),
-                    str(inv["buyer_gstin"]), str(inv["buyer_name"]), str(inv["buyer_trade_name"]), pos_str,
-                    str(inv["buyer_addr1"]), "", str(inv["buyer_loc"]), str(inv["buyer_pin"]),
+                    # Buyer Details (8 to 18: H-R)
+                    str(inv["buyer_gstin"]), str(inv["buyer_name"]), "", pos_str,
+                    str(inv.get("buyer_addr1", "")), str(inv.get("buyer_addr2", "")), str(inv["buyer_loc"]), str(inv["buyer_pin"]),
                     str(inv["buyer_state_name"]), str(inv["buyer_phone"]), str(inv["buyer_email"]),
+                    # Dispatch Details (19 to 24: S-X)
                     "", "", "", "", "", "",
+                    # Shipping Details (25 to 32: Y-AF)
                     *ship_vals,
-                    str(s_no), str(it["desc"]), "N", str(it["hsn"]), "", str(r_data["qty"]), "0",
-                    str(it.get("unit", "PAC")), fmt_dec(r_data["price"]), fmt_dec(r_data["gross_amt"]),
-                    fmt_dec(r_data["disc"]), "", fmt_dec(r_data["taxable"]), str(int(r_data["gst_rate"])),
-                    fmt_dec(r_data["sgst"]), fmt_dec(r_data["cgst"]), fmt_dec(r_data["igst"]),
-                    "0", "0.00", "0.00", "0", "0.00", "0.00", "0.00",
-                    fmt_dec(r_data["item_tot"]),
-                    "", "", "",
-                    fmt_dec(tot_taxable), fmt_dec(tot_sgst), fmt_dec(tot_cgst), fmt_dec(tot_igst),
-                    "0.00", "0.00", fmt_dec(tot_discount), "0.00", fmt_dec(exact_round_off), fmt_dec(final_inv_val),
+                    # Product Details (33 to 57: AG-BE)
+                    str(s_no), str(it["desc"]), "No", str(it["hsn"]), "", str(r_data["qty"]), "",
+                    "BOX" if str(it.get("unit", "")).upper() == "BOX" else "PACKS",
+                    fmt_dec(r_data["price"]), fmt_dec(r_data["gross_amt"]),
+                    fmt_dec(r_data["disc"]) if r_data["disc"] > 0 else "",
+                    "",  # Pre Tax Value blank
+                    fmt_dec(r_data["taxable"]), str(int(r_data["gst_rate"])),
+                    fmt_dec(r_data["sgst"]) if r_data["sgst"] > 0 else "",
+                    fmt_dec(r_data["cgst"]) if r_data["cgst"] > 0 else "",
+                    fmt_dec(r_data["igst"]) if r_data["igst"] > 0 else "",
                     "", "", "", "", "", "", "",
-                    "", "", "", "", "", "", "", ""
+                    fmt_dec(r_data["item_tot"]),
+                    # Batch Details (58 to 60: BF-BH)
+                    "", "", "",
+                    # Value Details (61 to 70: BI-BR) (Exact values matching invoice without roundoff)
+                    fmt_dec(tot_taxable),
+                    fmt_dec(tot_sgst) if tot_sgst > 0 else "",
+                    fmt_dec(tot_cgst) if tot_cgst > 0 else "",
+                    fmt_dec(tot_igst) if tot_igst > 0 else "",
+                    "", "", "", "",
+                    "", # Round off kept strictly BLANK
+                    fmt_dec(exact_invoice_val),
+                    # Export Details (71 to 77: BS-BY)
+                    "", "", "", "", "", "", "",
+                    # E-way-bill Details (78 to 85: BZ-CG)
+                    "", "", "", "", "", "", "", "",
+                    # Error List (86: CH)
+                    ""
                 ]
 
                 for c_idx, val in enumerate(row_data, 1):
-                    cell = ws.cell(row=curr_row, column=c_idx, value=str(val))
+                    cell = ws.cell(row=curr_row, column=c_idx, value=str(val) if val != "" else None)
                     cell.font = font_data
                     cell.border = thin_border
-                    cell.number_format = '@'
-                    if c_idx in [1, 2, 4, 5, 7, 8, 11, 15, 16, 17, 25, 31, 32, 33, 35, 36, 38, 40, 46]:
+                    if cell.value is not None:
+                        cell.number_format = '@'
+
+                    # Alignment
+                    if c_idx in [1, 2, 5, 7, 8, 11, 15, 16, 25, 31, 32, 33, 35, 36, 38, 40, 46]:
                         cell.alignment = Alignment(horizontal="center", vertical="center")
-                    elif c_idx in [41, 42, 43, 45, 47, 48, 49, 57, 61, 62, 63, 64, 67, 69, 70]:
+                    elif c_idx in [41, 42, 43, 45, 47, 48, 49, 57, 61, 62, 63, 64, 70]:
                         cell.alignment = Alignment(horizontal="right", vertical="center")
                     else:
                         cell.alignment = Alignment(horizontal="left", vertical="center")
@@ -1571,14 +1666,6 @@ elif st.session_state.active_tab == "BLNK":
                     max_len = len(v_str)
             ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
 
-        tabs = ["Welcome", "Profile", "Master Codes", "Sample Invoice", "Format A,B,C,D", "Schema", "Validation", "Calculations", "FAQs"]
-        for t in tabs:
-            d_ws = wb.create_sheet(title=t)
-            d_ws.sheet_view.showGridLines = True
-            d_ws["A1"] = f"{t} - Official e-Invoice System Utility"
-            d_ws["A1"].font = Font(size=14, bold=True, color="1F497D")
-
-        wb.active = ws
         out_io = io.BytesIO()
         wb.save(out_io)
         return out_io.getvalue()
@@ -1598,8 +1685,6 @@ elif st.session_state.active_tab == "BLNK":
             tot_sgst = round(tot_taxable * 0.025, 2)
 
         exact_total = round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
-        grand_total = round(exact_total)
-        round_off = round(grand_total - exact_total, 2)
         ack_date_str = f"{meta['clean_date']} 17:00:00"
 
         table_rows = ""
@@ -1704,7 +1789,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     <div style="font-weight: bold; font-size: 13px; text-decoration: underline; margin-bottom: 3px;">Supplier</div>
                     <div><b>GSTIN :</b> {meta['seller_gstin']}</div>
                     <div style="font-weight: bold; margin-top: 2px;">{meta['seller_name']}</div>
-                    <div>{meta['seller_addr']}</div>
+                    <div>{meta['seller_addr1']}</div>
                     <div>{meta['seller_loc'].upper()}</div>
                     <div>{meta['seller_pin']} &nbsp; {meta['seller_state_name'].upper()}</div>
                     <div style="margin-top: 3px;">+91-7070701513 &nbsp; info@romsons.in</div>
@@ -1713,7 +1798,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     <div style="font-weight: bold; font-size: 13px; text-decoration: underline; margin-bottom: 3px;">Recipient</div>
                     <div><b>GSTIN :</b> {meta['buyer_gstin']}</div>
                     <div style="font-weight: bold; margin-top: 2px;">{meta['buyer_name']}</div>
-                    <div>{meta['buyer_addr1']}</div>
+                    <div>{meta['buyer_addr1']} {meta.get('buyer_addr2', '')}</div>
                     <div>{meta['buyer_loc']} &nbsp; Place of Supply: {meta['pos_state_name'].upper()}</div>
                     <div>{meta['buyer_pin']} &nbsp; {meta['buyer_state_name'].upper()}</div>
                     <div style="margin-top: 3px;">{meta['buyer_phone']} &nbsp; {meta['buyer_email']}</div>
@@ -1754,8 +1839,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     <tr><td>Total CGST :</td><td style="text-align: right;">₹{tot_cgst:.2f}</td></tr>
                     <tr><td>Total SGST :</td><td style="text-align: right;">₹{tot_sgst:.2f}</td></tr>
                     <tr><td>Total IGST :</td><td style="text-align: right;">₹{tot_igst:.2f}</td></tr>
-                    <tr><td>Round Off :</td><td style="text-align: right;">₹{round_off:.2f}</td></tr>
-                    <tr style="border-top: 1.5px solid #000; font-size: 13px; font-weight: bold;"><td>Total Invoice Value :</td><td style="text-align: right;">₹{grand_total:.2f}</td></tr>
+                    <tr style="border-top: 1.5px solid #000; font-size: 13px; font-weight: bold;"><td>Total Invoice Value :</td><td style="text-align: right;">₹{exact_total:.2f}</td></tr>
                 </table>
             </td>
         </tr>
@@ -1812,6 +1896,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             st.markdown(f"""
                 <div style="background-color: #1e293b; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'};">
                     <b>Buyer Name:</b> <code>{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Rule:</b> <code>{channel_badge}</code><br>
+                    <b>Address 1:</b> <code>{meta['buyer_addr1']}</code> &nbsp;|&nbsp; <b>Address 2:</b> <code>{meta.get('buyer_addr2', '')}</code><br>
                     <b>City:</b> <code>{meta['buyer_loc']}</code> ({meta['buyer_pin']}) &nbsp;|&nbsp; <b>Shipping Status:</b> <code>{ship_status}</code><br>
                     <b>Seller:</b> {meta['seller_name']} ({meta['seller_gstin']})
                 </div>
@@ -1840,7 +1925,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 )
             with c2:
                 st.download_button(
-                    label="📊 Download eInvoice.xlsx (Exact Template)",
+                    label="📊 Download eInvoice.xlsx (Official Format)",
                     data=excel_raw_bytes,
                     file_name=f"{inv_no}_eInvoice.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1913,10 +1998,10 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### 📄 Invoices Official e-Invoice Preview")
-            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in active_docs])
+            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
             for i, tab in enumerate(preview_tabs):
                 with tab:
-                    curr_meta = active_docs[i]['meta']
+                    curr_meta = processed_docs[i]['meta']
                     calc_height = 560 + (len(curr_meta['line_items']) * 36)
                     p_html = render_exact_government_einvoice_preview(curr_meta)
                     components.html(p_html, height=calc_height, scrolling=True)

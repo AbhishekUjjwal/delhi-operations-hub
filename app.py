@@ -265,7 +265,7 @@ with header_right:
         )
         st.session_state.selected_wh = selected_display
 
-    # Row 2: History (Active Module & Location/Headoffice Filtered) & Reset
+    # Row 2: History & Reset
     loc_history = get_current_location_history()
     hist_col, reset_col = st.columns([1.2, 0.8])
     with hist_col:
@@ -282,7 +282,7 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (HEADOFFICE: CONSOLIDATED ALL LOCATIONS IN ONE TAB)
+# HISTORY VIEW
 # =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
@@ -314,7 +314,6 @@ if st.session_state.show_history:
     else:
         st.success(f"💾 Total Saved Files: **{len(loc_history)}**")
         
-        # BULK ZIP FROM HISTORY (CONSOLIDATED IN HEADOFFICE)
         if len(loc_history) > 1:
             zip_buf = io.BytesIO()
             with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -354,7 +353,7 @@ if st.session_state.show_history:
                 )
 
 # =========================================================================
-# MODULE 1: AMAZON INVOICE EDITOR (HIGH SPEED ENGINE + SAFE CLOSURE)
+# MODULE 1: AMAZON INVOICE EDITOR
 # =========================================================================
 elif st.session_state.active_tab == "AMZ":
     st.subheader("📑 Amazon Invoice Editor & Barcode Stamper")
@@ -696,7 +695,7 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE MANAGEMENT TOOL (FULL SUITE INTEGRATED)
+# MODULE 3: BLINKIT E-INVOICE TOOL (SAFE RECONCILER - ZERO CHARACTER LOSS)
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
@@ -940,7 +939,7 @@ elif st.session_state.active_tab == "BLNK":
         }
 
     def overwrite_area(page, rect, new_text, font_size=7):
-        pad_rect = fitz.Rect(rect.x0 - 2, rect.y0 - 1, rect.x1 + 2, rect.y1 + 1)
+        pad_rect = fitz.Rect(rect.x0 - 1.5, rect.y0 - 1, rect.x1 + 1.5, rect.y1 + 1)
         page.draw_rect(pad_rect, color=None, fill=(1, 1, 1))
         page.insert_text((rect.x0, rect.y1 - 1.2), str(new_text), fontsize=font_size, fontname="helv", color=(0, 0, 0))
 
@@ -1090,14 +1089,12 @@ elif st.session_state.active_tab == "BLNK":
                             "gst_rate": 5.0
                         })
 
+            # TARGETED UOM REPLACEMENT (NO DELETING S OR CHARACTER CORRUPTION)
             if is_blinkit:
-                for target in ["UOM-PC", "UOM-IBOX", "UOM-PCS", "UOM-BOX"]:
+                # Replace exact UOM text blocks safely
+                for target in ["UOM-PCS", "UOM-PC\nS", "UOM-IBOX", "UOM-BOX"]:
                     for inst in page.search_for(target):
-                        overwrite_area(page, inst, "UOM-BOX")
-
-                for s_inst in page.search_for("S"):
-                    if 140 <= s_inst.x0 <= 260:
-                        page.draw_rect(s_inst, color=None, fill=(1, 1, 1))
+                        overwrite_area(page, inst, "UOM-BOX", font_size=6.8)
 
         out_pdf_buf = io.BytesIO()
         doc.save(out_pdf_buf)

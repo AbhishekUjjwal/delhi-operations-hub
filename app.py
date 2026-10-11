@@ -285,7 +285,7 @@ with header_right:
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (WITH EXACT IST TIMEZONE)
+# HISTORY VIEW (EXACT IST TIMEZONE)
 # =========================================================================
 if st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
@@ -698,7 +698,7 @@ elif st.session_state.active_tab == "BLNK_PO":
         )
 
 # =========================================================================
-# MODULE 3: BLINKIT E-INVOICE TOOL (STRICT ORDER ID & IST CLOCK)
+# MODULE 3: BLINKIT E-INVOICE TOOL (PERFECT LABEL & NO RESIDUAL TEXT)
 # =========================================================================
 elif st.session_state.active_tab == "BLNK":
     st.subheader("🧾 Blinkit e-Invoice Management Tool & Reconciler")
@@ -770,32 +770,35 @@ elif st.session_state.active_tab == "BLNK":
         page0 = doc[0]
         words = page0.get_text("words")
 
-        # 1. CLEAN EXTERNAL ORDER EXTRACTION (STRICTLY NUMBERS - NO INVOICE NO LEAKAGE)
+        # 1. CLEAN EXTERNAL ORDER EXTRACTION (DIGITS ONLY + STRIP TRAILING DOT)
         ext_order_id = None
         ext_matches = [w for w in words if "extern" in w[4].lower()]
         if ext_matches:
             anchor = ext_matches[0]
-            # Capture words on the right OR immediately below (<= 11 points) that are strictly digits
+            # Capture words on the right or immediate line below that are strictly digits
             num_words = [
                 w for w in words 
                 if (anchor[1] - 4 <= w[1] <= anchor[3] + 11.5) 
                 and (anchor[0] + 45 <= w[0] <= 445)
-                and w[4].strip().isdigit()  # Strictly digit only (excludes M90-...)
+                and w[4].strip().rstrip('.').isdigit()
             ]
             num_words.sort(key=lambda w: (round(w[1] / 6) * 6, w[0]))
             if num_words:
-                ext_order_id = "".join([w[4].strip() for w in num_words])
+                ext_order_id = "".join([w[4].strip().rstrip('.') for w in num_words])
 
         if not ext_order_id:
             ext_match = re.search(r"Extern(?:al)?\s*Order\s*(?:No\.?|ID)?\s*[:\s]*([0-9\s]+?)(?=\n\s*[A-Za-z]|Invoice|Date|$)", full_text, re.IGNORECASE)
             if ext_match:
-                ext_order_id = "".join(ext_match.group(1).split())
+                ext_order_id = "".join(ext_match.group(1).split()).rstrip('.')
         if not ext_order_id:
             digits_match = re.findall(r"\b(49\d{8,14}|5\d{8,14}|\d{12,18})\b", full_text)
             if digits_match:
                 ext_order_id = digits_match[0]
         if not ext_order_id:
             ext_order_id = "ExtOrder"
+
+        # REMOVE ANY TRAILING DOT OR SPACES
+        ext_order_id = re.sub(r'[\.\s]+$', '', str(ext_order_id))
 
         # 2. INVOICE NO EXTRACTION
         inv_match = re.search(r"Invoice\s*No\s*[:\s]*([A-Za-z0-9\-_/]+)", full_text, re.IGNORECASE)
@@ -974,16 +977,23 @@ elif st.session_state.active_tab == "BLNK":
         for p_idx, page in enumerate(doc):
             words = page.get_text("words")
 
-            # ACCURATE SINGLE-LINE OVERWRITE FOR EXTERNAL ORDER ID
+            # PERFECT EXTERNAL ORDER OVERWRITE (PRESERVES LABEL & CLEANS ENTIRE ORIGINAL NUMBER)
             if p_idx == 0 and ext_order_str and ext_order_str != "ExtOrder":
                 ext_matches = [w for w in words if "extern" in w[4].lower()]
                 if ext_matches:
                     anchor = ext_matches[0]
-                    # Mask exactly the order number area (without touching Invoice No below)
-                    ext_num_box = fitz.Rect(anchor[2] + 2, anchor[1] - 0.5, anchor[2] + 75, anchor[3] + 10)
-                    page.draw_rect(ext_num_box, color=None, fill=(1, 1, 1))
+                    # Find where 'Extern Order No :' label finishes (around x ~ 370)
+                    colon_words = [w for w in words if abs(w[1] - anchor[1]) < 5 and w[0] > anchor[0] and (":" in w[4] or "no" in w[4].lower())]
+                    start_x = max([w[2] for w in colon_words]) + 4 if colon_words else 370.0
+                    end_x = 444.0  # Safe right boundary before 'Invoice Date' column (x: 448)
+
+                    # Entire box covering the old number + any hanging digit line
+                    full_number_box = fitz.Rect(start_x, anchor[1] - 0.5, end_x, anchor[3] + 10.5)
+                    page.draw_rect(full_number_box, color=None, fill=(1, 1, 1))
+
+                    # Clean single-line print directly after 'Extern Order No :'
                     page.insert_text(
-                        (anchor[2] + 3, anchor[3] - 1.0), 
+                        (start_x + 1.0, anchor[3] - 1.0), 
                         str(ext_order_str), 
                         fontsize=7.2, 
                         fontname="helv", 

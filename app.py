@@ -191,7 +191,7 @@ def clear_disk_history(wh_filter=None, mod_filter=None):
         pass
 
 st.set_page_config(
-    page_title="PAN OPERATIONS HUB | Central Portal",
+    page_title="PAN INDIA OPERATIONS HUB | Central Portal",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -215,35 +215,29 @@ st.markdown("""
     div[class*="floating"] {display: none !important;}
 
     .block-container {
-        padding-top: 0.2rem !important;
+        padding-top: 0.4rem !important;
         padding-bottom: 0.8rem !important;
         padding-left: 1.2rem !important;
         padding-right: 1.2rem !important;
     }
 
     hr {
-        margin-top: 4px !important;
-        margin-bottom: 6px !important;
-        border-color: rgba(58, 80, 107, 0.4) !important;
+        margin-top: 6px !important;
+        margin-bottom: 8px !important;
+        border-color: rgba(58, 80, 107, 0.3) !important;
     }
 
-    div[data-testid="stButton"] {
-        width: fit-content !important;
-    }
+    /* Clean Streamlit Buttons */
     div[data-testid="stButton"] button {
         border-radius: 16px !important;
         font-size: 12px !important;
         font-weight: 600 !important;
-        padding: 3px 10px !important;
+        padding: 3px 12px !important;
         min-height: 28px !important;
         height: 28px !important;
         line-height: 1 !important;
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
         white-space: nowrap !important;
-        width: fit-content !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
         box-shadow: none !important;
     }
     div[data-testid="stButton"] button:hover {
@@ -273,23 +267,23 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }
 
-    h2, h3, h4 {
-        margin-top: 0px !important;
-        margin-bottom: 4px !important;
-        padding-top: 0px !important;
-    }
-
-    .hub-title {
-        font-size: 18px;
-        font-weight: 800;
-        white-space: nowrap;
+    .pan-brand-title {
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: -0.3px;
         background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 2px;
+        margin: 0px 0px 1px 0px;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
+    }
+    .pan-brand-subtitle {
+        font-size: 12px;
+        font-weight: 500;
+        color: #94a3b8;
+        margin-bottom: 8px;
     }
 
     .pro-success-card {
@@ -301,52 +295,32 @@ st.markdown("""
         margin: 8px 0px;
     }
 
-    /* CARD BOX DESIGN CSS */
-    .module-card {
-        background: #ffffff;
-        border: 2px solid #e2e8f0;
-        border-radius: 20px;
-        padding: 22px 20px 16px 20px;
-        margin-bottom: 12px;
-        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
-        transition: transform 0.2s ease, border-color 0.2s ease;
+    /* FULL WHITE BOX CLICKABLE STYLING */
+    div[data-testid="stVerticalBlock"] > div.module-card-wrap div[data-testid="stButton"] {
+        width: 100% !important;
     }
-    .module-card:hover {
-        transform: translateY(-3px);
+    div[data-testid="stVerticalBlock"] > div.module-card-wrap div[data-testid="stButton"] button {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 155px !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 20px !important;
+        padding: 18px 20px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06) !important;
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+        white-space: normal !important;
     }
-    .module-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 18px;
-    }
-    .module-icon-box {
-        width: 48px;
-        height: 48px;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24px;
-    }
-    .module-badge {
-        font-size: 11px;
-        font-weight: 700;
-        padding: 4px 12px;
-        border-radius: 20px;
-        letter-spacing: 0.5px;
-    }
-    .module-card-title {
-        font-size: 18px;
-        font-weight: 800;
-        color: #0f172a;
-        margin-bottom: 6px;
-    }
-    .module-card-desc {
-        font-size: 12px;
-        color: #64748b;
-        margin-bottom: 18px;
-        min-height: 32px;
+    div[data-testid="stVerticalBlock"] > div.module-card-wrap div[data-testid="stButton"] button:hover {
+        transform: translateY(-4px) !important;
+        border-color: #38bdf8 !important;
+        box-shadow: 0 10px 24px rgba(56, 189, 248, 0.18) !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -456,60 +430,37 @@ def clear_all_pinned_tabs():
     st.session_state.show_history = False
     st.rerun()
 
+# ----------------- SIDEBAR (CLEANED UP - NO DUPLICATE TOOLS) -----------------
 with st.sidebar:
-    st.markdown('<div class="hub-title">🏛️ PAN OPERATIONS HUB</div>', unsafe_allow_html=True)
-    st.caption("Romsons prime pvt ltd operation portal")
+    st.markdown('<div class="pan-brand-title">🏛️ PAN OPERATIONS</div>', unsafe_allow_html=True)
+    st.caption("Romsons prime pvt ltd portal")
     st.divider()
 
-    # Home button in sidebar
-    if st.button("🏠 Central Dashboard", use_container_width=True):
+    if st.button("🏠 Central Dashboard", use_container_width=True, type="primary" if st.session_state.active_tab == "HOME" else "secondary"):
         if "HOME" not in st.session_state.open_tabs:
             st.session_state.open_tabs.insert(0, "HOME")
         st.session_state.active_tab = "HOME"
         st.session_state.show_history = False
         st.rerun()
 
-    for key, info in AVAILABLE_MODULES.items():
-        is_pinned = key in st.session_state.open_tabs
-        btn_label = f"📌 {info['logo']} {info['code']}" if is_pinned else f"➕ {info['logo']} {info['code']}"
-        if st.button(btn_label, key=f"side_nav_{key}", use_container_width=True):
-            if key not in st.session_state.open_tabs:
-                st.session_state.open_tabs.append(key)
-            st.session_state.active_tab = key
-            st.session_state.show_history = False
-            st.rerun()
-
     st.divider()
-    st.caption("System Version: v3.2 Enterprise")
+    st.markdown(f"**Selected WH:** `{st.session_state.selected_wh}`")
+    st.caption("System Engine: v3.2 Enterprise Online")
 
-header_left, header_right = st.columns([7.8, 2.2])
+# ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
+h_left, h_right = st.columns([7.5, 2.5])
 
-with header_left:
-    tab_cols = st.columns([1.0] * len(st.session_state.open_tabs) + [2.8])
-    for idx, t_key in enumerate(st.session_state.open_tabs):
-        if t_key == "HOME":
-            tab_label = "🏠 Home"
-        else:
-            info = AVAILABLE_MODULES[t_key]
-            tab_label = f"{info['logo']} {info['code']} ✕" if len(st.session_state.open_tabs) > 1 else f"{info['logo']} {info['code']}"
+with h_left:
+    st.markdown("""
+        <div class="pan-brand-title">🏛️ PAN INDIA OPERATIONS HUB</div>
+        <div class="pan-brand-subtitle">Romsons prime pvt ltd operation portal</div>
+    """, unsafe_allow_html=True)
 
-        is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
-        with tab_cols[idx]:
-            if st.button(tab_label, key=f"tab_chip_{t_key}", type="primary" if is_active else "secondary"):
-                if is_active and t_key != "HOME" and len(st.session_state.open_tabs) > 1:
-                    st.session_state.open_tabs.remove(t_key)
-                    st.session_state.active_tab = st.session_state.open_tabs[0]
-                else:
-                    st.session_state.active_tab = t_key
-                    st.session_state.show_history = False
-                st.rerun()
-
-with header_right:
+with h_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
-
     loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
     with loc_sub1:
-        if st.button("🔄", key="btn_refresh_pinned", help="Click to unpin all extra tabs", use_container_width=True):
+        if st.button("🔄", key="btn_refresh_pinned", help="Clear all pinned extra tabs", use_container_width=True):
             clear_all_pinned_tabs()
     with loc_sub2:
         selected_display = st.selectbox(
@@ -528,21 +479,40 @@ with header_right:
             st.session_state.show_history = not st.session_state.show_history
             st.rerun()
     with reset_col:
-        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset upload area", use_container_width=True):
+        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset workspace", use_container_width=True):
             reset_current_workspace()
 
     st.markdown('</div>', unsafe_allow_html=True)
 
+# ----------------- JUST NICHE: PINNED TABS -----------------
+tab_cols = st.columns([1.1] * len(st.session_state.open_tabs) + [3.0])
+for idx, t_key in enumerate(st.session_state.open_tabs):
+    if t_key == "HOME":
+        tab_label = "🏠 Dashboard"
+    else:
+        info = AVAILABLE_MODULES[t_key]
+        tab_label = f"{info['logo']} {info['code']} ✕" if len(st.session_state.open_tabs) > 1 else f"{info['logo']} {info['code']}"
+
+    is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
+    with tab_cols[idx]:
+        if st.button(tab_label, key=f"top_chip_{t_key}", type="primary" if is_active else "secondary"):
+            if is_active and t_key != "HOME" and len(st.session_state.open_tabs) > 1:
+                st.session_state.open_tabs.remove(t_key)
+                st.session_state.active_tab = st.session_state.open_tabs[0]
+            else:
+                st.session_state.active_tab = t_key
+                st.session_state.show_history = False
+            st.rerun()
+
 st.divider()
 
-# ----------------- VIEW 0: CENTRAL MASTER DASHBOARD (EXACT BOX DESIGN) -----------------
+# ----------------- USKE NICHE: DASHBOARD WHITE BOXES (CLICKABLE CARDS) -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
     st.subheader("⚡ Select Operation Module")
-    st.caption("Click 'Open Tool' to launch or pin any module to your active workspace tabs.")
+    st.caption("Click anywhere on any card box to open and pin that tool.")
     st.write("")
 
     keys = list(AVAILABLE_MODULES.keys())
-    # Display in 2-column or 3-column responsive grid matching user image
     for i in range(0, len(keys), 2):
         c1, c2 = st.columns(2)
         row_keys = keys[i:i+2]
@@ -550,31 +520,18 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
         for col_obj, m_key in zip([c1, c2], row_keys):
             mod_data = AVAILABLE_MODULES[m_key]
             with col_obj:
-                card_html = f"""
-                <div class="module-card" style="border-color: {mod_data['color']}25;">
-                    <div class="module-card-header">
-                        <div class="module-icon-box" style="background-color: {mod_data['icon_bg']}; color: {mod_data['color']};">
-                            {mod_data['logo']}
-                        </div>
-                        <span class="module-badge" style="background-color: {mod_data['badge_bg']}; color: {mod_data['color']};">
-                            {mod_data['mod_no']}
-                        </span>
-                    </div>
-                    <div class="module-card-title">{mod_data['name']}</div>
-                    <div class="module-card-desc">{mod_data['desc']}</div>
-                </div>
-                """
-                st.markdown(card_html, unsafe_allow_html=True)
-                
-                # Action button aligned with card
-                btn_txt = f"Open {mod_data['code']} ➔"
-                if st.button(btn_txt, key=f"btn_open_grid_{m_key}", use_container_width=True, type="primary"):
+                st.markdown('<div class="module-card-wrap">', unsafe_allow_html=True)
+                # Formatted Card text directly inside the big button
+                card_btn_label = f"{mod_data['logo']}  [{mod_data['mod_no']}]\n\n{mod_data['name']}\n\n{mod_data['desc']}\n\n➔ Open Tool"
+                if st.button(card_btn_label, key=f"full_card_click_{m_key}"):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key
                     st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
                 st.write("")
 
+# ----------------- HISTORY VIEW -----------------
 elif st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
     h_top_c1, h_top_c2 = st.columns([4, 1])
@@ -1259,7 +1216,7 @@ elif st.session_state.active_tab == "BLNK":
 
         is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
 
-        # ----------------- AAPKA EXACT SHIPPING RULE -----------------
+        # ----------------- SHIPPING RULE -----------------
         # 1. Blinkit invoice me shipping details hamesha BLANK rahegi (False)
         # 2. Baaki kisi buyer ka billing address se alag shipping address ho, tabhi fill hogi (True)
         if is_blinkit:
@@ -1818,7 +1775,6 @@ elif st.session_state.active_tab == "BLNK":
             final_tax_sum = inv.get("printed_tax_total") or round(tot_cgst + tot_sgst + tot_igst, 2)
             final_invoice_val = inv.get("printed_grand_total") or round(final_taxable_sum + final_tax_sum, 2)
 
-            # Strictly blank out shipping details if NOT different
             if inv.get("shipping_is_different", False):
                 ship_vals = [
                     str(inv.get("ship_gstin", "")),

@@ -117,14 +117,19 @@ def reset_current_workspace():
     st.session_state.show_history = False
     st.rerun()
 
+def clear_all_pinned_tabs():
+    st.session_state.open_tabs = ["AMZ"]
+    st.session_state.active_tab = "AMZ"
+    st.session_state.show_history = False
+    st.rerun()
+
 # ----------------- SIDEBAR NAVIGATION -----------------
 with st.sidebar:
-    # Single-line stylish title
     st.markdown('<div class="hub-title">🏛️ PAN OPERATIONS HUB</div>', unsafe_allow_html=True)
     st.caption("Romsons prime pvt ltd operation portal")
     st.divider()
 
-    # Short Name + Logo only (Clean ERP Look)
+    # Short Name + Logo only
     for key, info in AVAILABLE_MODULES.items():
         is_pinned = key in st.session_state.open_tabs
         btn_label = f"📌 {info['logo']} {info['code']}" if is_pinned else f"➕ {info['logo']} {info['code']}"
@@ -139,10 +144,13 @@ with st.sidebar:
     st.caption("System Version: v3.2 Enterprise")
 
 # ----------------- TOP ACTION BAR: PINNED TABS, WH LOCATION, HISTORY & RESET -----------------
-top_tabs_col, top_wh_col, top_hist_col, top_reset_col = st.columns([5, 2.4, 1.8, 1.2])
+top_tabs_col, top_wh_col, top_hist_col, top_reset_col = st.columns([5, 2.3, 1.7, 1.2])
 
 with top_tabs_col:
-    tab_cols = st.columns(len(st.session_state.open_tabs) + 1)
+    # Open tabs + 1 Clear/Refresh button slot
+    num_tabs = len(st.session_state.open_tabs)
+    tab_cols = st.columns(num_tabs + 1)
+    
     for idx, t_key in enumerate(st.session_state.open_tabs):
         info = AVAILABLE_MODULES[t_key]
         is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
@@ -157,12 +165,17 @@ with top_tabs_col:
                     st.rerun()
             with sub_col2:
                 if len(st.session_state.open_tabs) > 1:
-                    # Clean Cancel Mark (✕)
-                    if st.button("✕", key=f"close_tab_{t_key}", help="Close Tab"):
+                    # Clean Unicode Cancel Cross
+                    if st.button("\u2715", key=f"close_tab_{t_key}", help="Close this tab"):
                         st.session_state.open_tabs.remove(t_key)
                         if st.session_state.active_tab == t_key:
                             st.session_state.active_tab = st.session_state.open_tabs[0]
                         st.rerun()
+                        
+    # Naya Refresh / Clear Pinned Tabs button
+    with tab_cols[num_tabs]:
+        if st.button("🔄 Unpin All", key="btn_refresh_tabs", help="Click to clear all pinned tabs"):
+            clear_all_pinned_tabs()
 
 with top_wh_col:
     selected_display = st.selectbox(

@@ -6,6 +6,7 @@ import io
 import zipfile
 import barcode
 from barcode.writer import ImageWriter
+from datetime import datetime
 
 # Page Configuration
 st.set_page_config(
@@ -114,8 +115,8 @@ if "open_tabs" not in st.session_state:
     st.session_state.open_tabs = ["AMZ"]
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "AMZ"
-if "processed_history" not in st.session_state:
-    st.session_state.processed_history = []
+if "permanent_history" not in st.session_state:
+    st.session_state.permanent_history = []
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 if "show_history" not in st.session_state:
@@ -123,21 +124,14 @@ if "show_history" not in st.session_state:
 
 def get_current_location_history():
     if st.session_state.selected_wh == "Headoffice":
-        return st.session_state.processed_history
+        return st.session_state.permanent_history
     return [
-        item for item in st.session_state.processed_history 
+        item for item in st.session_state.permanent_history 
         if item.get("location") == st.session_state.selected_wh
     ]
 
+# RESET SIRF WORKSPACE UPLOADERS KO CLEAR KAREGA, HISTORY KO NAHI CHHEDEGA
 def reset_current_workspace():
-    current_wh = st.session_state.selected_wh
-    if current_wh == "Headoffice":
-        st.session_state.processed_history = []
-    else:
-        st.session_state.processed_history = [
-            item for item in st.session_state.processed_history 
-            if item.get("location") != current_wh
-        ]
     st.session_state.uploader_key += 1
     st.session_state.show_history = False
     st.rerun()
@@ -213,20 +207,34 @@ with top_hist_col:
         st.rerun()
 
 with top_reset_col:
-    if st.button("🔄 Reset", use_container_width=True, type="secondary"):
+    if st.button("🔄 Reset", use_container_width=True, type="secondary", help="Clears upload inputs only; history remains safe"):
         reset_current_workspace()
 
 st.divider()
 
 # =========================================================================
-# HISTORY VIEW (IF TOGGLED)
+# HISTORY VIEW (PERMANENT & SAVED ACROSS RESETS)
 # =========================================================================
 if st.session_state.show_history:
-    st.subheader("📜 Processed History & Downloads")
+    h_top_c1, h_top_c2 = st.columns([4, 1])
+    with h_top_c1:
+        st.subheader("📜 Processed History & Downloads (Safe Storage)")
+    with h_top_c2:
+        if loc_history:
+            if st.button("🗑️ Clear This Location History", key="btn_del_hist", use_container_width=True):
+                if st.session_state.selected_wh == "Headoffice":
+                    st.session_state.permanent_history = []
+                else:
+                    st.session_state.permanent_history = [
+                        item for item in st.session_state.permanent_history 
+                        if item.get("location") != st.session_state.selected_wh
+                    ]
+                st.rerun()
+
     if not loc_history:
-        st.info(f"Abhi tak **{st.session_state.selected_wh}** ke liye koi file process nahi hui hai.")
+        st.info(f"Abhi tak **{st.session_state.selected_wh}** ke liye koi history saved nahi hai.")
     else:
-        st.success(f"💾 Total Saved Files: **{len(loc_history)}**")
+        st.success(f"💾 Total Saved Files in Storage: **{len(loc_history)}**")
         
         # BULK ZIP DOWNLOAD IN HISTORY
         if len(loc_history) > 1:
@@ -237,10 +245,11 @@ if st.session_state.show_history:
             zip_buffer.seek(0)
 
             st.download_button(
-                label=f"📦 Download All {st.session_state.selected_wh} Files as ZIP",
+                label=f"📦 Download All {st.session_state.selected_wh} Files as ZIP ({len(loc_history)} Files)",
                 data=zip_buffer,
-                file_name=f"{st.session_state.selected_wh.replace(' ', '_')}_Invoices.zip",
+                file_name=f"{st.session_state.selected_wh.replace(' ', '_')}_History.zip",
                 mime="application/zip",
+                key="btn_zip_history_download",
                 use_container_width=True
             )
 
@@ -252,7 +261,8 @@ if st.session_state.show_history:
                 st.write(
                     f"📁 **{item['original_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
                     f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | "
-                    f"`{item['removed_pan']} Non-PAN Filtered` | `{item.get('removed_desc', 0)} No-Desc Filtered`"
+                    f"`{item['removed_pan']} Non-PAN Filtered` | `{item.get('removed_desc', 0)} No-Desc Filtered` | "
+                    f"⏰ *{item.get('time', '')}*"
                 )
             with d_col2:
                 st.download_button(
@@ -260,7 +270,7 @@ if st.session_state.show_history:
                     data=item["data"],
                     file_name=item["file_name"],
                     mime="application/pdf",
-                    key=f"dl_hist_{st.session_state.selected_wh}_{idx}",
+                    key=f"dl_hist_perm_{st.session_state.selected_wh}_{idx}",
                     use_container_width=True
                 )
 
@@ -352,6 +362,7 @@ elif st.session_state.active_tab == "AMZ":
             st.error(f"CSV read error: {e}")
             st.stop()
 
+        # Silent Column Mapping
         col_mapping = {str(col).strip().lower(): col for col in df.columns}
         order_col = next((col_mapping[c] for c in col_mapping if "order" in c and "id" in c), None) or \
                     next((col_mapping[c] for c in col_mapping if "order" in c), None)
@@ -419,186 +430,11 @@ elif st.session_state.active_tab == "AMZ":
                         file_removed_pan += 1
                         continue
 
-                    # Rule 2: Description Check Filter (Remove if no description)
+                    # Rule 2: Description Check Filter
                     if not has_valid_description(raw_text):
                         file_removed_desc += 1
                         continue
 
                     # Extract 17-digit Order Number
                     order_clean = None
-                    order_match = re.search(r'(\d{3})\s*[-–—\s]\s*(\d{7})\s*[-–—\s]\s*(\d{7})', raw_text)
-                    if order_match:
-                        order_clean = f"{order_match.group(1)}{order_match.group(2)}{order_match.group(3)}"
-                    else:
-                        num_match = re.search(r'order\s*number\s*[:\s]*([0-9\-–—\s]{17,25})', raw_text, re.IGNORECASE)
-                        if num_match:
-                            extracted = clean_alphanumeric(num_match.group(1))
-                            if len(extracted) == 17:
-                                order_clean = extracted
-
-                    target_tracking_id = None
-
-                    if order_clean and order_clean in order_records_map:
-                        matching_rows = order_records_map[order_clean]
-
-                        if len(matching_rows) == 1:
-                            target_tracking_id = matching_rows[0]["track"]
-                        else:
-                            page_words = get_token_words(raw_text)
-                            best_match_row = None
-                            highest_overlap = -1
-
-                            for r in matching_rows:
-                                if not r["desc_words"]:
-                                    continue
-                                common = page_words.intersection(r["desc_words"])
-                                overlap_score = len(common)
-
-                                if overlap_score > highest_overlap:
-                                    highest_overlap = overlap_score
-                                    best_match_row = r
-
-                            if best_match_row and highest_overlap > 0:
-                                target_tracking_id = best_match_row["track"]
-                                best_match_row["used"] = True
-                            else:
-                                unused_rows = [r for r in matching_rows if not r["used"]]
-                                if unused_rows:
-                                    target_tracking_id = unused_rows[0]["track"]
-                                    unused_rows[0]["used"] = True
-                                else:
-                                    target_tracking_id = matching_rows[0]["track"]
-
-                    # Stamping Barcode and Tracking ID
-                    if target_tracking_id:
-                        barcode_rect = fitz.Rect(40, 58, 235, 82)
-                        page.draw_rect(barcode_rect, color=(1.0, 1.0, 1.0), fill=(1.0, 1.0, 1.0), width=0)
-
-                        barcode_img_bytes = generate_barcode_image(target_tracking_id)
-                        if barcode_img_bytes:
-                            page.insert_image(barcode_rect, stream=barcode_img_bytes, keep_proportion=False)
-
-                        page.insert_text(
-                            (barcode_rect.x0 + 10, 95),
-                            f"TRACKING: {target_tracking_id}",
-                            fontsize=10.5,
-                            fontname="hebo",
-                            color=(0, 0, 0)
-                        )
-
-                        date_instances = page.search_for("Order Date:") or page.search_for("Order Date")
-                        if date_instances:
-                            first_date_rect = date_instances[0]
-                            page.insert_text(
-                                (first_date_rect.x0, first_date_rect.y1 + 13),
-                                f"Tracking ID: {target_tracking_id}",
-                                fontsize=9.5,
-                                fontname="hebo",
-                                color=(0, 0, 0)
-                            )
-
-                        file_stamped_count += 1
-
-                    new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
-
-                out_buf = io.BytesIO()
-                new_doc.save(out_buf)
-                out_buf.seek(0)
-
-                current_processed.append({
-                    "original_name": pdf_file.name,
-                    "file_name": f"Stamped_{pdf_file.name}",
-                    "data": out_buf.getvalue(),
-                    "pages": len(new_doc),
-                    "stamped": file_stamped_count,
-                    "removed_pan": file_removed_pan,
-                    "removed_desc": file_removed_desc,
-                    "location": st.session_state.selected_wh
-                })
-
-                progress_bar.progress((file_idx + 1) / total_files)
-
-            status_text.empty()
-            progress_bar.empty()
-
-            st.session_state.processed_history.extend(current_processed)
-            
-            # Professional Banner
-            st.markdown(f"""
-                <div class="pro-success-card">
-                    <b style="font-size: 15px; color: #34d399;">✔ Operation Completed Successfully!</b><br>
-                    <span style="font-size: 13px; color: #cbd5e1;">All {len(current_processed)} invoice file(s) for <b>{st.session_state.selected_wh}</b> have been accurately verified, filtered, and stamped with dispatch barcodes. Ready for warehouse fulfillment.</span>
-                </div>
-            """, unsafe_allow_html=True)
-
-    # =====================================================================
-    # BULK ZIP & SINGLE-SINGLE DOWNLOAD SECTION (ALWAYS VISIBLE WHEN FILES EXIST)
-    # =====================================================================
-    if loc_history:
-        st.write("---")
-        st.subheader("📥 Download Invoices")
-
-        # 1. BULK ZIP DOWNLOAD BUTTON
-        if len(loc_history) > 1:
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for idx, item in enumerate(loc_history):
-                    zip_file.writestr(f"{idx+1}_{item['file_name']}", item["data"])
-            zip_buffer.seek(0)
-
-            st.download_button(
-                label=f"📦 Download All Invoices as ZIP ({len(loc_history)} Files)",
-                data=zip_buffer,
-                file_name=f"{st.session_state.selected_wh.replace(' ', '_')}_All_Invoices.zip",
-                mime="application/zip",
-                use_container_width=True
-            )
-            st.write("")
-
-        # 2. INDIVIDUAL (SINGLE-SINGLE) DOWNLOAD BUTTONS
-        for idx, item in enumerate(loc_history):
-            d_col1, d_col2 = st.columns([3, 1])
-            with d_col1:
-                st.write(
-                    f"📁 **{item['original_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
-                    f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | "
-                    f"`{item['removed_pan']} Non-PAN Filtered` | `{item.get('removed_desc', 0)} No-Desc Filtered`"
-                )
-            with d_col2:
-                st.download_button(
-                    label="📥 Download PDF",
-                    data=item["data"],
-                    file_name=item["file_name"],
-                    mime="application/pdf",
-                    key=f"dl_single_btn_{st.session_state.selected_wh}_{idx}",
-                    use_container_width=True
-                )
-
-# =========================================================================
-# MODULE 2: BLINKIT E-INVOICE TOOL
-# =========================================================================
-elif st.session_state.active_tab == "BLNK":
-    st.subheader("⚡ Blinkit e-Invoice Management Tool")
-    b_col1, b_col2 = st.columns(2)
-    with b_col1:
-        st.file_uploader("Upload Blinkit PO / Data Sheet (Excel/CSV)", type=["xlsx", "xls", "csv"], key="blinkit_data")
-    with b_col2:
-        st.file_uploader("Upload Master Template / Supporting PDF (Optional)", type=["pdf", "json"], key="blinkit_template")
-
-# =========================================================================
-# MODULE 3: LABEL EDITOR
-# =========================================================================
-elif st.session_state.active_tab == "LBL":
-    st.subheader("🏷️ Shipping & Product Label Editor")
-    st.info("Label Editor module ready hai.")
-
-# =========================================================================
-# MODULE 4: SETTINGS & REPORTS
-# =========================================================================
-elif st.session_state.active_tab == "CONF":
-    st.subheader("⚙️ System Operations & Units Configuration")
-    st.markdown(f"""
-    - **Active Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`
-    - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
-    - **Engine Status:** Online & Healthy
-    """)
+                    order_match = re.search(r'(\d{3})\s*

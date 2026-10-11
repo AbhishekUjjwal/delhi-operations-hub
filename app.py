@@ -33,18 +33,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------- WAREHOUSE USER CREDENTIALS SETUP -----------------
-# Aap yahan har warehouse ke liye custom Username aur Password define kar sakte hain
-WAREHOUSE_USERS = {
-    "delhi_user": {"password": "delhi@123", "role": "warehouse", "location": "RPPL - DEL"},
-    "kolkata_user": {"password": "kolkata@123", "role": "warehouse", "location": "RPPL - KOL"},
-    "hyd_user": {"password": "hyd@123", "role": "warehouse", "location": "RPPL - HYD"},
-    "pune_user": {"password": "pune@123", "role": "warehouse", "location": "RPPL - PUN"},
-    "blr_user": {"password": "blr@123", "role": "warehouse", "location": "RPPL - BLR"},
-    "chennai_user": {"password": "chennai@123", "role": "warehouse", "location": "RPPL - CHE"},
-    "headoffice_admin": {"password": "admin@rppl", "role": "admin", "location": "Headoffice"}
-}
-
 ORDERED_LOCATIONS = [
     "RPPL - DEL",
     "RPPL - KOL",
@@ -55,7 +43,6 @@ ORDERED_LOCATIONS = [
     "Headoffice"
 ]
 
-# ----------------- SESSION STATE MANAGEMENT -----------------
 AVAILABLE_MODULES = {
     "AMZ": {"name": "Amazon Invoice Editor", "code": "AMZ-ED", "icon": "📑"},
     "BLNK": {"name": "Blinkit e-Invoice Tool", "code": "BLNK-INV", "icon": "⚡"},
@@ -64,10 +51,7 @@ AVAILABLE_MODULES = {
     "CONF": {"name": "Settings & Reports", "code": "SETTINGS", "icon": "⚙️"}
 }
 
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "user_info" not in st.session_state:
-    st.session_state.user_info = None
+# ----------------- SESSION STATE MANAGEMENT -----------------
 if "selected_wh" not in st.session_state:
     st.session_state.selected_wh = "RPPL - DEL"
 if "open_tabs" not in st.session_state:
@@ -80,53 +64,24 @@ if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
 def reset_all_workspace():
-    st.session_state.processed_history = []
-    st.session_state.open_tabs = ["AMZ", "HIST"]
-    st.session_state.active_tab = "AMZ"
+    # Sirf currently selected location ka data reset karein ya full reset
+    current_wh = st.session_state.selected_wh
+    if current_wh == "Headoffice":
+        st.session_state.processed_history = []
+    else:
+        st.session_state.processed_history = [
+            item for item in st.session_state.processed_history 
+            if item.get("location") != current_wh
+        ]
     st.session_state.uploader_key += 1
     st.rerun()
-
-# ----------------- LOGIN SCREEN -----------------
-if not st.session_state.logged_in:
-    st.write("")
-    st.write("")
-    l_col1, l_col2, l_col3 = st.columns([1, 2, 1])
-    with l_col2:
-        st.markdown("""
-            <div style="background-color: #1c2541; padding: 25px; border-radius: 12px; border: 1px solid #3a506b;">
-                <h3 style="margin-top:0; color:#48cae4; text-align:center;">🏛️ Delhi Operations Hub</h3>
-                <p style="text-align:center; color:#cbd5e1; font-size:14px;">Romsons prime pvt ltd operation portal</p>
-            </div>
-        """, unsafe_allow_html=True)
-        st.write("")
-        with st.form("login_form"):
-            username = st.text_input("Username").strip().lower()
-            password = st.text_input("Password", type="password")
-            submit = st.form_submit_button("🔐 Login to Workspace", use_container_width=True)
-
-            if submit:
-                if username in WAREHOUSE_USERS and WAREHOUSE_USERS[username]["password"] == password:
-                    st.session_state.logged_in = True
-                    st.session_state.user_info = WAREHOUSE_USERS[username]
-                    st.session_state.selected_wh = WAREHOUSE_USERS[username]["location"]
-                    st.success("Login Successful!")
-                    st.rerun()
-                else:
-                    st.error("Invalid Username ya Password!")
-    st.stop()
 
 # ----------------- SIDEBAR NAVIGATION -----------------
 with st.sidebar:
     st.title("🏛️ Delhi Operations Hub")
     st.caption("Romsons prime pvt ltd operation portal")
-    st.caption(f"👤 Logged in: **{st.session_state.selected_wh}**")
-    
-    if st.button("🚪 Logout", use_container_width=True):
-        st.session_state.logged_in = False
-        st.session_state.user_info = None
-        st.rerun()
-
     st.divider()
+
     st.markdown("### 🧭 Workspace Modules")
     st.caption("Click to pin and open workspace:")
 
@@ -167,32 +122,33 @@ with top_tabs_col:
                         st.rerun()
 
 with top_wh_col:
-    # Headoffice/Admin sabhi locations choose kar sakte hain, regular users ka locked rehta hai
-    if st.session_state.user_info.get("role") == "admin":
-        st.session_state.selected_wh = st.selectbox(
-            "WH | Location",
-            options=ORDERED_LOCATIONS,
-            index=ORDERED_LOCATIONS.index(st.session_state.selected_wh),
-            help="Select Warehouse / Location"
-        )
-    else:
-        st.markdown(f"""
-            <div style="background-color: #1c2541; padding: 7px 12px; border-radius: 6px; border: 1px solid #3a506b; text-align: center; font-weight: bold; color: #48cae4;">
-                🏢 {st.session_state.selected_wh}
-            </div>
-        """, unsafe_allow_html=True)
+    st.session_state.selected_wh = st.selectbox(
+        "WH | Location",
+        options=ORDERED_LOCATIONS,
+        index=ORDERED_LOCATIONS.index(st.session_state.selected_wh) if st.session_state.selected_wh in ORDERED_LOCATIONS else 0,
+        help="Select Warehouse / Location"
+    )
 
 with top_reset_col:
-    if st.button("🔄 Reset All", use_container_width=True, type="secondary"):
+    if st.button("🔄 Reset", use_container_width=True, type="secondary", help="Reset current location workspace"):
         reset_all_workspace()
 
 st.divider()
+
+# Helper function: Current Warehouse ke data filter ke liye
+def get_current_location_history():
+    if st.session_state.selected_wh == "Headoffice":
+        return st.session_state.processed_history
+    return [
+        item for item in st.session_state.processed_history 
+        if item.get("location") == st.session_state.selected_wh
+    ]
 
 # =========================================================================
 # MODULE 1: AMAZON INVOICE EDITOR
 # =========================================================================
 if st.session_state.active_tab == "AMZ":
-    st.subheader(f"📑 Amazon Invoice Editor & Barcode Stamper [{st.session_state.selected_wh}]")
+    st.subheader(f"📑 Amazon Invoice Editor & Barcode Stamper — [{st.session_state.selected_wh}]")
 
     TARGET_PAN = "aalcr5906l"
 
@@ -201,14 +157,14 @@ if st.session_state.active_tab == "AMZ":
         uploaded_csv = st.file_uploader(
             "1. Upload Shipment Report (CSV / Excel)", 
             type=["csv", "xlsx", "xls"], 
-            key=f"amz_csv_{st.session_state.uploader_key}"
+            key=f"amz_csv_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
         )
     with col_u2:
         uploaded_pdfs = st.file_uploader(
             "2. Upload Invoice PDF(s) [Multiple Files Allowed]", 
             type=["pdf"], 
             accept_multiple_files=True, 
-            key=f"amz_pdf_{st.session_state.uploader_key}"
+            key=f"amz_pdf_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
         )
 
     def clean_val(v):
@@ -452,7 +408,7 @@ if st.session_state.active_tab == "AMZ":
 
             st.session_state.processed_history.extend(current_processed)
             st.balloons()
-            st.success(f"🎉 **Total {len(current_processed)} File(s) Processed Successfully!** View saved items in the History tab.")
+            st.success(f"🎉 **Total {len(current_processed)} File(s) Processed for {st.session_state.selected_wh}!**")
 
 # =========================================================================
 # MODULE 2: BLINKIT E-INVOICE TOOL
@@ -474,38 +430,39 @@ elif st.session_state.active_tab == "LBL":
     st.info("Label Editor module ready hai.")
 
 # =========================================================================
-# MODULE 4: HISTORY / SAVED OUTPUTS (DEDICATED TAB)
+# MODULE 4: HISTORY / SAVED OUTPUTS (LOCATION SPECIFIC)
 # =========================================================================
 elif st.session_state.active_tab == "HIST":
-    st.subheader("📜 Processed Files History & Downloads")
-    st.caption("Aapka poora processed data yahan save rehta hai.")
+    st.subheader(f"📜 History & Downloads [{st.session_state.selected_wh}]")
+    
+    loc_history = get_current_location_history()
 
-    if not st.session_state.processed_history:
-        st.warning("Abhi tak koi files process nahi hui hain. 'AMZ-ED' tab me jakar invoices generate karein.")
+    if not loc_history:
+        st.warning(f"Abhi tak **{st.session_state.selected_wh}** ke liye koi file process nahi hui hai.")
     else:
-        st.info(f"💾 Total Saved Processed Files: **{len(st.session_state.processed_history)}**")
+        st.info(f"💾 Total Saved Files for **{st.session_state.selected_wh}**: **{len(loc_history)}**")
         
-        if len(st.session_state.processed_history) > 1:
+        if len(loc_history) > 1:
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for idx, item in enumerate(st.session_state.processed_history):
+                for idx, item in enumerate(loc_history):
                     zip_file.writestr(f"{idx+1}_{item['file_name']}", item["data"])
             zip_buffer.seek(0)
 
             st.download_button(
-                label="📦 Download All History Files as ZIP",
+                label=f"📦 Download All {st.session_state.selected_wh} Files as ZIP",
                 data=zip_buffer,
-                file_name="All_History_Invoices.zip",
+                file_name=f"{st.session_state.selected_wh.replace(' ', '_')}_Invoices.zip",
                 mime="application/zip",
                 use_container_width=True
             )
 
         st.write("---")
-        for idx, item in enumerate(st.session_state.processed_history):
+        for idx, item in enumerate(loc_history):
             d_col1, d_col2 = st.columns([3, 1])
             with d_col1:
                 st.write(
-                    f"📁 **{item['original_name']}** — `[Location: {item.get('location', 'N/A')}]` | "
+                    f"📁 **{item['original_name']}** — `[Location: {item.get('location')}]` | "
                     f"`{item['pages']} Pages Kept` | `{item['stamped']} Stamped` | "
                     f"`{item['removed_pan']} Non-PAN Filtered` | `{item.get('removed_desc', 0)} No-Desc Filtered`"
                 )
@@ -515,7 +472,7 @@ elif st.session_state.active_tab == "HIST":
                     data=item["data"],
                     file_name=item["file_name"],
                     mime="application/pdf",
-                    key=f"dl_history_{idx}",
+                    key=f"dl_history_{st.session_state.selected_wh}_{idx}",
                     use_container_width=True
                 )
 
@@ -526,7 +483,6 @@ elif st.session_state.active_tab == "CONF":
     st.subheader("⚙️ System Operations & Units Configuration")
     st.markdown(f"""
     - **Active Location:** `{st.session_state.selected_wh}`
-    - **Role:** `{st.session_state.user_info.get('role', 'N/A').title()}`
     - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
     - **Engine Status:** Online & Healthy
     """)

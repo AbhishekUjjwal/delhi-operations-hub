@@ -234,7 +234,6 @@ st.markdown("""
         border-color: rgba(58, 80, 107, 0.3) !important;
     }
 
-    /* Small action buttons in top bar */
     .right-action-cluster div[data-testid="stButton"] button {
         border-radius: 16px !important;
         font-size: 12px !important;
@@ -284,7 +283,6 @@ st.markdown("""
         margin: 8px 0px;
     }
 
-    /* Pinned Tabs Styling */
     .top-tab-strip div[data-testid="stButton"] button {
         border-radius: 18px !important;
         font-size: 12px !important;
@@ -294,131 +292,74 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* ----------------- UNIVERSAL THEME-AWARE TOOL CARDS ----------------- */
-    .dashboard-tool-container {
-        width: 100%;
-    }
-
+    /* ----------------- CLEAN BUTTON-CARD SYSTEM (NO OVERLAPS, PURE STABILITY) ----------------- */
     .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
-        margin-bottom: 22px !important;
-        position: relative !important;
+        margin-bottom: 20px !important;
     }
 
-    /* BASE BUTTON AS THE CONTAINER */
     .dashboard-tool-container div[data-testid="stButton"] button {
         width: 100% !important;
-        min-height: 175px !important;
-        height: 175px !important;
-        background: #ffffff !important; /* Default Light */
+        min-height: 160px !important;
+        height: auto !important;
+        background: #ffffff !important; /* Pure white surface to contrast dark/light themes */
+        color: #0f172a !important; /* Dark bold letters */
         border: 2px solid #cbd5e1 !important;
         border-radius: 28px !important;
-        padding: 24px 28px !important;
+        padding: 24px 30px !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: flex-start !important;
-        justify-content: space-between !important;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12) !important;
         cursor: pointer !important;
-        transition: all 0.25s ease-in-out !important;
+        transition: all 0.22s ease-in-out !important;
     }
 
-    /* DARK THEME ADAPTATION */
-    @media (prefers-color-scheme: dark) {
-        .dashboard-tool-container div[data-testid="stButton"] button {
-            background: #1e293b !important;
-            border-color: rgba(148, 163, 184, 0.25) !important;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
-        }
-        .card-title-heading {
-            color: #ffffff !important;
-        }
-    }
-
-    /* Force button's raw text completely transparent so it never shows */
     .dashboard-tool-container div[data-testid="stButton"] button p {
-        color: transparent !important;
-        font-size: 0px !important;
-        line-height: 0 !important;
-        display: none !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        white-space: pre-line !important;
+        font-family: inherit !important;
     }
 
-    /* DYNAMIC HIGHLIGHT BORDER ON HOVER */
+    /* TOOL TITLE BIG & CRISP */
+    .dashboard-tool-container div[data-testid="stButton"] button p strong {
+        font-size: 24px !important;
+        font-weight: 900 !important;
+        color: #0f172a !important;
+        display: block !important;
+        margin-top: 14px !important;
+        letter-spacing: -0.3px !important;
+    }
+
+    /* DYNAMIC OUTLINE HOVER HIGHLIGHTS */
     .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {
-        border-color: #38bdf8 !important;
-        box-shadow: 0 10px 28px rgba(56, 189, 248, 0.28) !important;
+        border-color: #2563eb !important;
         transform: translateY(-4px) !important;
+        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25) !important;
     }
     .dashboard-tool-container .card-blnk-po div[data-testid="stButton"] button:hover {
-        border-color: #10b981 !important;
-        box-shadow: 0 10px 28px rgba(16, 185, 129, 0.28) !important;
+        border-color: #059669 !important;
         transform: translateY(-4px) !important;
+        box-shadow: 0 12px 28px rgba(5, 150, 105, 0.25) !important;
     }
     .dashboard-tool-container .card-blnk div[data-testid="stButton"] button:hover {
-        border-color: #f59e0b !important;
-        box-shadow: 0 10px 28px rgba(245, 158, 11, 0.28) !important;
+        border-color: #d97706 !important;
         transform: translateY(-4px) !important;
+        box-shadow: 0 12px 28px rgba(217, 119, 6, 0.25) !important;
     }
     .dashboard-tool-container .card-lbl div[data-testid="stButton"] button:hover {
-        border-color: #a855f7 !important;
-        box-shadow: 0 10px 28px rgba(168, 85, 247, 0.28) !important;
+        border-color: #7c3aed !important;
         transform: translateY(-4px) !important;
+        box-shadow: 0 12px 28px rgba(124, 58, 237, 0.25) !important;
     }
     .dashboard-tool-container .card-conf div[data-testid="stButton"] button:hover {
-        border-color: #94a3b8 !important;
-        box-shadow: 0 10px 28px rgba(148, 163, 184, 0.28) !important;
+        border-color: #475569 !important;
         transform: translateY(-4px) !important;
-    }
-
-    /* INTERNAL VISUAL LAYER OVER THE BUTTON */
-    .card-face-wrapper {
-        position: relative;
-        width: 100%;
-        margin-bottom: -175px;
-        pointer-events: none;
-        z-index: 2;
-        padding: 24px 28px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        height: 175px;
-    }
-
-    .card-top-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-    }
-
-    .card-icon-box {
-        width: 52px;
-        height: 52px;
-        border-radius: 15px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 26px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-    }
-
-    .card-badge-pill {
-        font-size: 12px;
-        font-weight: 800;
-        padding: 5px 14px;
-        border-radius: 20px;
-        letter-spacing: 0.6px;
-    }
-
-    /* BADA AUR SPASHT TITLE LATTER */
-    .card-title-heading {
-        font-size: 24px;
-        font-weight: 900;
-        color: #0f172a;
-        margin-top: 20px;
-        margin-bottom: 4px;
-        letter-spacing: -0.4px;
-        text-align: left;
+        box-shadow: 0 12px 28px rgba(71, 85, 105, 0.25) !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -441,10 +382,6 @@ AVAILABLE_MODULES = {
         "name": "1. B2B Invoice Process",
         "code": "AMZ-ED",
         "icon": "📄",
-        "icon_bg": "#2563eb",
-        "badge_bg": "#eff6ff",
-        "badge_color": "#2563eb",
-        "badge_border": "#bfdbfe",
         "css_cls": "card-amz"
     },
     "BLNK_PO": {
@@ -452,10 +389,6 @@ AVAILABLE_MODULES = {
         "name": "2. Blinkit PO Pounch",
         "code": "BLNK-PO",
         "icon": "🛍️",
-        "icon_bg": "#ecfdf5",
-        "badge_bg": "#ecfdf5",
-        "badge_color": "#059669",
-        "badge_border": "#a7f3d0",
         "css_cls": "card-blnk-po"
     },
     "BLNK": {
@@ -463,10 +396,6 @@ AVAILABLE_MODULES = {
         "name": "3. Blinkit e-Invoice Tool",
         "code": "BLNK-INV",
         "icon": "🧾",
-        "icon_bg": "#fffbeb",
-        "badge_bg": "#fffbeb",
-        "badge_color": "#d97706",
-        "badge_border": "#fde68a",
         "css_cls": "card-blnk"
     },
     "LBL": {
@@ -474,10 +403,6 @@ AVAILABLE_MODULES = {
         "name": "4. Label Editor Tool",
         "code": "LBL-ED",
         "icon": "🏷️",
-        "icon_bg": "#f5f3ff",
-        "badge_bg": "#f5f3ff",
-        "badge_color": "#7c3aed",
-        "badge_border": "#ddd6fe",
         "css_cls": "card-lbl"
     },
     "CONF": {
@@ -485,10 +410,6 @@ AVAILABLE_MODULES = {
         "name": "5. Settings & Config",
         "code": "SETTINGS",
         "icon": "⚙️",
-        "icon_bg": "#f1f5f9",
-        "badge_bg": "#f8fafc",
-        "badge_color": "#475569",
-        "badge_border": "#cbd5e1",
         "css_cls": "card-conf"
     }
 }
@@ -776,7 +697,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ----------------- CLEAN BOX DESIGN: CLICK ANYWHERE ON BOX TO OPEN -----------------
+# ----------------- PURE DIRECT WHITE TOOL CARDS (NO FAKE LAYERS / NO EXTRA BUTTONS) -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
     st.markdown('<div style="font-size: 13.5px; font-weight: 800; color: #94a3b8; margin-bottom: 18px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
@@ -791,23 +712,10 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
             with col_obj:
                 st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Card Face: Large Icon + Badge + Big Bold Title
-                st.markdown(f"""
-                    <div class="card-face-wrapper">
-                        <div class="card-top-row">
-                            <div class="card-icon-box" style="background: {mod_data['icon_bg']};">
-                                {mod_data['icon']}
-                            </div>
-                            <div class="card-badge-pill" style="background: {mod_data['badge_bg']}; color: {mod_data['badge_color']}; border: 1.5px solid {mod_data['badge_border']};">
-                                {mod_data['mod_no']}
-                            </div>
-                        </div>
-                        <div class="card-title-heading">{mod_data['name']}</div>
-                    </div>
-                """, unsafe_allow_html=True)
+                # Single clean card button text with clear icon, module pill, and bold title
+                button_content = f"{mod_data['icon']}                     [{mod_data['mod_no']}]\n\n**{mod_data['name']}**"
                 
-                # Invisible full-card trigger button
-                if st.button(" ", key=f"main_box_{m_key}", use_container_width=True):
+                if st.button(button_content, key=f"box_card_{m_key}", use_container_width=True):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key

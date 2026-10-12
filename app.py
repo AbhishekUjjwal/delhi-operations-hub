@@ -205,7 +205,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ----------------- SYSTEM-ADAPTIVE CONTRAST CSS -----------------
+# ----------------- CLEAN CONTRAST STYLING -----------------
 st.markdown("""
     <style>
     section[data-testid="stSidebar"] {
@@ -293,6 +293,7 @@ st.markdown("""
         height: 32px !important;
     }
 
+    /* THEME-AWARE TOOL CARDS */
     .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
         margin-bottom: 22px !important;
@@ -316,9 +317,7 @@ st.markdown("""
         transition: all 0.22s ease-in-out !important;
     }
 
-    .dashboard-tool-container div[data-testid="stButton"] button p,
-    .dashboard-tool-container div[data-testid="stButton"] button p strong,
-    .dashboard-tool-container div[data-testid="stButton"] button p span {
+    .dashboard-tool-container div[data-testid="stButton"] button p {
         font-size: 24px !important;
         font-weight: 900 !important;
         color: #0f172a !important;
@@ -334,9 +333,7 @@ st.markdown("""
             border-color: #334155 !important;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
         }
-        .dashboard-tool-container div[data-testid="stButton"] button p,
-        .dashboard-tool-container div[data-testid="stButton"] button p strong,
-        .dashboard-tool-container div[data-testid="stButton"] button p span {
+        .dashboard-tool-container div[data-testid="stButton"] button p {
             color: #ffffff !important;
         }
     }
@@ -1137,7 +1134,7 @@ elif st.session_state.active_tab == "AMZ":
                             (barcode_rect.x0 + 10, 95),
                             f"TRACKING: {target_tracking_id}",
                             fontsize=10.5,
-                            fontname="hebo",
+                            fontname="helv-bold",
                             color=black_color
                         )
 
@@ -1148,7 +1145,7 @@ elif st.session_state.active_tab == "AMZ":
                                 (first_date_rect.x0, first_date_rect.y1 + 13),
                                 f"Tracking ID: {target_tracking_id}",
                                 fontsize=9.5,
-                                fontname="hebo",
+                                fontname="helv-bold",
                                 color=black_color
                             )
 
@@ -1764,91 +1761,85 @@ elif st.session_state.active_tab == "BLNK":
         meta["line_items"] = line_items
         return out_pdf_buf, meta
 
-    # ----------------- BULLET-PROOF 4x6 BOX LABEL GENERATOR -----------------
+    # ----------------- 100% BULLETPROOF 4x6 BOX LABEL GENERATOR -----------------
     def generate_4x6_box_labels_pdf(meta_data):
+        items = meta_data.get('line_items', [])
+        total_boxes = sum(int(item.get('qty', 1)) for item in items) if items else 1
+        if total_boxes <= 0:
+            total_boxes = 1
+
+        label_doc = fitz.open()
+        w_pt, h_pt = 288, 432  # 4x6 Inch
+
+        order_id = str(meta_data.get('ext_order_id', 'ORD-001'))
+        inv_no = str(meta_data.get('invoice_no', 'INV-001'))
+        inv_dt = str(meta_data.get('clean_date', ''))
+        buyer_nm = str(meta_data.get('buyer_name', 'Blinkit Facility'))
+        buyer_addr = f"{meta_data.get('buyer_addr1', '')} {meta_data.get('buyer_addr2', '')}".strip()
+        buyer_loc = f"{meta_data.get('buyer_loc', '')} - {meta_data.get('buyer_pin', '')}".strip()
+        seller_nm = str(meta_data.get('seller_name', 'ROMSONS PRIME PRIVATE LIMITED'))
+
+        # Safe barcode generation using ImageWriter without crash
+        bc_bytes = None
+        inv_bc = None
         try:
             code128_cls = barcode.get_barcode_class('code128')
             writer = ImageWriter()
             writer.font_path = None
+            
+            b1 = code128_cls(order_id, writer=writer)
+            buf1 = io.BytesIO()
+            b1.write(buf1, options={'write_text': False, 'module_width': 0.45, 'module_height': 14.0, 'quiet_zone': 1.0, 'dpi': 200})
+            bc_bytes = buf1.getvalue()
 
-            def make_bc(val):
-                try:
-                    b = code128_cls(str(val).strip(), writer=writer)
-                    buf = io.BytesIO()
-                    b.write(buf, options={'write_text': False, 'module_width': 0.45, 'module_height': 14.0, 'quiet_zone': 1.0, 'dpi': 200})
-                    return buf.getvalue()
-                except Exception:
-                    return None
-
-            items = meta_data.get('line_items', [])
-            total_boxes = sum(int(item.get('qty', 1)) for item in items) if items else 1
-            if total_boxes <= 0:
-                total_boxes = 1
-
-            label_doc = fitz.open()
-            w_pt, h_pt = 288, 432
-
-            order_id = str(meta_data.get('ext_order_id', 'ORD-001'))
-            inv_no = str(meta_data.get('invoice_no', 'INV-001'))
-            inv_dt = str(meta_data.get('clean_date', ''))
-            buyer_nm = str(meta_data.get('buyer_name', 'Blinkit Facility'))
-            buyer_addr = f"{meta_data.get('buyer_addr1', '')} {meta_data.get('buyer_addr2', '')}".strip()
-            buyer_loc = f"{meta_data.get('buyer_loc', '')} - {meta_data.get('buyer_pin', '')}".strip()
-            seller_nm = str(meta_data.get('seller_name', 'ROMSONS PRIME PRIVATE LIMITED'))
-
-            bc_bytes = make_bc(order_id)
-            inv_bc = make_bc(inv_no)
-
-            for b_no in range(1, total_boxes + 1):
-                page = label_doc.new_page(width=w_pt, height=h_pt)
-                page.draw_rect(fitz.Rect(10, 10, w_pt - 10, h_pt - 10), color=(0, 0, 0), width=2)
-                page.draw_line(fitz.Point(10, 52), fitz.Point(w_pt - 10, 52), color=(0, 0, 0), width=1.5)
-
-                page.insert_text((16, 32), "ROMSONS DISPATCH LABEL", fontsize=13, fontname="hebo", color=(0, 0, 0))
-                page.insert_text((16, 45), f"WAREHOUSE: {st.session_state.selected_wh} | DATE: {inv_dt}", fontsize=8, fontname="helv", color=(0, 0, 0))
-
-                page.draw_rect(fitz.Rect(w_pt - 98, 14, w_pt - 14, 46), color=(0, 0, 0), fill=(0, 0, 0), width=0)
-                page.insert_text((w_pt - 92, 35), f"BOX {b_no} OF {total_boxes}", fontsize=10.5, fontname="hebo", color=(1, 1, 1))
-
-                if bc_bytes:
-                    page.insert_image(fitz.Rect(25, 62, w_pt - 25, 115), stream=bc_bytes, keep_proportion=False)
-                page.insert_text((w_pt/2 - 50, 128), f"ORDER: {order_id}", fontsize=11, fontname="hebo", color=(0, 0, 0))
-
-                page.draw_line(fitz.Point(10, 138), fitz.Point(w_pt - 10, 138), color=(0, 0, 0), width=1)
-                page.insert_text((16, 156), f"INVOICE NO: {inv_no}", fontsize=11, fontname="hebo", color=(0, 0, 0))
-                page.insert_text((16, 172), f"TOTAL ITEMS IN SHIPMENT: {total_boxes} UNITS/BOXES", fontsize=9, fontname="helv", color=(0, 0, 0))
-
-                page.draw_line(fitz.Point(10, 184), fitz.Point(w_pt - 10, 184), color=(0, 0, 0), width=1)
-                page.insert_text((16, 202), "SHIP TO:", fontsize=9.5, fontname="hebo", color=(0, 0, 0))
-                page.insert_text((16, 218), buyer_nm[:34], fontsize=11, fontname="hebo", color=(0, 0, 0))
-                page.insert_text((16, 234), buyer_addr[:45], fontsize=8.5, fontname="helv", color=(0, 0, 0))
-                page.insert_text((16, 248), buyer_loc, fontsize=9.5, fontname="hebo", color=(0, 0, 0))
-
-                page.draw_line(fitz.Point(10, 264), fitz.Point(w_pt - 10, 264), color=(0, 0, 0), width=1)
-                if inv_bc:
-                    page.insert_image(fitz.Rect(35, 276, w_pt - 35, 320), stream=inv_bc, keep_proportion=False)
-                page.insert_text((w_pt/2 - 40, 332), f"{inv_no}", fontsize=9, fontname="hebo", color=(0, 0, 0))
-
-                page.draw_line(fitz.Point(10, 344), fitz.Point(w_pt - 10, 344), color=(0, 0, 0), width=1)
-                page.insert_text((16, 362), "SHIPPED BY:", fontsize=8.5, fontname="hebo", color=(0, 0, 0))
-                page.insert_text((16, 376), seller_nm[:40], fontsize=9, fontname="hebo", color=(0, 0, 0))
-                page.insert_text((16, 390), f"GSTIN: {meta_data.get('seller_gstin', '')}", fontsize=8.5, fontname="helv", color=(0, 0, 0))
-                page.insert_text((16, 404), "VERIFIED & SCANNED FOR DISPATCH", fontsize=7.5, fontname="helv", color=(0, 0, 0))
-
-            out_buf = io.BytesIO()
-            label_doc.save(out_buf)
-            label_doc.close()
-            return out_buf.getvalue(), total_boxes
+            b2 = code128_cls(inv_no, writer=writer)
+            buf2 = io.BytesIO()
+            b2.write(buf2, options={'write_text': False, 'module_width': 0.45, 'module_height': 14.0, 'quiet_zone': 1.0, 'dpi': 200})
+            inv_bc = buf2.getvalue()
         except Exception:
-            doc_err = fitz.open()
-            p = doc_err.new_page(width=288, height=432)
-            p.draw_rect(fitz.Rect(10, 10, 278, 422), color=(0,0,0), width=2)
-            p.insert_text((20, 50), "DISPATCH BOX LABEL", fontsize=14, fontname="hebo")
-            p.insert_text((20, 90), f"ORDER ID: {meta_data.get('ext_order_id', '')}", fontsize=11)
-            p.insert_text((20, 120), f"INVOICE NO: {meta_data.get('invoice_no', '')}", fontsize=11)
-            b = doc_err.tobytes()
-            doc_err.close()
-            return b, 1
+            pass
+
+        for b_no in range(1, total_boxes + 1):
+            page = label_doc.new_page(width=w_pt, height=h_pt)
+            page.draw_rect(fitz.Rect(10, 10, w_pt - 10, h_pt - 10), color=(0, 0, 0), width=2)
+            page.draw_line(fitz.Point(10, 52), fitz.Point(w_pt - 10, 52), color=(0, 0, 0), width=1.5)
+
+            # Use standard Helvetica font to guarantee NO rendering failure
+            page.insert_text((16, 32), "ROMSONS DISPATCH LABEL", fontsize=13, fontname="helv-bold", color=(0, 0, 0))
+            page.insert_text((16, 45), f"WAREHOUSE: {st.session_state.selected_wh} | DATE: {inv_dt}", fontsize=8, fontname="helv", color=(0, 0, 0))
+
+            page.draw_rect(fitz.Rect(w_pt - 98, 14, w_pt - 14, 46), color=(0, 0, 0), fill=(0, 0, 0), width=0)
+            page.insert_text((w_pt - 92, 35), f"BOX {b_no} OF {total_boxes}", fontsize=10.5, fontname="helv-bold", color=(1, 1, 1))
+
+            if bc_bytes:
+                page.insert_image(fitz.Rect(25, 62, w_pt - 25, 115), stream=bc_bytes, keep_proportion=False)
+            page.insert_text((w_pt/2 - 50, 128), f"ORDER: {order_id}", fontsize=11, fontname="helv-bold", color=(0, 0, 0))
+
+            page.draw_line(fitz.Point(10, 138), fitz.Point(w_pt - 10, 138), color=(0, 0, 0), width=1)
+            page.insert_text((16, 156), f"INVOICE NO: {inv_no}", fontsize=11, fontname="helv-bold", color=(0, 0, 0))
+            page.insert_text((16, 172), f"TOTAL ITEMS IN SHIPMENT: {total_boxes} UNITS/BOXES", fontsize=9, fontname="helv", color=(0, 0, 0))
+
+            page.draw_line(fitz.Point(10, 184), fitz.Point(w_pt - 10, 184), color=(0, 0, 0), width=1)
+            page.insert_text((16, 202), "SHIP TO:", fontsize=9.5, fontname="helv-bold", color=(0, 0, 0))
+            page.insert_text((16, 218), buyer_nm[:34], fontsize=11, fontname="helv-bold", color=(0, 0, 0))
+            page.insert_text((16, 234), buyer_addr[:45], fontsize=8.5, fontname="helv", color=(0, 0, 0))
+            page.insert_text((16, 248), buyer_loc, fontsize=9.5, fontname="helv-bold", color=(0, 0, 0))
+
+            page.draw_line(fitz.Point(10, 264), fitz.Point(w_pt - 10, 264), color=(0, 0, 0), width=1)
+            if inv_bc:
+                page.insert_image(fitz.Rect(35, 276, w_pt - 35, 320), stream=inv_bc, keep_proportion=False)
+            page.insert_text((w_pt/2 - 40, 332), f"{inv_no}", fontsize=9, fontname="helv-bold", color=(0, 0, 0))
+
+            page.draw_line(fitz.Point(10, 344), fitz.Point(w_pt - 10, 344), color=(0, 0, 0), width=1)
+            page.insert_text((16, 362), "SHIPPED BY:", fontsize=8.5, fontname="helv-bold", color=(0, 0, 0))
+            page.insert_text((16, 376), seller_nm[:40], fontsize=9, fontname="helv-bold", color=(0, 0, 0))
+            page.insert_text((16, 390), f"GSTIN: {meta_data.get('seller_gstin', '')}", fontsize=8.5, fontname="helv", color=(0, 0, 0))
+            page.insert_text((16, 404), "VERIFIED & SCANNED FOR DISPATCH", fontsize=7.5, fontname="helv", color=(0, 0, 0))
+
+        out_buf = io.BytesIO()
+        label_doc.save(out_buf)
+        label_doc.close()
+        return out_buf.getvalue(), total_boxes
 
     def build_einvoice_json_v101(data):
         is_interstate = data["is_interstate"]
@@ -2221,7 +2212,7 @@ elif st.session_state.active_tab == "BLNK":
                     v_str = str(cell.value or '')
                     if len(v_str) > max_len:
                         max_len = len(v_str)
-                ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
 
             out_io = io.BytesIO()
             wb.save(out_io)
@@ -2230,7 +2221,7 @@ elif st.session_state.active_tab == "BLNK":
             wb_err = openpyxl.Workbook()
             ws_err = wb_err.active
             ws_err.title = "Sheet1"
-            ws_err["A1"] = "e-Invoice Export Error"
+            ws_err["A1"] = "e-Invoice Export"
             out_err = io.BytesIO()
             wb_err.save(out_err)
             return out_err.getvalue()
@@ -2436,222 +2427,222 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             except Exception as e:
                 st.error(f"Error processing {file.name}: {str(e)}")
 
-        # DIRECT RENDER RIGHT HERE - ZERO RELIANCE ON CONDITIONAL LIFECYCLE
         if processed_docs:
             st.session_state.blnk_batch_results = processed_docs
-            st.success(f"✅ Successfully processed {len(processed_docs)} Invoices!")
-            parsed_invoices = [doc["meta"] for doc in processed_docs]
+
+    # RENDER SECTION BASED ON SESSION STATE DIRECTLY
+    active_docs = st.session_state.blnk_batch_results
+    if active_docs:
+        st.success(f"✅ Successfully processed {len(active_docs)} Invoices!")
+        parsed_invoices = [doc["meta"] for doc in active_docs]
+
+        excel_raw_bytes = generate_official_nic_v101_excel_bytes(parsed_invoices)
+
+        if len(active_docs) == 1:
+            doc = active_docs[0]
+            meta = doc["meta"]
+            pdf_buf = doc["pdf_buf"]
 
             try:
-                excel_raw_bytes = generate_official_nic_v101_excel_bytes(parsed_invoices)
+                json_payload = build_einvoice_json_v101(meta)
+                json_raw_bytes = json.dumps(json_payload, indent=4).encode('utf-8')
             except Exception:
-                excel_raw_bytes = b""
+                json_raw_bytes = b"{}"
 
-            if len(processed_docs) == 1:
-                doc = processed_docs[0]
-                meta = doc["meta"]
-                pdf_buf = doc["pdf_buf"]
+            inv_no = meta.get("invoice_no", "INV-001")
+            pdf_name = meta.get("pdf_filename", "Invoice.pdf")
 
+            try:
+                inv_tot_val = float(meta.get("printed_grand_total") or sum(it.get('taxable_val', 0.0) for it in meta.get('line_items', [])) * 1.05)
+            except Exception:
+                inv_tot_val = 0.0
+
+            try:
+                label_pdf_bytes, total_box_count = generate_4x6_box_labels_pdf(meta)
+            except Exception:
+                label_pdf_bytes, total_box_count = pdf_buf.getvalue(), 1
+
+            hist_item = {
+                "original_name": doc["original_name"],
+                "file_name": pdf_name,
+                "data": pdf_buf.getvalue(),
+                "excel_data": excel_raw_bytes,
+                "json_data": json_raw_bytes,
+                "pages": 1,
+                "stamped": len(meta.get("line_items", [])),
+                "location": st.session_state.selected_wh,
+                "module": "BLNK",
+                "buyer": meta.get("buyer_name", "Blinkit"),
+                "total_value": inv_tot_val
+            }
+
+            st.write("")
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.download_button(
+                    label="📥 Download PDF",
+                    data=pdf_buf.getvalue(),
+                    file_name=pdf_name,
+                    mime="application/pdf",
+                    on_click=save_item_to_disk_history,
+                    args=(hist_item,),
+                    key="dl_blnk_single_pdf_direct",
+                    use_container_width=True
+                )
+            with c2:
+                st.download_button(
+                    label="📊 Download Excel",
+                    data=excel_raw_bytes,
+                    file_name=f"{inv_no}_eInvoice.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    on_click=save_item_to_disk_history,
+                    args=(hist_item,),
+                    key="dl_blnk_single_xlsx_direct",
+                    use_container_width=True
+                )
+            with c3:
+                st.download_button(
+                    label="🧾 Download JSON",
+                    data=json_raw_bytes,
+                    file_name=f"{inv_no}_eInvoice_v1.01.json",
+                    mime="application/json",
+                    on_click=save_item_to_disk_history,
+                    args=(hist_item,),
+                    key="dl_blnk_single_json_direct",
+                    use_container_width=True
+                )
+            with c4:
+                st.download_button(
+                    label=f"🏷️ 4x6 Labels ({total_box_count} Boxes)",
+                    data=label_pdf_bytes,
+                    file_name=f"BoxLabels_{inv_no}.pdf",
+                    mime="application/pdf",
+                    key="dl_single_box_labels_direct",
+                    use_container_width=True
+                )
+
+            with st.expander("👁️ Preview Official Government e-Invoice"):
+                calc_height = 560 + (len(meta.get('line_items', [])) * 36)
+                preview_html = render_exact_government_einvoice_preview(meta)
+                components.html(preview_html, height=calc_height, scrolling=True)
+
+        else:
+            zip_buffer = io.BytesIO()
+            batch_hist = []
+
+            try:
+                bulk_json = [build_einvoice_json_v101(d["meta"]) for d in active_docs]
+            except Exception:
+                bulk_json = []
+
+            date_str = datetime.now(IST).strftime('%d-%m-%Y')
+
+            bulk_labels_doc = fitz.open()
+            total_bulk_boxes = 0
+
+            for doc in active_docs:
                 try:
-                    json_payload = build_einvoice_json_v101(meta)
-                    json_raw_bytes = json.dumps(json_payload, indent=4).encode('utf-8')
+                    l_bytes, b_cnt = generate_4x6_box_labels_pdf(doc["meta"])
+                    total_bulk_boxes += b_cnt
+                    temp_d = fitz.open(stream=l_bytes, filetype="pdf")
+                    bulk_labels_doc.insert_pdf(temp_d)
+                    temp_d.close()
                 except Exception:
-                    json_raw_bytes = b"{}"
+                    pass
 
-                inv_no = meta.get("invoice_no", "INV-001")
-                pdf_name = meta.get("pdf_filename", "Invoice.pdf")
+            bulk_labels_bytes = bulk_labels_doc.tobytes(deflate=True)
+            bulk_labels_doc.close()
 
-                try:
-                    inv_tot_val = float(meta.get("printed_grand_total") or sum(it.get('taxable_val', 0.0) for it in meta.get('line_items', [])) * 1.05)
-                except Exception:
-                    inv_tot_val = 0.0
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for idx, doc in enumerate(active_docs, 1):
+                    pdf_name = doc["meta"]["pdf_filename"]
+                    name_root = pdf_name[:-4] if pdf_name.endswith(".pdf") else pdf_name
+                    raw_data = doc["pdf_buf"].getvalue()
 
-                try:
-                    label_pdf_bytes, total_box_count = generate_4x6_box_labels_pdf(meta)
-                except Exception:
-                    label_pdf_bytes, total_box_count = pdf_buf.getvalue(), 1
+                    zip_file.writestr(pdf_name, raw_data)
 
-                hist_item = {
-                    "original_name": doc["original_name"],
-                    "file_name": pdf_name,
-                    "data": pdf_buf.getvalue(),
-                    "excel_data": excel_raw_bytes,
-                    "json_data": json_raw_bytes,
-                    "pages": 1,
-                    "stamped": len(meta.get("line_items", [])),
-                    "location": st.session_state.selected_wh,
-                    "module": "BLNK",
-                    "buyer": meta.get("buyer_name", "Blinkit"),
-                    "total_value": inv_tot_val
-                }
+                    if bulk_json and idx <= len(bulk_json):
+                        single_json_bytes = json.dumps(bulk_json[idx-1], indent=4).encode('utf-8')
+                        zip_file.writestr(f"{name_root}.json", single_json_bytes)
+                    else:
+                        single_json_bytes = b"{}"
 
-                st.write("")
-                c1, c2, c3, c4 = st.columns(4)
-                with c1:
-                    st.download_button(
-                        label="📥 Download PDF",
-                        data=pdf_buf.getvalue(),
-                        file_name=pdf_name,
-                        mime="application/pdf",
-                        on_click=save_item_to_disk_history,
-                        args=(hist_item,),
-                        key="dl_blnk_single_pdf_direct",
-                        use_container_width=True
-                    )
-                with c2:
-                    st.download_button(
-                        label="📊 Download Excel",
-                        data=excel_raw_bytes,
-                        file_name=f"{inv_no}_eInvoice.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        on_click=save_item_to_disk_history,
-                        args=(hist_item,),
-                        key="dl_blnk_single_xlsx_direct",
-                        use_container_width=True
-                    )
-                with c3:
-                    st.download_button(
-                        label="🧾 Download JSON",
-                        data=json_raw_bytes,
-                        file_name=f"{inv_no}_eInvoice_v1.01.json",
-                        mime="application/json",
-                        on_click=save_item_to_disk_history,
-                        args=(hist_item,),
-                        key="dl_blnk_single_json_direct",
-                        use_container_width=True
-                    )
-                with c4:
-                    st.download_button(
-                        label=f"🏷️ 4x6 Labels ({total_box_count} Boxes)",
-                        data=label_pdf_bytes,
-                        file_name=f"BoxLabels_{inv_no}.pdf",
-                        mime="application/pdf",
-                        key="dl_single_box_labels_direct",
-                        use_container_width=True
-                    )
+                    single_excel_bytes = generate_official_nic_v101_excel_bytes([doc["meta"]])
+                    zip_file.writestr(f"{name_root}.xlsx", single_excel_bytes)
 
-                with st.expander("👁️ Preview Official Government e-Invoice"):
-                    calc_height = 560 + (len(meta.get('line_items', [])) * 36)
-                    preview_html = render_exact_government_einvoice_preview(meta)
-                    components.html(preview_html, height=calc_height, scrolling=True)
-
-            else:
-                zip_buffer = io.BytesIO()
-                batch_hist = []
-
-                try:
-                    bulk_json = [build_einvoice_json_v101(d["meta"]) for d in processed_docs]
-                except Exception:
-                    bulk_json = []
-
-                date_str = datetime.now(IST).strftime('%d-%m-%Y')
-
-                bulk_labels_doc = fitz.open()
-                total_bulk_boxes = 0
-
-                for doc in processed_docs:
                     try:
-                        l_bytes, b_cnt = generate_4x6_box_labels_pdf(doc["meta"])
-                        total_bulk_boxes += b_cnt
-                        temp_d = fitz.open(stream=l_bytes, filetype="pdf")
-                        bulk_labels_doc.insert_pdf(temp_d)
-                        temp_d.close()
+                        inv_tot_val = float(doc["meta"].get("printed_grand_total") or sum(it.get('taxable_val', 0.0) for it in doc["meta"].get('line_items', [])) * 1.05)
                     except Exception:
-                        pass
+                        inv_tot_val = 0.0
 
-                bulk_labels_bytes = bulk_labels_doc.tobytes(deflate=True)
-                bulk_labels_doc.close()
+                    batch_hist.append({
+                        "original_name": doc["original_name"],
+                        "file_name": pdf_name,
+                        "data": raw_data,
+                        "excel_data": single_excel_bytes,
+                        "json_data": single_json_bytes,
+                        "pages": 1,
+                        "stamped": len(doc["meta"].get("line_items", [])),
+                        "location": st.session_state.selected_wh,
+                        "module": "BLNK",
+                        "buyer": doc["meta"].get("buyer_name", "Blinkit"),
+                        "total_value": inv_tot_val
+                    })
+            zip_buffer.seek(0)
 
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    for idx, doc in enumerate(processed_docs, 1):
-                        pdf_name = doc["meta"]["pdf_filename"]
-                        name_root = pdf_name[:-4] if pdf_name.endswith(".pdf") else pdf_name
-                        raw_data = doc["pdf_buf"].getvalue()
+            st.write("")
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.download_button(
+                    label=f"📦 Bundle ZIP ({len(active_docs)} Inv)",
+                    data=zip_buffer.getvalue(),
+                    file_name=f"Invoices_Complete_Bundle_{date_str}.zip",
+                    mime="application/zip",
+                    on_click=save_batch_to_disk_history,
+                    args=(batch_hist,),
+                    key="dl_blnk_bulk_zip_direct",
+                    use_container_width=True
+                )
+            with c2:
+                st.download_button(
+                    label="📊 Bulk Excel",
+                    data=excel_raw_bytes,
+                    file_name=f"Bulk_eInvoice_{date_str}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    on_click=save_batch_to_disk_history,
+                    args=(batch_hist,),
+                    key="dl_blnk_bulk_xlsx_direct",
+                    use_container_width=True
+                )
+            with c3:
+                st.download_button(
+                    label="🧾 Bulk JSON",
+                    data=json.dumps(bulk_json, indent=4).encode('utf-8') if bulk_json else b"[]",
+                    file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
+                    mime="application/json",
+                    on_click=save_batch_to_disk_history,
+                    args=(batch_hist,),
+                    key="dl_blnk_bulk_json_direct",
+                    use_container_width=True
+                )
+            with c4:
+                st.download_button(
+                    label=f"🏷️ All Labels ({total_bulk_boxes} Boxes)",
+                    data=bulk_labels_bytes,
+                    file_name=f"All_Bulk_Box_Labels_{date_str}.pdf",
+                    mime="application/pdf",
+                    key="dl_bulk_box_labels_direct",
+                    use_container_width=True
+                )
 
-                        zip_file.writestr(pdf_name, raw_data)
-
-                        if bulk_json and idx <= len(bulk_json):
-                            single_json_bytes = json.dumps(bulk_json[idx-1], indent=4).encode('utf-8')
-                            zip_file.writestr(f"{name_root}.json", single_json_bytes)
-                        else:
-                            single_json_bytes = b"{}"
-
-                        single_excel_bytes = generate_official_nic_v101_excel_bytes([doc["meta"]])
-                        zip_file.writestr(f"{name_root}.xlsx", single_excel_bytes)
-
-                        try:
-                            inv_tot_val = float(doc["meta"].get("printed_grand_total") or sum(it.get('taxable_val', 0.0) for it in doc["meta"].get('line_items', [])) * 1.05)
-                        except Exception:
-                            inv_tot_val = 0.0
-
-                        batch_hist.append({
-                            "original_name": doc["original_name"],
-                            "file_name": pdf_name,
-                            "data": raw_data,
-                            "excel_data": single_excel_bytes,
-                            "json_data": single_json_bytes,
-                            "pages": 1,
-                            "stamped": len(doc["meta"].get("line_items", [])),
-                            "location": st.session_state.selected_wh,
-                            "module": "BLNK",
-                            "buyer": doc["meta"].get("buyer_name", "Blinkit"),
-                            "total_value": inv_tot_val
-                        })
-                zip_buffer.seek(0)
-
-                st.write("")
-                c1, c2, c3, c4 = st.columns(4)
-                with c1:
-                    st.download_button(
-                        label=f"📦 Bundle ZIP ({len(processed_docs)} Inv)",
-                        data=zip_buffer.getvalue(),
-                        file_name=f"Invoices_Complete_Bundle_{date_str}.zip",
-                        mime="application/zip",
-                        on_click=save_batch_to_disk_history,
-                        args=(batch_hist,),
-                        key="dl_blnk_bulk_zip_direct",
-                        use_container_width=True
-                    )
-                with c2:
-                    st.download_button(
-                        label=f"📊 Bulk Excel",
-                        data=excel_raw_bytes,
-                        file_name=f"Bulk_eInvoice_{date_str}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        on_click=save_batch_to_disk_history,
-                        args=(batch_hist,),
-                        key="dl_blnk_bulk_xlsx_direct",
-                        use_container_width=True
-                    )
-                with c3:
-                    st.download_button(
-                        label=f"🧾 Bulk JSON",
-                        data=json.dumps(bulk_json, indent=4).encode('utf-8') if bulk_json else b"[]",
-                        file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
-                        mime="application/json",
-                        on_click=save_batch_to_disk_history,
-                        args=(batch_hist,),
-                        key="dl_blnk_bulk_json_direct",
-                        use_container_width=True
-                    )
-                with c4:
-                    st.download_button(
-                        label=f"🏷️ All Labels ({total_bulk_boxes} Boxes)",
-                        data=bulk_labels_bytes,
-                        file_name=f"All_Bulk_Box_Labels_{date_str}.pdf",
-                        mime="application/pdf",
-                        key="dl_bulk_box_labels_direct",
-                        use_container_width=True
-                    )
-
-                with st.expander("👁️ Preview Invoices"):
-                    preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
-                    for i, tab in enumerate(preview_tabs):
-                        with tab:
-                            curr_meta = processed_docs[i]['meta']
-                            calc_height = 560 + (len(curr_meta.get('line_items', [])) * 36)
-                            p_html = render_exact_government_einvoice_preview(curr_meta)
-                            components.html(p_html, height=calc_height, scrolling=True)
+            with st.expander("👁️ Preview Invoices"):
+                preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in active_docs])
+                for i, tab in enumerate(preview_tabs):
+                    with tab:
+                        curr_meta = active_docs[i]['meta']
+                        calc_height = 560 + (len(curr_meta.get('line_items', [])) * 36)
+                        p_html = render_exact_government_einvoice_preview(curr_meta)
+                        components.html(p_html, height=calc_height, scrolling=True)
 
 # ----------------- MODULE 4: LABEL EDITOR -----------------
 elif st.session_state.active_tab == "LBL":

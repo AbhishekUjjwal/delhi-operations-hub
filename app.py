@@ -208,21 +208,35 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ----------------- THEME CSS DEFINITIONS -----------------
+# ----------------- UNIVERSAL CONTRAST CSS -----------------
 is_dark = (st.session_state.app_theme == "dark")
-app_bg = "#0a0e17" if is_dark else "#f8fafc"
-sidebar_bg = "#0f172a" if is_dark else "#ffffff"
-heading_color = "#ffffff" if is_dark else "#0f172a"
-sub_color = "#94a3b8" if is_dark else "#475569"
+
+if is_dark:
+    bg_color = "#0a0e17"
+    text_color = "#ffffff"
+    sidebar_bg = "#0f172a"
+    card_bg = "#1e293b"
+    card_border = "#334155"
+    card_text = "#ffffff"
+    sub_text = "#94a3b8"
+else:
+    bg_color = "#f1f5f9"
+    text_color = "#0f172a"
+    sidebar_bg = "#ffffff"
+    card_bg = "#ffffff"
+    card_border = "#cbd5e1"
+    card_text = "#000000"
+    sub_text = "#475569"
 
 st.markdown(f"""
     <style>
-    /* MAIN BACKGROUND */
+    /* MAIN APPLICATION CONTAINER */
     .stApp, body {{
-        background-color: {app_bg} !important;
+        background-color: {bg_color} !important;
+        color: {text_color} !important;
     }}
 
-    /* SIDEBAR LOCKED EXPANDED */
+    /* SIDEBAR ALWAYS OPEN */
     section[data-testid="stSidebar"] {{
         background-color: {sidebar_bg} !important;
         display: block !important;
@@ -253,34 +267,7 @@ st.markdown(f"""
         border-color: rgba(148, 163, 184, 0.25) !important;
     }}
 
-    /* HEADER TEXTS */
-    .pan-brand-title {{
-        font-size: 22px;
-        font-weight: 900;
-        letter-spacing: -0.3px;
-        background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin: 0px 0px 1px 0px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }}
-    .pan-brand-subtitle {{
-        font-size: 12.5px;
-        font-weight: 500;
-        color: {sub_color};
-        margin-bottom: 8px;
-    }}
-    .section-title-label {{
-        font-size: 13.5px;
-        font-weight: 800;
-        color: {sub_color};
-        margin-bottom: 18px;
-        letter-spacing: 0.8px;
-    }}
-
-    /* TOP ACTION CLUSTER */
+    /* TOP ACTION BUTTONS */
     .right-action-cluster div[data-testid="stButton"] button {{
         border-radius: 14px !important;
         font-size: 12px !important;
@@ -291,24 +278,24 @@ st.markdown(f"""
         width: 100% !important;
     }}
 
-    /* THEME SQUARE BUTTONS */
+    /* SQUARE THEME SWITCHERS */
     .theme-box-dark div[data-testid="stButton"] button {{
         background: #000000 !important;
         border: 2px solid #38bdf8 !important;
         border-radius: 8px !important;
         height: 28px !important;
         min-height: 28px !important;
-        width: 100% !important;
+        width: 28px !important;
         padding: 0 !important;
         cursor: pointer !important;
     }}
     .theme-box-light div[data-testid="stButton"] button {{
         background: #ffffff !important;
-        border: 2px solid #94a3b8 !important;
+        border: 2px solid #64748b !important;
         border-radius: 8px !important;
         height: 28px !important;
         min-height: 28px !important;
-        width: 100% !important;
+        width: 28px !important;
         padding: 0 !important;
         cursor: pointer !important;
     }}
@@ -324,29 +311,46 @@ st.markdown(f"""
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }}
 
-    /* PINNED TABS */
-    .top-tab-strip div[data-testid="stButton"] button {{
-        border-radius: 18px !important;
-        font-size: 12px !important;
-        font-weight: 700 !important;
-        padding: 4px 14px !important;
-        min-height: 32px !important;
-        height: 32px !important;
+    .pan-brand-title {{
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: -0.3px;
+        background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0px 0px 1px 0px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }}
+    .pan-brand-subtitle {{
+        font-size: 12.5px;
+        font-weight: 500;
+        color: {sub_text};
+        margin-bottom: 8px;
     }}
 
-    /* ----------------- 100% HARD-LOCKED WHITE TOOL CARDS ----------------- */
+    .section-title-label {{
+        font-size: 13.5px;
+        font-weight: 800;
+        color: {sub_text};
+        margin-bottom: 18px;
+        letter-spacing: 0.8px;
+    }}
+
+    /* ----------------- BIG BULLET-PROOF TOOL CARDS ----------------- */
     .dashboard-tool-container div[data-testid="stButton"] {{
         width: 100% !important;
         margin-bottom: 22px !important;
     }}
 
-    /* PURE WHITE BACKGROUND & DEEP BLACK TEXT (DONO THEMES ME EXACT SAME) */
     .dashboard-tool-container div[data-testid="stButton"] button {{
         width: 100% !important;
         min-height: 155px !important;
         height: auto !important;
-        background: #ffffff !important;
-        border: 2px solid #cbd5e1 !important;
+        background-color: {card_bg} !important;
+        color: {card_text} !important;
+        border: 2px solid {card_border} !important;
         border-radius: 26px !important;
         padding: 24px 30px !important;
         display: flex !important;
@@ -354,50 +358,47 @@ st.markdown(f"""
         align-items: flex-start !important;
         justify-content: center !important;
         text-align: left !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, {'0.4' if is_dark else '0.08'}) !important;
         cursor: pointer !important;
         transition: all 0.22s ease-in-out !important;
     }}
 
-    /* TEXT COLOR HARD-LOCKED TO BLACK */
     .dashboard-tool-container div[data-testid="stButton"] button p,
-    .dashboard-tool-container div[data-testid="stButton"] button p span,
-    .dashboard-tool-container div[data-testid="stButton"] button div,
-    .dashboard-tool-container div[data-testid="stButton"] button span {{
-        color: #0f172a !important;
-        font-size: 24px !important;
+    .dashboard-tool-container div[data-testid="stButton"] button p strong,
+    .dashboard-tool-container div[data-testid="stButton"] button p span {{
+        font-size: 23px !important;
         font-weight: 900 !important;
-        line-height: 1.45 !important;
-        letter-spacing: -0.3px !important;
+        color: {card_text} !important;
+        margin: 0 !important;
         white-space: pre-line !important;
-        text-align: left !important;
+        line-height: 1.45 !important;
     }}
 
-    /* HOVER BORDER GLOWS */
+    /* HOVER BORDER GLOW */
     .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {{
         border-color: #2563eb !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 14px 30px rgba(37, 99, 235, 0.3) !important;
+        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.3) !important;
     }}
     .dashboard-tool-container .card-blnk-po div[data-testid="stButton"] button:hover {{
         border-color: #059669 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 14px 30px rgba(5, 150, 105, 0.3) !important;
+        box-shadow: 0 12px 28px rgba(5, 150, 105, 0.3) !important;
     }}
     .dashboard-tool-container .card-blnk div[data-testid="stButton"] button:hover {{
         border-color: #d97706 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 14px 30px rgba(217, 119, 6, 0.3) !important;
+        box-shadow: 0 12px 28px rgba(217, 119, 6, 0.3) !important;
     }}
     .dashboard-tool-container .card-lbl div[data-testid="stButton"] button:hover {{
         border-color: #7c3aed !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 14px 30px rgba(124, 58, 237, 0.3) !important;
+        box-shadow: 0 12px 28px rgba(124, 58, 237, 0.3) !important;
     }}
     .dashboard-tool-container .card-conf div[data-testid="stButton"] button:hover {{
-        border-color: #475569 !important;
+        border-color: #64748b !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 14px 30px rgba(71, 85, 105, 0.3) !important;
+        box-shadow: 0 12px 28px rgba(100, 116, 139, 0.3) !important;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -673,7 +674,7 @@ with st.sidebar:
     st.divider()
 
 # ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
-h_left, h_right = st.columns([6.2, 3.8])
+h_left, h_right = st.columns([6.0, 4.0])
 
 with h_left:
     st.markdown("""
@@ -684,7 +685,7 @@ with h_left:
 with h_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     
-    # Theme switches shifted more to the LEFT so Refresh and Location don't get hidden
+    # Theme switches shifted cleanly to the LEFT so Refresh and Location don't get hidden
     c_dark, c_light, c_spacer, c_ref, c_loc = st.columns([0.38, 0.38, 0.15, 0.42, 1.67])
     
     with c_dark:

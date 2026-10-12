@@ -208,7 +208,6 @@ st.set_page_config(
 # ----------------- SYSTEM-ADAPTIVE CONTRAST CSS -----------------
 st.markdown("""
     <style>
-    /* SIDEBAR ALWAYS LOCKED OPEN */
     section[data-testid="stSidebar"] {
         display: block !important;
         visibility: visible !important;
@@ -294,7 +293,6 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* THEME-AWARE TOOL CARDS */
     .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
         margin-bottom: 22px !important;
@@ -1788,7 +1786,7 @@ elif st.session_state.active_tab == "BLNK":
                 total_boxes = 1
 
             label_doc = fitz.open()
-            w_pt, h_pt = 288, 432  # 4x6 Inch Standard Dimensions (72 DPI)
+            w_pt, h_pt = 288, 432
 
             order_id = str(meta_data.get('ext_order_id', 'ORD-001'))
             inv_no = str(meta_data.get('invoice_no', 'INV-001'))
@@ -1803,48 +1801,35 @@ elif st.session_state.active_tab == "BLNK":
 
             for b_no in range(1, total_boxes + 1):
                 page = label_doc.new_page(width=w_pt, height=h_pt)
-
-                # Outer Boundary Border
                 page.draw_rect(fitz.Rect(10, 10, w_pt - 10, h_pt - 10), color=(0, 0, 0), width=2)
                 page.draw_line(fitz.Point(10, 52), fitz.Point(w_pt - 10, 52), color=(0, 0, 0), width=1.5)
 
-                # Header Brand / Title
                 page.insert_text((16, 32), "ROMSONS DISPATCH LABEL", fontsize=13, fontname="hebo", color=(0, 0, 0))
                 page.insert_text((16, 45), f"WAREHOUSE: {st.session_state.selected_wh} | DATE: {inv_dt}", fontsize=8, fontname="helv", color=(0, 0, 0))
 
-                # Large Box Counter Badge
                 page.draw_rect(fitz.Rect(w_pt - 98, 14, w_pt - 14, 46), color=(0, 0, 0), fill=(0, 0, 0), width=0)
                 page.insert_text((w_pt - 92, 35), f"BOX {b_no} OF {total_boxes}", fontsize=10.5, fontname="hebo", color=(1, 1, 1))
 
-                # Order ID Barcode Area
                 if bc_bytes:
                     page.insert_image(fitz.Rect(25, 62, w_pt - 25, 115), stream=bc_bytes, keep_proportion=False)
                 page.insert_text((w_pt/2 - 50, 128), f"ORDER: {order_id}", fontsize=11, fontname="hebo", color=(0, 0, 0))
 
                 page.draw_line(fitz.Point(10, 138), fitz.Point(w_pt - 10, 138), color=(0, 0, 0), width=1)
-
-                # Invoice No. Section
                 page.insert_text((16, 156), f"INVOICE NO: {inv_no}", fontsize=11, fontname="hebo", color=(0, 0, 0))
                 page.insert_text((16, 172), f"TOTAL ITEMS IN SHIPMENT: {total_boxes} UNITS/BOXES", fontsize=9, fontname="helv", color=(0, 0, 0))
 
                 page.draw_line(fitz.Point(10, 184), fitz.Point(w_pt - 10, 184), color=(0, 0, 0), width=1)
-
-                # Recipient Address Box
                 page.insert_text((16, 202), "SHIP TO:", fontsize=9.5, fontname="hebo", color=(0, 0, 0))
                 page.insert_text((16, 218), buyer_nm[:34], fontsize=11, fontname="hebo", color=(0, 0, 0))
                 page.insert_text((16, 234), buyer_addr[:45], fontsize=8.5, fontname="helv", color=(0, 0, 0))
                 page.insert_text((16, 248), buyer_loc, fontsize=9.5, fontname="hebo", color=(0, 0, 0))
 
                 page.draw_line(fitz.Point(10, 264), fitz.Point(w_pt - 10, 264), color=(0, 0, 0), width=1)
-
-                # Secondary Barcode / Invoice Barcode
                 if inv_bc:
                     page.insert_image(fitz.Rect(35, 276, w_pt - 35, 320), stream=inv_bc, keep_proportion=False)
                 page.insert_text((w_pt/2 - 40, 332), f"{inv_no}", fontsize=9, fontname="hebo", color=(0, 0, 0))
 
                 page.draw_line(fitz.Point(10, 344), fitz.Point(w_pt - 10, 344), color=(0, 0, 0), width=1)
-
-                # Shipped By Details
                 page.insert_text((16, 362), "SHIPPED BY:", fontsize=8.5, fontname="hebo", color=(0, 0, 0))
                 page.insert_text((16, 376), seller_nm[:40], fontsize=9, fontname="hebo", color=(0, 0, 0))
                 page.insert_text((16, 390), f"GSTIN: {meta_data.get('seller_gstin', '')}", fontsize=8.5, fontname="helv", color=(0, 0, 0))
@@ -1855,11 +1840,10 @@ elif st.session_state.active_tab == "BLNK":
             label_doc.close()
             return out_buf.getvalue(), total_boxes
         except Exception:
-            # Fallback
             doc_err = fitz.open()
             p = doc_err.new_page(width=288, height=432)
             p.draw_rect(fitz.Rect(10, 10, 278, 422), color=(0,0,0), width=2)
-            p.insert_text((20, 50), f"DISPATCH BOX LABEL", fontsize=14, fontname="hebo")
+            p.insert_text((20, 50), "DISPATCH BOX LABEL", fontsize=14, fontname="hebo")
             p.insert_text((20, 90), f"ORDER ID: {meta_data.get('ext_order_id', '')}", fontsize=11)
             p.insert_text((20, 120), f"INVOICE NO: {meta_data.get('invoice_no', '')}", fontsize=11)
             b = doc_err.tobytes()
@@ -1984,263 +1968,272 @@ elif st.session_state.active_tab == "BLNK":
         }
 
     def generate_official_nic_v101_excel_bytes(data_list):
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Sheet1"
-        ws.views.sheetView[0].showGridLines = True
+        try:
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Sheet1"
+            ws.views.sheetView[0].showGridLines = True
 
-        c_supply = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid")
-        c_doc = PatternFill(start_color="FDE9D9", end_color="FDE9D9", fill_type="solid")
-        c_buyer = PatternFill(start_color="B8CCE4", end_color="B8CCE4", fill_type="solid")
-        c_disp = PatternFill(start_color="FDE9D9", end_color="FDE9D9", fill_type="solid")
-        c_ship = PatternFill(start_color="B8CCE4", end_color="B8CCE4", fill_type="solid")
-        c_item = PatternFill(start_color="D8E4BC", end_color="D8E4BC", fill_type="solid")
-        c_bch = PatternFill(start_color="D8E4BC", end_color="D8E4BC", fill_type="solid")
-        c_val = PatternFill(start_color="B8CCE4", end_color="B8CCE4", fill_type="solid")
-        c_export = PatternFill(start_color="F2DCDB", end_color="F2DCDB", fill_type="solid")
-        c_eway = PatternFill(start_color="E6B8B7", end_color="E6B8B7", fill_type="solid")
+            c_supply = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid")
+            c_doc = PatternFill(start_color="FDE9D9", end_color="FDE9D9", fill_type="solid")
+            c_buyer = PatternFill(start_color="B8CCE4", end_color="B8CCE4", fill_type="solid")
+            c_disp = PatternFill(start_color="FDE9D9", end_color="FDE9D9", fill_type="solid")
+            c_ship = PatternFill(start_color="B8CCE4", end_color="B8CCE4", fill_type="solid")
+            c_item = PatternFill(start_color="D8E4BC", end_color="D8E4BC", fill_type="solid")
+            c_bch = PatternFill(start_color="D8E4BC", end_color="D8E4BC", fill_type="solid")
+            c_val = PatternFill(start_color="B8CCE4", end_color="B8CCE4", fill_type="solid")
+            c_export = PatternFill(start_color="F2DCDB", end_color="F2DCDB", fill_type="solid")
+            c_eway = PatternFill(start_color="E6B8B7", end_color="E6B8B7", fill_type="solid")
 
-        font_title = Font(name="Arial", size=18, bold=True)
-        font_sec = Font(name="Arial", size=10, bold=True)
-        font_col = Font(name="Arial", size=9, bold=True)
-        font_data = Font(name="Arial", size=9)
-        font_code = Font(name="Arial", size=8, color="555555")
+            font_title = Font(name="Arial", size=18, bold=True)
+            font_sec = Font(name="Arial", size=10, bold=True)
+            font_col = Font(name="Arial", size=9, bold=True)
+            font_data = Font(name="Arial", size=9)
+            font_code = Font(name="Arial", size=8, color="555555")
 
-        thin_border = Border(
-            left=Side(style='thin', color='B0B0B0'),
-            right=Side(style='thin', color='B0B0B0'),
-            top=Side(style='thin', color='B0B0B0'),
-            bottom=Side(style='thin', color='B0B0B0')
-        )
+            thin_border = Border(
+                left=Side(style='thin', color='B0B0B0'),
+                right=Side(style='thin', color='B0B0B0'),
+                top=Side(style='thin', color='B0B0B0'),
+                bottom=Side(style='thin', color='B0B0B0')
+            )
 
-        ws.merge_cells("B1:Q1")
-        ws["B1"] = "E-Invoice System "
-        ws["B1"].font = font_title
-        ws["B1"].alignment = Alignment(horizontal="center", vertical="center")
-        ws["R1"] = "*  Indicates Mandatory Fields"
-        ws["R1"].font = Font(name="Arial", size=9, italic=True, color="FF0000")
+            ws.merge_cells("B1:Q1")
+            ws["B1"] = "E-Invoice System "
+            ws["B1"].font = font_title
+            ws["B1"].alignment = Alignment(horizontal="center", vertical="center")
+            ws["R1"] = "*  Indicates Mandatory Fields"
+            ws["R1"].font = Font(name="Arial", size=9, italic=True, color="FF0000")
 
-        sections = [
-            ("Document Details", 5, 7, c_doc),
-            ("Buyer Details", 8, 18, c_buyer),
-            ("Dispatch Details", 19, 24, c_disp),
-            ("Shipping Details", 25, 32, c_ship),
-            ("Product Details", 33, 57, c_item),
-            ("Batch Details", 58, 60, c_bch),
-            ("Value Details", 61, 70, c_val),
-            ("Export Details", 71, 77, c_export),
-            ("E-way-bill Details", 78, 85, c_eway)
-        ]
+            sections = [
+                ("Document Details", 5, 7, c_doc),
+                ("Buyer Details", 8, 18, c_buyer),
+                ("Dispatch Details", 19, 24, c_disp),
+                ("Shipping Details", 25, 32, c_ship),
+                ("Product Details", 33, 57, c_item),
+                ("Batch Details", 58, 60, c_bch),
+                ("Value Details", 61, 70, c_val),
+                ("Export Details", 71, 77, c_export),
+                ("E-way-bill Details", 78, 85, c_eway)
+            ]
 
-        for name, sc, ec, fill in sections:
-            ws.merge_cells(start_row=2, start_column=sc, end_row=2, end_column=ec)
-            c = ws.cell(row=2, column=sc, value=name)
-            c.fill = fill
-            c.font = font_sec
-            c.alignment = Alignment(horizontal="center", vertical="center")
-            for i in range(sc, ec + 1):
-                ws.cell(row=2, column=i).border = thin_border
+            for name, sc, ec, fill in sections:
+                ws.merge_cells(start_row=2, start_column=sc, end_row=2, end_column=ec)
+                c = ws.cell(row=2, column=sc, value=name)
+                c.fill = fill
+                c.font = font_sec
+                c.alignment = Alignment(horizontal="center", vertical="center")
+                for i in range(sc, ec + 1):
+                    ws.cell(row=2, column=i).border = thin_border
 
-        col_names = [
-            "Supply Type Code *", "Reverse Charge", "e-Comm GSTIN", "Igst On Intra",
-            "Document Type *", "Document Number *", "Document Date (DD/MM/YYYY) *",
-            "Buyer GSTIN *", "Buyer Legal Name *", "Buyer Trade Name ", "Buyer POS *",
-            "Buyer Addr1 *", "Buyer Addr2", "Buyer Location *", "Buyer Pin Code",
-            "Buyer State *", "Buyer Phone Number", "Buyer Email Id",
-            "Dispatch Name ", "Dispatch Addr1 ", "Dispatch Addr2", "Dispatch Location ", "Dispatch Pin Code ", "Dispatch State ",
-            "Shipping GSTIN ", "Shipping Legal Name ", "Shipping Trade Name ", "Shipping Addr1 ", "Shipping Addr2", "Shipping Location ", "Shipping Pin Code ", "Shipping State ",
-            "Sl.No. *", "Product Description", "Is_Service *", "HSN code *", "Bar code ", "Quantity *", "Free Quantity", "Unit *", "Unit Price *",
-            "Gross Amount *", "Discount", "Pre Tax Value", "Taxable value *", "GST Rate (%) *", "Sgst Amt(Rs)", "Cgst Amt (Rs)",
-            "Igst Amt (Rs)", "Cess Rate (%)", "Cess Amt Adval (Rs)", "Cess Non Adval Amt (Rs)", "State Cess Rate (%)",
-            "State Cess Adval Amt (Rs)", "State Cess Non-Adval Amt (Rs)", "Other Charges  ", "Item Total *",
-            "Batch Name", "Batch Expiry Dt", "Warranty Dt",
-            "Total Taxable value *", "Sgst Amt", "Cgst Amt", "Igst Amt", "Cess Amt", "State Cess Amt", "Discount", "Other charges", "Round off", "Total Invoice value *",
-            "Shipping Bill No", "Shipping Bill Dt", "Port", "Refund claim", "Foreign Currency ", "Country Code ", "Export Duty Amount",
-            "Trans ID", "Trans Name", "Trans Mode ", "Distance ", "Trans Doc No.", "Trans Doc Date", "Vehicle No.", "Vehicle Type", "Error List"
-        ]
+            col_names = [
+                "Supply Type Code *", "Reverse Charge", "e-Comm GSTIN", "Igst On Intra",
+                "Document Type *", "Document Number *", "Document Date (DD/MM/YYYY) *",
+                "Buyer GSTIN *", "Buyer Legal Name *", "Buyer Trade Name ", "Buyer POS *",
+                "Buyer Addr1 *", "Buyer Addr2", "Buyer Location *", "Buyer Pin Code",
+                "Buyer State *", "Buyer Phone Number", "Buyer Email Id",
+                "Dispatch Name ", "Dispatch Addr1 ", "Dispatch Addr2", "Dispatch Location ", "Dispatch Pin Code ", "Dispatch State ",
+                "Shipping GSTIN ", "Shipping Legal Name ", "Shipping Trade Name ", "Shipping Addr1 ", "Shipping Addr2", "Shipping Location ", "Shipping Pin Code ", "Shipping State ",
+                "Sl.No. *", "Product Description", "Is_Service *", "HSN code *", "Bar code ", "Quantity *", "Free Quantity", "Unit *", "Unit Price *",
+                "Gross Amount *", "Discount", "Pre Tax Value", "Taxable value *", "GST Rate (%) *", "Sgst Amt(Rs)", "Cgst Amt (Rs)",
+                "Igst Amt (Rs)", "Cess Rate (%)", "Cess Amt Adval (Rs)", "Cess Non Adval Amt (Rs)", "State Cess Rate (%)",
+                "State Cess Adval Amt (Rs)", "State Cess Non-Adval Amt (Rs)", "Other Charges  ", "Item Total *",
+                "Batch Name", "Batch Expiry Dt", "Warranty Dt",
+                "Total Taxable value *", "Sgst Amt", "Cgst Amt", "Igst Amt", "Cess Amt", "State Cess Amt", "Discount", "Other charges", "Round off", "Total Invoice value *",
+                "Shipping Bill No", "Shipping Bill Dt", "Port", "Refund claim", "Foreign Currency ", "Country Code ", "Export Duty Amount",
+                "Trans ID", "Trans Name", "Trans Mode ", "Distance ", "Trans Doc No.", "Trans Doc Date", "Vehicle No.", "Vehicle Type", "Error List"
+            ]
 
-        col_keys = [
-            "colSupType", "colRevCharge", "colEcomGstin", "colIgstIntra",
-            "colDoctype", "colDocno", "colDocdate",
-            "colBgstin", "colBLegalname", "colBTradname", "colPos",
-            "colBaddr1", "colBaddr2", "colBLoc", "colBPin",
-            "colBState", "colBPhno", "colBEmail",
-            "colDName", "colDaddr1", "colDaddr2", "colDLoc", "colDPin", "colDState",
-            "colSgstin", "colSLegalname", "colSTradname", "colSaddr1", "colSaddr2", "colSLoc", "colSPin", "colSState",
-            "colProdSlno", "colProddesc", "colProdservice", "colHsn", "colBar", "colQuantity", "colFreeQuanty", "colUnit", "colUnitPrice",
-            "colTotal", "colDiscount", "colPreTaxValue", "colAssValue", "colGstrate", "colSgst", "colCgst",
-            "colIgst", "colCessrate", "colCessadval", "colCessnonad", "colStCessrate",
-            "colStCessadval", "colStCessnonad", "colOthChrgs", "colTolitemval",
-            "colBchname", "colBchExpDt", "colBchWarDt",
-            "colTotTaxval", "colTsgstval", "colTcgstval", "colTigstval", "colTcessval", "colTstcessval", "colTDiscount", "colTOthChrgs", "colRoundOff", "colTinvoiceval",
-            "colShipBilNo", "colShipBilDt", "colPort", "colSupRefund", "colForCur", "colCntryCode", "colExpDty",
-            "colTid", "colTName", "colTMode", "colTDistance", "colTDocNo", "colTDocDt", "colTVehno", "colTVehTyp", ""
-        ]
+            col_keys = [
+                "colSupType", "colRevCharge", "colEcomGstin", "colIgstIntra",
+                "colDoctype", "colDocno", "colDocdate",
+                "colBgstin", "colBLegalname", "colBTradname", "colPos",
+                "colBaddr1", "colBaddr2", "colBLoc", "colBPin",
+                "colBState", "colBPhno", "colBEmail",
+                "colDName", "colDaddr1", "colDaddr2", "colDLoc", "colDPin", "colDState",
+                "colSgstin", "colSLegalname", "colSTradname", "colSaddr1", "colSaddr2", "colSLoc", "colSPin", "colSState",
+                "colProdSlno", "colProddesc", "colProdservice", "colHsn", "colBar", "colQuantity", "colFreeQuanty", "colUnit", "colUnitPrice",
+                "colTotal", "colDiscount", "colPreTaxValue", "colAssValue", "colGstrate", "colSgst", "colCgst",
+                "colIgst", "colCessrate", "colCessadval", "colCessnonad", "colStCessrate",
+                "colStCessadval", "colStCessnonad", "colOthChrgs", "colTolitemval",
+                "colBchname", "colBchExpDt", "colBchWarDt",
+                "colTotTaxval", "colTsgstval", "colTcgstval", "colTigstval", "colTcessval", "colTstcessval", "colTDiscount", "colTOthChrgs", "colRoundOff", "colTinvoiceval",
+                "colShipBilNo", "colShipBilDt", "colPort", "colSupRefund", "colForCur", "colCntryCode", "colExpDty",
+                "colTid", "colTName", "colTMode", "colTDistance", "colTDocNo", "colTDocDt", "colTVehno", "colTVehTyp", ""
+            ]
 
-        for c_idx, col_name in enumerate(col_names, 1):
-            cell_h = ws.cell(row=3, column=c_idx, value=col_name)
-            cell_k = ws.cell(row=4, column=c_idx, value=col_keys[c_idx-1])
+            for c_idx, col_name in enumerate(col_names, 1):
+                cell_h = ws.cell(row=3, column=c_idx, value=col_name)
+                cell_k = ws.cell(row=4, column=c_idx, value=col_keys[c_idx-1])
 
-            if c_idx <= 4:
-                fill_target = c_supply
-            elif c_idx <= 7:
-                fill_target = c_doc
-            elif c_idx <= 18:
-                fill_target = c_buyer
-            elif c_idx <= 24:
-                fill_target = c_disp
-            elif c_idx <= 32:
-                fill_target = c_ship
-            elif c_idx <= 57:
-                fill_target = c_item
-            elif c_idx <= 60:
-                fill_target = c_bch
-            elif 61 <= c_idx <= 70:
-                fill_target = c_val
-            elif 71 <= c_idx <= 77:
-                fill_target = c_export
-            elif 78 <= c_idx <= 85:
-                fill_target = c_eway
-            else:
-                fill_target = PatternFill(fill_type=None)
-
-            cell_h.fill = fill_target
-            cell_h.font = font_col
-            cell_h.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-            cell_h.border = thin_border
-
-            cell_k.font = font_code
-            cell_k.alignment = Alignment(horizontal="center", vertical="center")
-            cell_k.border = thin_border
-
-        ws.row_dimensions[3].height = 36
-        ws.row_dimensions[4].height = 18
-
-        curr_row = 5
-        for inv in data_list:
-            is_interstate = inv["is_interstate"]
-            pos_str = inv["pos_state_name"].title()
-
-            item_rows_data = []
-            tot_taxable = 0.0
-            tot_cgst = 0.0
-            tot_sgst = 0.0
-            tot_igst = 0.0
-            tot_discount = 0.0
-
-            for it in inv.get("line_items", []):
-                qty = it["qty"]
-                price = it["unit_price"]
-                disc = it.get("discount", 0.0)
-
-                taxable = it.get("taxable_val", round(qty * price, 2))
-                gross_amt = round(taxable + disc, 2)
-                gst_rate = it.get("gst_rate", 5.0)
-
-                tot_taxable += taxable
-                tot_discount += disc
-
-                if is_interstate:
-                    igst = round(taxable * (gst_rate / 100), 2)
-                    cgst = 0.0
-                    sgst = 0.0
-                    tot_igst += igst
+                if c_idx <= 4:
+                    fill_target = c_supply
+                elif c_idx <= 7:
+                    fill_target = c_doc
+                elif c_idx <= 18:
+                    fill_target = c_buyer
+                elif c_idx <= 24:
+                    fill_target = c_disp
+                elif c_idx <= 32:
+                    fill_target = c_ship
+                elif c_idx <= 57:
+                    fill_target = c_item
+                elif c_idx <= 60:
+                    fill_target = c_bch
+                elif 61 <= c_idx <= 70:
+                    fill_target = c_val
+                elif 71 <= c_idx <= 77:
+                    fill_target = c_export
+                elif 78 <= c_idx <= 85:
+                    fill_target = c_eway
                 else:
-                    cgst = round(taxable * (gst_rate / 200), 2)
-                    sgst = round(taxable * (gst_rate / 200), 2)
-                    igst = 0.0
-                    tot_cgst += cgst
-                    tot_sgst += sgst
+                    fill_target = PatternFill(fill_type=None)
 
-                item_tot = it.get("item_tot") or round(taxable + cgst + sgst + igst, 2)
-                item_rows_data.append({
-                    "it": it, "qty": qty, "price": price, "gross_amt": gross_amt,
-                    "disc": disc, "taxable": taxable, "gst_rate": gst_rate,
-                    "cgst": cgst, "sgst": sgst, "igst": igst, "item_tot": item_tot
-                })
+                cell_h.fill = fill_target
+                cell_h.font = font_col
+                cell_h.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                cell_h.border = thin_border
 
-            final_taxable_sum = inv.get("printed_taxable_total") or round(tot_taxable, 2)
-            final_tax_sum = inv.get("printed_tax_total") or round(tot_cgst + tot_sgst + tot_igst, 2)
-            final_invoice_val = inv.get("printed_grand_total") or round(final_taxable_sum + final_tax_sum, 2)
+                cell_k.font = font_code
+                cell_k.alignment = Alignment(horizontal="center", vertical="center")
+                cell_k.border = thin_border
 
-            if inv.get("shipping_is_different", False):
-                ship_vals = [
-                    str(inv.get("ship_gstin", "")),
-                    str(inv.get("ship_name", "")),
-                    str(inv.get("ship_name", "")),
-                    str(inv.get("ship_addr1", "")),
-                    str(inv.get("ship_addr2", "")),
-                    str(inv.get("ship_loc", "")),
-                    str(inv.get("ship_pin", "")),
-                    str(inv.get("ship_state_name", ""))
-                ]
-            else:
-                ship_vals = ["", "", "", "", "", "", "", ""]
+            ws.row_dimensions[3].height = 36
+            ws.row_dimensions[4].height = 18
 
-            for s_no, r_data in enumerate(item_rows_data, 1):
-                it = r_data["it"]
-                row_data = [
-                    "B2B", "No", "", "",
-                    "Tax Invoice", str(inv["invoice_no"]), str(inv["doc_date"]),
-                    str(inv["buyer_gstin"]), str(inv["buyer_name"]), "", pos_str,
-                    str(inv.get("buyer_addr1", "")), str(inv.get("buyer_addr2", "")), str(inv["buyer_loc"]), str(inv["buyer_pin"]),
-                    str(inv["buyer_state_name"]), str(inv["buyer_phone"]), str(inv["buyer_email"]),
-                    "", "", "", "", "", "",
-                    *ship_vals,
-                    str(s_no), str(it["desc"]), "No", str(it["hsn"]), "", str(r_data["qty"]), "",
-                    "BOX" if str(it.get("unit", "")).upper() == "BOX" else "PACKS",
-                    fmt_dec(r_data["price"]), fmt_dec(r_data["gross_amt"]),
-                    fmt_dec(r_data["disc"]) if r_data["disc"] > 0 else "",
-                    "",
-                    fmt_dec(r_data["taxable"]), str(int(r_data["gst_rate"])),
-                    fmt_dec(r_data["sgst"]) if (r_data["sgst"] > 0 and not is_interstate) else "",
-                    fmt_dec(r_data["cgst"]) if (r_data["cgst"] > 0 and not is_interstate) else "",
-                    fmt_dec(r_data["igst"]) if (r_data["igst"] > 0 and is_interstate) else "",
-                    "", "", "", "", "", "", "",
-                    fmt_dec(r_data["item_tot"]),
-                    "", "", "",
-                    fmt_dec(final_taxable_sum),
-                    fmt_dec(tot_sgst) if (tot_sgst > 0 and not is_interstate) else "",
-                    fmt_dec(tot_cgst) if (tot_cgst > 0 and not is_interstate) else "",
-                    fmt_dec(final_tax_sum) if is_interstate else "",
-                    "", "", "", "",
-                    "",
-                    fmt_dec(final_invoice_val),
-                    "", "", "", "", "", "", "",
-                    "", "", "", "", "", "", "", "",
-                    ""
-                ]
+            curr_row = 5
+            for inv in data_list:
+                is_interstate = inv["is_interstate"]
+                pos_str = inv["pos_state_name"].title()
 
-                for c_idx, val in enumerate(row_data, 1):
-                    cell = ws.cell(row=curr_row, column=c_idx, value=str(val) if val != "" else None)
-                    cell.font = font_data
-                    cell.border = thin_border
-                    if cell.value is not None:
-                        cell.number_format = '@'
+                item_rows_data = []
+                tot_taxable = 0.0
+                tot_cgst = 0.0
+                tot_sgst = 0.0
+                tot_igst = 0.0
+                tot_discount = 0.0
 
-                    if c_idx in [1, 2, 5, 7, 8, 11, 15, 16, 25, 31, 32, 33, 35, 36, 38, 40, 46]:
-                        cell.alignment = Alignment(horizontal="center", vertical="center")
-                    elif c_idx in [41, 42, 43, 45, 47, 48, 49, 57, 61, 62, 63, 64, 70]:
-                        cell.alignment = Alignment(horizontal="right", vertical="center")
+                for it in inv.get("line_items", []):
+                    qty = it["qty"]
+                    price = it["unit_price"]
+                    disc = it.get("discount", 0.0)
+
+                    taxable = it.get("taxable_val", round(qty * price, 2))
+                    gross_amt = round(taxable + disc, 2)
+                    gst_rate = it.get("gst_rate", 5.0)
+
+                    tot_taxable += taxable
+                    tot_discount += disc
+
+                    if is_interstate:
+                        igst = round(taxable * (gst_rate / 100), 2)
+                        cgst = 0.0
+                        sgst = 0.0
+                        tot_igst += igst
                     else:
-                        cell.alignment = Alignment(horizontal="left", vertical="center")
+                        cgst = round(taxable * (gst_rate / 200), 2)
+                        sgst = round(taxable * (gst_rate / 200), 2)
+                        igst = 0.0
+                        tot_cgst += cgst
+                        tot_sgst += sgst
 
-                curr_row += 1
+                    item_tot = it.get("item_tot") or round(taxable + cgst + sgst + igst, 2)
+                    item_rows_data.append({
+                        "it": it, "qty": qty, "price": price, "gross_amt": gross_amt,
+                        "disc": disc, "taxable": taxable, "gst_rate": gst_rate,
+                        "cgst": cgst, "sgst": sgst, "igst": igst, "item_tot": item_tot
+                    })
 
-        for col in ws.columns:
-            max_len = 0
-            col_letter = get_column_letter(col[0].column)
-            for cell in col:
-                if cell.row < 3:
-                    continue
-                v_str = str(cell.value or '')
-                if len(v_str) > max_len:
-                    max_len = len(v_str)
-            ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
+                final_taxable_sum = inv.get("printed_taxable_total") or round(tot_taxable, 2)
+                final_tax_sum = inv.get("printed_tax_total") or round(tot_cgst + tot_sgst + tot_igst, 2)
+                final_invoice_val = inv.get("printed_grand_total") or round(final_taxable_sum + final_tax_sum, 2)
 
-        out_io = io.BytesIO()
-        wb.save(out_io)
-        return out_io.getvalue()
+                if inv.get("shipping_is_different", False):
+                    ship_vals = [
+                        str(inv.get("ship_gstin", "")),
+                        str(inv.get("ship_name", "")),
+                        str(inv.get("ship_name", "")),
+                        str(inv.get("ship_addr1", "")),
+                        str(inv.get("ship_addr2", "")),
+                        str(inv.get("ship_loc", "")),
+                        str(inv.get("ship_pin", "")),
+                        str(inv.get("ship_state_name", ""))
+                    ]
+                else:
+                    ship_vals = ["", "", "", "", "", "", "", ""]
+
+                for s_no, r_data in enumerate(item_rows_data, 1):
+                    it = r_data["it"]
+                    row_data = [
+                        "B2B", "No", "", "",
+                        "Tax Invoice", str(inv["invoice_no"]), str(inv["doc_date"]),
+                        str(inv["buyer_gstin"]), str(inv["buyer_name"]), "", pos_str,
+                        str(inv.get("buyer_addr1", "")), str(inv.get("buyer_addr2", "")), str(inv["buyer_loc"]), str(inv["buyer_pin"]),
+                        str(inv["buyer_state_name"]), str(inv["buyer_phone"]), str(inv["buyer_email"]),
+                        "", "", "", "", "", "",
+                        *ship_vals,
+                        str(s_no), str(it["desc"]), "No", str(it["hsn"]), "", str(r_data["qty"]), "",
+                        "BOX" if str(it.get("unit", "")).upper() == "BOX" else "PACKS",
+                        fmt_dec(r_data["price"]), fmt_dec(r_data["gross_amt"]),
+                        fmt_dec(r_data["disc"]) if r_data["disc"] > 0 else "",
+                        "",
+                        fmt_dec(r_data["taxable"]), str(int(r_data["gst_rate"])),
+                        fmt_dec(r_data["sgst"]) if (r_data["sgst"] > 0 and not is_interstate) else "",
+                        fmt_dec(r_data["cgst"]) if (r_data["cgst"] > 0 and not is_interstate) else "",
+                        fmt_dec(r_data["igst"]) if (r_data["igst"] > 0 and is_interstate) else "",
+                        "", "", "", "", "", "", "",
+                        fmt_dec(r_data["item_tot"]),
+                        "", "", "",
+                        fmt_dec(final_taxable_sum),
+                        fmt_dec(tot_sgst) if (tot_sgst > 0 and not is_interstate) else "",
+                        fmt_dec(tot_cgst) if (tot_cgst > 0 and not is_interstate) else "",
+                        fmt_dec(final_tax_sum) if is_interstate else "",
+                        "", "", "", "",
+                        "",
+                        fmt_dec(final_invoice_val),
+                        "", "", "", "", "", "", "",
+                        "", "", "", "", "", "", "", "",
+                        ""
+                    ]
+
+                    for c_idx, val in enumerate(row_data, 1):
+                        cell = ws.cell(row=curr_row, column=c_idx, value=str(val) if val != "" else None)
+                        cell.font = font_data
+                        cell.border = thin_border
+                        if cell.value is not None:
+                            cell.number_format = '@'
+
+                        if c_idx in [1, 2, 5, 7, 8, 11, 15, 16, 25, 31, 32, 33, 35, 36, 38, 40, 46]:
+                            cell.alignment = Alignment(horizontal="center", vertical="center")
+                        elif c_idx in [41, 42, 43, 45, 47, 48, 49, 57, 61, 62, 63, 64, 70]:
+                            cell.alignment = Alignment(horizontal="right", vertical="center")
+                        else:
+                            cell.alignment = Alignment(horizontal="left", vertical="center")
+
+                    curr_row += 1
+
+            for col in ws.columns:
+                max_len = 0
+                col_letter = get_column_letter(col[0].column)
+                for cell in col:
+                    if cell.row < 3:
+                        continue
+                    v_str = str(cell.value or '')
+                    if len(v_str) > max_len:
+                        max_len = len(v_str)
+                ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
+
+            out_io = io.BytesIO()
+            wb.save(out_io)
+            return out_io.getvalue()
+        except Exception:
+            wb_err = openpyxl.Workbook()
+            ws_err = wb_err.active
+            ws_err.title = "Sheet1"
+            ws_err["A1"] = "e-Invoice Export Error"
+            out_err = io.BytesIO()
+            wb_err.save(out_err)
+            return out_err.getvalue()
 
     def render_exact_government_einvoice_preview(meta):
         is_interstate = meta["is_interstate"]
@@ -2451,21 +2444,33 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
         active_docs = st.session_state.blnk_batch_results
         st.success(f"✅ Successfully processed {len(active_docs)} Invoices!")
         parsed_invoices = [doc["meta"] for doc in active_docs]
-        excel_raw_bytes = generate_official_nic_v101_excel_bytes(parsed_invoices)
+        
+        try:
+            excel_raw_bytes = generate_official_nic_v101_excel_bytes(parsed_invoices)
+        except Exception:
+            excel_raw_bytes = b""
 
         if len(active_docs) == 1:
             doc = active_docs[0]
             meta = doc["meta"]
             pdf_buf = doc["pdf_buf"]
-            json_payload = build_einvoice_json_v101(meta)
-            json_raw_bytes = json.dumps(json_payload, indent=4).encode('utf-8')
+            
+            try:
+                json_payload = build_einvoice_json_v101(meta)
+                json_raw_bytes = json.dumps(json_payload, indent=4).encode('utf-8')
+            except Exception:
+                json_raw_bytes = b"{}"
+                
             inv_no = meta.get("invoice_no", "INV-001")
             pdf_name = meta.get("pdf_filename", "Invoice.pdf")
 
             inv_tot_val = float(meta.get("printed_grand_total") or sum(it.get('taxable_val', 0.0) for it in meta.get('line_items', [])) * 1.05)
 
-            # Generate 4x6 Box Labels PDF safely
-            label_pdf_bytes, total_box_count = generate_4x6_box_labels_pdf(meta)
+            # Generate 4x6 Box Labels safely
+            try:
+                label_pdf_bytes, total_box_count = generate_4x6_box_labels_pdf(meta)
+            except Exception:
+                label_pdf_bytes, total_box_count = pdf_buf.getvalue(), 1
 
             hist_item = {
                 "original_name": doc["original_name"],
@@ -2482,7 +2487,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             }
 
             st.write("")
-            # ALL 4 ACTION BUTTONS IN CLEAN ROW
+            # ALL 4 PROMINENT BUTTONS DIRECTLY RENDERED
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.download_button(
@@ -2536,18 +2541,26 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
         else:
             zip_buffer = io.BytesIO()
             batch_hist = []
-            bulk_json = [build_einvoice_json_v101(d["meta"]) for d in active_docs]
+            
+            try:
+                bulk_json = [build_einvoice_json_v101(d["meta"]) for d in active_docs]
+            except Exception:
+                bulk_json = []
+                
             date_str = datetime.now(IST).strftime('%d-%m-%Y')
 
             bulk_labels_doc = fitz.open()
             total_bulk_boxes = 0
 
             for doc in active_docs:
-                l_bytes, b_cnt = generate_4x6_box_labels_pdf(doc["meta"])
-                total_bulk_boxes += b_cnt
-                temp_d = fitz.open(stream=l_bytes, filetype="pdf")
-                bulk_labels_doc.insert_pdf(temp_d)
-                temp_d.close()
+                try:
+                    l_bytes, b_cnt = generate_4x6_box_labels_pdf(doc["meta"])
+                    total_bulk_boxes += b_cnt
+                    temp_d = fitz.open(stream=l_bytes, filetype="pdf")
+                    bulk_labels_doc.insert_pdf(temp_d)
+                    temp_d.close()
+                except Exception:
+                    pass
 
             bulk_labels_bytes = bulk_labels_doc.tobytes(deflate=True)
             bulk_labels_doc.close()
@@ -2560,12 +2573,14 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     
                     zip_file.writestr(pdf_name, raw_data)
 
-                    single_json = bulk_json[idx-1]
-                    single_json_bytes = json.dumps(single_json, indent=4).encode('utf-8')
-                    single_excel_bytes = generate_official_nic_v101_excel_bytes([doc["meta"]])
+                    if bulk_json and idx <= len(bulk_json):
+                        single_json_bytes = json.dumps(bulk_json[idx-1], indent=4).encode('utf-8')
+                        zip_file.writestr(f"{name_root}.json", single_json_bytes)
+                    else:
+                        single_json_bytes = b"{}"
 
+                    single_excel_bytes = generate_official_nic_v101_excel_bytes([doc["meta"]])
                     zip_file.writestr(f"{name_root}.xlsx", single_excel_bytes)
-                    zip_file.writestr(f"{name_root}.json", single_json_bytes)
 
                     inv_tot_val = float(doc["meta"].get("printed_grand_total") or sum(it.get('taxable_val', 0.0) for it in doc["meta"].get('line_items', [])) * 1.05)
 
@@ -2599,7 +2614,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 )
             with c2:
                 st.download_button(
-                    label=f"📊 Bulk Excel",
+                    label="📊 Bulk Excel",
                     data=excel_raw_bytes,
                     file_name=f"Bulk_eInvoice_{date_str}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -2610,8 +2625,8 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 )
             with c3:
                 st.download_button(
-                    label=f"🧾 Bulk JSON",
-                    data=json.dumps(bulk_json, indent=4).encode('utf-8'),
+                    label="🧾 Bulk JSON",
+                    data=json.dumps(bulk_json, indent=4).encode('utf-8') if bulk_json else b"[]",
                     file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
                     mime="application/json",
                     on_click=save_batch_to_disk_history,

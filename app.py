@@ -25,6 +25,10 @@ RETENTION_DAYS = 30
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
+# ----------------- SESSION THEME SETUP -----------------
+if "app_theme" not in st.session_state:
+    st.session_state.app_theme = "dark"
+
 def load_disk_history():
     if not os.path.exists(METADATA_FILE):
         return []
@@ -208,7 +212,6 @@ st.set_page_config(
 # ----------------- SYSTEM-ADAPTIVE CONTRAST CSS -----------------
 st.markdown("""
     <style>
-    /* SIDEBAR ALWAYS LOCKED OPEN */
     section[data-testid="stSidebar"] {
         display: block !important;
         visibility: visible !important;
@@ -238,7 +241,6 @@ st.markdown("""
         border-color: rgba(148, 163, 184, 0.25) !important;
     }
 
-    /* HEADER TITLES */
     .pan-brand-title {
         font-size: 22px;
         font-weight: 900;
@@ -265,7 +267,6 @@ st.markdown("""
         letter-spacing: 0.8px;
     }
 
-    /* TOP ACTION BUTTONS */
     .right-action-cluster div[data-testid="stButton"] button {
         border-radius: 14px !important;
         font-size: 12px !important;
@@ -287,7 +288,6 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }
 
-    /* PINNED TABS */
     .top-tab-strip div[data-testid="stButton"] button {
         border-radius: 18px !important;
         font-size: 12px !important;
@@ -297,13 +297,12 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* ----------------- NATIVE THEME-AWARE TOOL CARDS ----------------- */
+    /* THEME-AWARE TOOL CARDS */
     .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
         margin-bottom: 22px !important;
     }
 
-    /* DEFAULT (LIGHT THEME): WHITE CARD & JET BLACK TEXT */
     .dashboard-tool-container div[data-testid="stButton"] button {
         width: 100% !important;
         min-height: 160px !important;
@@ -327,14 +326,13 @@ st.markdown("""
     .dashboard-tool-container div[data-testid="stButton"] button p span {
         font-size: 24px !important;
         font-weight: 900 !important;
-        color: #0f172a !important; /* DEEP BLACK IN LIGHT THEME */
+        color: #0f172a !important;
         margin: 0 !important;
         white-space: pre-line !important;
         line-height: 1.4 !important;
         text-align: left !important;
     }
 
-    /* DARK THEME MEDIA QUERY (AUTOMATIC DETECTION) */
     @media (prefers-color-scheme: dark) {
         .dashboard-tool-container div[data-testid="stButton"] button {
             background-color: #1e293b !important;
@@ -344,11 +342,10 @@ st.markdown("""
         .dashboard-tool-container div[data-testid="stButton"] button p,
         .dashboard-tool-container div[data-testid="stButton"] button p strong,
         .dashboard-tool-container div[data-testid="stButton"] button p span {
-            color: #ffffff !important; /* PURE WHITE IN DARK THEME */
+            color: #ffffff !important;
         }
     }
 
-    /* HOVER BORDER HIGHLIGHTS */
     .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {
         border-color: #2563eb !important;
         transform: translateY(-4px) !important;
@@ -465,7 +462,7 @@ def clear_all_pinned_tabs():
     st.session_state.show_history = False
     st.rerun()
 
-# ----------------- SIDEBAR: ANALOG CLOCK + LIVE ACCURATE GRAPH -----------------
+# ----------------- SIDEBAR -----------------
 with st.sidebar:
     clock_html = """
     <!DOCTYPE html>
@@ -593,7 +590,7 @@ with st.sidebar:
     st.markdown(f"**WH Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`")
     st.divider()
 
-    # --- INVOICE ANALYTICS GRAPH (DEDUPLICATED & BLINKIT VS OTHER BUYERS) ---
+    # --- INVOICE ANALYTICS GRAPH ---
     st.markdown("📊 **Invoice Upload Analytics**")
     all_history_records = load_disk_history()
 
@@ -647,7 +644,7 @@ with st.sidebar:
     st.caption(f"Total Unique Invoices: **{len(dedup_list)}** | Net Total: **₹{total_net_val:,.2f}**")
     st.divider()
 
-# ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
+# ----------------- TOP BAR -----------------
 h_left, h_right = st.columns([6.8, 3.2])
 
 with h_left:
@@ -686,7 +683,7 @@ with h_right:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ----------------- PINNED TABS: 'HOME' REPLACES 'DASHBOARD' -----------------
+# ----------------- PINNED TABS -----------------
 st.markdown('<div class="top-tab-strip">', unsafe_allow_html=True)
 tab_cols = st.columns([1.0] * len(st.session_state.open_tabs) + [3.0])
 for idx, t_key in enumerate(st.session_state.open_tabs):
@@ -725,7 +722,6 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
             with col_obj:
                 st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Single clean card button text with clear icon and big bold title
                 button_content = f"{mod_data['icon']}\n\n{mod_data['name']}"
                 
                 if st.button(button_content, key=f"box_card_{m_key}", use_container_width=True):
@@ -738,7 +734,7 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ----------------- HISTORY VIEW (WITH UNIVERSAL SEARCH, SPLIT, VIEW & PRINT) -----------------
+# ----------------- HISTORY VIEW -----------------
 elif st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "icon": "📁"})
     h_top_c1, h_top_c2 = st.columns([4, 1])
@@ -755,12 +751,11 @@ elif st.session_state.show_history:
                 clear_disk_history(wh_filter=st.session_state.selected_wh, mod_filter=st.session_state.active_tab)
                 st.rerun()
 
-    # Search bar for Order ID / Invoice Number / Tracking ID
     search_col1, search_col2 = st.columns([3.8, 0.4])
     with search_col1:
         search_query = st.text_input(
             "🔍 Search Invoice by Order ID / Invoice No / Tracking ID:",
-            placeholder="Type Order ID (e.g. 402-1234567-8901234), Invoice Number, or Tracking ID...",
+            placeholder="Type Order ID, Invoice Number, or Tracking ID...",
             key=f"search_order_{st.session_state.selected_wh}_{st.session_state.active_tab}"
         ).strip()
     with search_col2:
@@ -770,7 +765,6 @@ elif st.session_state.show_history:
             st.session_state[f"search_order_{st.session_state.selected_wh}_{st.session_state.active_tab}"] = ""
             st.rerun()
 
-    # Split extraction function that checks full text of every page
     def extract_single_order_page(pdf_bytes, query_clean):
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -795,7 +789,6 @@ elif st.session_state.show_history:
     if not loc_history:
         st.info("No files in history.")
     else:
-        # Search query execution
         if search_query:
             clean_q = re.sub(r'[^a-zA-Z0-9]', '', search_query.lower())
             search_matched_items = []
@@ -861,7 +854,6 @@ elif st.session_state.show_history:
         for idx, item in enumerate(display_history):
             name_root = item['file_name'][:-4] if item['file_name'].endswith(".pdf") else item['file_name']
             
-            # Action Rows
             d_col1, d_col2, d_col3, d_col4 = st.columns([3.0, 1.0, 0.9, 0.9])
             with d_col1:
                 split_tag = " ✂️ *(Single Page Invoice)*" if item.get("is_split") else ""
@@ -904,7 +896,6 @@ elif st.session_state.show_history:
                 else:
                     st.button("🧾 JSON", key=f"dis_js_{idx}_{search_query[:5]}", disabled=True, use_container_width=True)
 
-            # Agar search se single invoice nikaala gaya hai, toh inline PRINT button aur viewer provide karein
             if search_query and item.get("is_split"):
                 b64_pdf = base64.b64encode(item["data"]).decode('utf-8')
                 print_view_html = f"""
@@ -1778,6 +1769,93 @@ elif st.session_state.active_tab == "BLNK":
         meta["line_items"] = line_items
         return out_pdf_buf, meta
 
+    # ----------------- DEDICATED 4x6 BOX LABEL GENERATOR -----------------
+    def generate_4x6_box_labels_pdf(meta_data):
+        code128_cls = barcode.get_barcode_class('code128')
+        writer = ImageWriter()
+        writer.font_path = None
+
+        def make_bc(val):
+            try:
+                b = code128_cls(str(val).strip(), writer=writer)
+                buf = io.BytesIO()
+                b.write(buf, options={'write_text': False, 'module_width': 0.45, 'module_height': 14.0, 'quiet_zone': 1.0, 'dpi': 200})
+                return buf.getvalue()
+            except Exception:
+                return None
+
+        total_boxes = sum(item['qty'] for item in meta_data.get('line_items', []))
+        if total_boxes <= 0:
+            total_boxes = 1
+
+        label_doc = fitz.open()
+        w_pt, h_pt = 288, 432  # 4x6 Inch Standard Dimensions (72 DPI)
+
+        order_id = str(meta_data.get('ext_order_id', 'ORD-001'))
+        inv_no = str(meta_data.get('invoice_no', 'INV-001'))
+        inv_dt = str(meta_data.get('clean_date', ''))
+        buyer_nm = str(meta_data.get('buyer_name', 'Blinkit Facility'))
+        buyer_addr = f"{meta_data.get('buyer_addr1', '')} {meta_data.get('buyer_addr2', '')}".strip()
+        buyer_loc = f"{meta_data.get('buyer_loc', '')} - {meta_data.get('buyer_pin', '')}".strip()
+        seller_nm = str(meta_data.get('seller_name', 'ROMSONS PRIME PRIVATE LIMITED'))
+
+        bc_bytes = make_bc(order_id)
+
+        for b_no in range(1, total_boxes + 1):
+            page = label_doc.new_page(width=w_pt, height=h_pt)
+
+            # Outer Boundary Border
+            page.draw_rect(fitz.Rect(10, 10, w_pt - 10, h_pt - 10), color=(0, 0, 0), width=2)
+            page.draw_line(fitz.Point(10, 52), fitz.Point(w_pt - 10, 52), color=(0, 0, 0), width=1.5)
+
+            # Header Brand / Title
+            page.insert_text((16, 32), "ROMSONS DISPATCH LABEL", fontsize=13, fontname="hebo", color=(0, 0, 0))
+            page.insert_text((16, 45), f"WAREHOUSE: {st.session_state.selected_wh} | DATE: {inv_dt}", fontsize=8, fontname="helv", color=(0, 0, 0))
+
+            # Large Box Counter Badge
+            page.draw_rect(fitz.Rect(w_pt - 98, 14, w_pt - 14, 46), color=(0, 0, 0), fill=(0, 0, 0), width=0)
+            page.insert_text((w_pt - 92, 35), f"BOX {b_no} OF {total_boxes}", fontsize=10.5, fontname="hebo", color=(1, 1, 1))
+
+            # Order ID Barcode Area
+            if bc_bytes:
+                page.insert_image(fitz.Rect(25, 62, w_pt - 25, 115), stream=bc_bytes, keep_proportion=False)
+            page.insert_text((w_pt/2 - 50, 128), f"ORDER: {order_id}", fontsize=11, fontname="hebo", color=(0, 0, 0))
+
+            page.draw_line(fitz.Point(10, 138), fitz.Point(w_pt - 10, 138), color=(0, 0, 0), width=1)
+
+            # Invoice No. Section
+            page.insert_text((16, 156), f"INVOICE NO: {inv_no}", fontsize=11, fontname="hebo", color=(0, 0, 0))
+            page.insert_text((16, 172), f"TOTAL ITEMS IN SHIPMENT: {total_boxes} UNITS/BOXES", fontsize=9, fontname="helv", color=(0, 0, 0))
+
+            page.draw_line(fitz.Point(10, 184), fitz.Point(w_pt - 10, 184), color=(0, 0, 0), width=1)
+
+            # Recipient Address Box
+            page.insert_text((16, 202), "SHIP TO:", fontsize=9.5, fontname="hebo", color=(0, 0, 0))
+            page.insert_text((16, 218), buyer_nm[:34], fontsize=11, fontname="hebo", color=(0, 0, 0))
+            page.insert_text((16, 234), buyer_addr[:45], fontsize=8.5, fontname="helv", color=(0, 0, 0))
+            page.insert_text((16, 248), buyer_loc, fontsize=9.5, fontname="hebo", color=(0, 0, 0))
+
+            page.draw_line(fitz.Point(10, 264), fitz.Point(w_pt - 10, 264), color=(0, 0, 0), width=1)
+
+            # Secondary Barcode / Invoice Barcode
+            inv_bc = make_bc(inv_no)
+            if inv_bc:
+                page.insert_image(fitz.Rect(35, 276, w_pt - 35, 320), stream=inv_bc, keep_proportion=False)
+            page.insert_text((w_pt/2 - 40, 332), f"{inv_no}", fontsize=9, fontname="hebo", color=(0, 0, 0))
+
+            page.draw_line(fitz.Point(10, 344), fitz.Point(w_pt - 10, 344), color=(0, 0, 0), width=1)
+
+            # Shipped By Details
+            page.insert_text((16, 362), "SHIPPED BY:", fontsize=8.5, fontname="hebo", color=(0, 0, 0))
+            page.insert_text((16, 376), seller_nm[:40], fontsize=9, fontname="hebo", color=(0, 0, 0))
+            page.insert_text((16, 390), f"GSTIN: {meta_data.get('seller_gstin', '')}", fontsize=8.5, fontname="helv", color=(0, 0, 0))
+            page.insert_text((16, 404), "VERIFIED & SCANNED FOR DISPATCH", fontsize=7.5, fontname="helv", color=(0, 0, 0))
+
+        out_buf = io.BytesIO()
+        label_doc.save(out_buf)
+        label_doc.close()
+        return out_buf.getvalue(), total_boxes
+
     def build_einvoice_json_v101(data):
         is_interstate = data["is_interstate"]
         seller_state_code = data["seller_state_code"]
@@ -2372,21 +2450,11 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             json_raw_bytes = json.dumps(json_payload, indent=4).encode('utf-8')
             inv_no = meta["invoice_no"]
             pdf_name = meta["pdf_filename"]
-            is_blinkit = meta["is_blinkit"]
-
-            tax_badge = "🔴 Inter-State (IGST Only)" if meta["is_interstate"] else "🟢 Intra-State (CGST + SGST)"
-            ship_status = "⚠️ Different (Shipping Details Filled in Excel)" if meta["shipping_is_different"] else "✅ Same (Shipping Blank in Excel)"
-
-            st.markdown(f"""
-                <div style="background-color: #ffffff; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'}; border: 1px solid #cbd5e1; color: #0f172a;">
-                    <b>Buyer Name:</b> <code style="color: #0f172a;">{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Tax Rule:</b> <code>{tax_badge}</code><br>
-                    <b>Address 1:</b> <code>{meta['buyer_addr1']}</code> &nbsp;|&nbsp; <b>Address 2:</b> <code>{meta.get('buyer_addr2', '')}</code><br>
-                    <b>City:</b> <code>{meta['buyer_loc']}</code> ({meta['buyer_pin']}) &nbsp;|&nbsp; <b>Shipping Status:</b> <code>{ship_status}</code><br>
-                    <b>Seller:</b> {meta['seller_name']} ({meta['seller_gstin']})
-                </div>
-            """, unsafe_allow_html=True)
 
             inv_tot_val = float(meta.get("printed_grand_total") or sum(it['taxable_val'] for it in meta['line_items']) * 1.05)
+
+            # Generate 4x6 Box Labels PDF
+            label_pdf_bytes, total_box_count = generate_4x6_box_labels_pdf(meta)
 
             hist_item = {
                 "original_name": doc["original_name"],
@@ -2402,49 +2470,77 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 "total_value": inv_tot_val
             }
 
-            c1, c2, c3 = st.columns(3)
+            # ACTION DOWNLOAD BUTTONS ROW (WITH NEW BOX LABEL TOOL)
+            c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.download_button(
-                    label="📥 Download Processed PDF",
+                    label="📥 Download PDF",
                     data=pdf_buf.getvalue(),
                     file_name=pdf_name,
                     mime="application/pdf",
                     on_click=save_item_to_disk_history,
                     args=(hist_item,),
-                    key="dl_blnk_single_pdf"
+                    key="dl_blnk_single_pdf",
+                    use_container_width=True
                 )
             with c2:
                 st.download_button(
-                    label="📊 Download eInvoice.xlsx (Official Format)",
+                    label="📊 Download Excel",
                     data=excel_raw_bytes,
                     file_name=f"{inv_no}_eInvoice.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     on_click=save_item_to_disk_history,
                     args=(hist_item,),
-                    key="dl_blnk_single_xlsx"
+                    key="dl_blnk_single_xlsx",
+                    use_container_width=True
                 )
             with c3:
                 st.download_button(
-                    label="🧾 Download e-Invoice JSON (v1.01)",
+                    label="🧾 Download JSON",
                     data=json_raw_bytes,
                     file_name=f"{inv_no}_eInvoice_v1.01.json",
                     mime="application/json",
                     on_click=save_item_to_disk_history,
                     args=(hist_item,),
-                    key="dl_blnk_single_json"
+                    key="dl_blnk_single_json",
+                    use_container_width=True
+                )
+            with c4:
+                st.download_button(
+                    label=f"🏷️ 4x6 Labels ({total_box_count} Boxes)",
+                    data=label_pdf_bytes,
+                    file_name=f"BoxLabels_{inv_no}.pdf",
+                    mime="application/pdf",
+                    key="dl_single_box_labels",
+                    use_container_width=True,
+                    help="Thermal 4x6 Inch Label Print based on Total Invoice Qty"
                 )
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("### 📄 Official Government e-Invoice Live Preview")
-            calc_height = 560 + (len(meta['line_items']) * 36)
-            preview_html = render_exact_government_einvoice_preview(meta)
-            components.html(preview_html, height=calc_height, scrolling=True)
+            # COMPACT PREVIEW TOOL (CLEAN ACCORDION / TOGGLE)
+            with st.expander("👁️ Preview Official e-Invoice"):
+                calc_height = 560 + (len(meta['line_items']) * 36)
+                preview_html = render_exact_government_einvoice_preview(meta)
+                components.html(preview_html, height=calc_height, scrolling=True)
 
         else:
             zip_buffer = io.BytesIO()
             batch_hist = []
             bulk_json = [build_einvoice_json_v101(d["meta"]) for d in active_docs]
             date_str = datetime.now(IST).strftime('%d-%m-%Y')
+
+            # Bundle all 4x6 labels for bulk invoices
+            bulk_labels_doc = fitz.open()
+            total_bulk_boxes = 0
+
+            for doc in active_docs:
+                l_bytes, b_cnt = generate_4x6_box_labels_pdf(doc["meta"])
+                total_bulk_boxes += b_cnt
+                temp_d = fitz.open(stream=l_bytes, filetype="pdf")
+                bulk_labels_doc.insert_pdf(temp_d)
+                temp_d.close()
+
+            bulk_labels_bytes = bulk_labels_doc.tobytes(deflate=True)
+            bulk_labels_doc.close()
 
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for idx, doc in enumerate(active_docs, 1):
@@ -2478,47 +2574,60 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     })
             zip_buffer.seek(0)
 
-            c1, c2, c3 = st.columns(3)
+            c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.download_button(
-                    label=f"📦 Download All Processed Files ({len(active_docs)} Invoices Bundle - ZIP)",
+                    label=f"📦 Bundle ZIP ({len(active_docs)} Inv)",
                     data=zip_buffer.getvalue(),
                     file_name=f"Invoices_Complete_Bundle_{date_str}.zip",
                     mime="application/zip",
                     on_click=save_batch_to_disk_history,
                     args=(batch_hist,),
-                    key="dl_blnk_bulk_zip"
+                    key="dl_blnk_bulk_zip",
+                    use_container_width=True
                 )
             with c2:
                 st.download_button(
-                    label=f"📊 Download Bulk eInvoice.xlsx ({len(active_docs)} Invoices)",
+                    label=f"📊 Bulk Excel",
                     data=excel_raw_bytes,
                     file_name=f"Bulk_eInvoice_{date_str}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     on_click=save_batch_to_disk_history,
                     args=(batch_hist,),
-                    key="dl_blnk_bulk_xlsx"
+                    key="dl_blnk_bulk_xlsx",
+                    use_container_width=True
                 )
             with c3:
                 st.download_button(
-                    label=f"🧾 Download Bulk e-Invoice JSON ({len(bulk_json)} Invoices)",
+                    label=f"🧾 Bulk JSON",
                     data=json.dumps(bulk_json, indent=4).encode('utf-8'),
                     file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
                     mime="application/json",
                     on_click=save_batch_to_disk_history,
                     args=(batch_hist,),
-                    key="dl_blnk_bulk_json"
+                    key="dl_blnk_bulk_json",
+                    use_container_width=True
+                )
+            with c4:
+                st.download_button(
+                    label=f"🏷️ All 4x6 Labels ({total_bulk_boxes} Boxes)",
+                    data=bulk_labels_bytes,
+                    file_name=f"All_Bulk_Box_Labels_{date_str}.pdf",
+                    mime="application/pdf",
+                    key="dl_bulk_box_labels",
+                    use_container_width=True,
+                    help="Download all thermal box labels combined in a single PDF"
                 )
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("### 📄 Invoices Official e-Invoice Preview")
-            preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
-            for i, tab in enumerate(preview_tabs):
-                with tab:
-                    curr_meta = active_docs[i]['meta']
-                    calc_height = 560 + (len(curr_meta['line_items']) * 36)
-                    p_html = render_exact_government_einvoice_preview(curr_meta)
-                    components.html(p_html, height=calc_height, scrolling=True)
+            # COMPACT BULK PREVIEW ACCORDION
+            with st.expander("👁️ Preview Invoices"):
+                preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
+                for i, tab in enumerate(preview_tabs):
+                    with tab:
+                        curr_meta = active_docs[i]['meta']
+                        calc_height = 560 + (len(curr_meta['line_items']) * 36)
+                        p_html = render_exact_government_einvoice_preview(curr_meta)
+                        components.html(p_html, height=calc_height, scrolling=True)
 
 # ----------------- MODULE 4: LABEL EDITOR -----------------
 elif st.session_state.active_tab == "LBL":

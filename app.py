@@ -7,6 +7,7 @@ import io
 import json
 import os
 import zipfile
+import base64
 import barcode
 from barcode.writer import ImageWriter
 from datetime import datetime, timezone, timedelta
@@ -296,12 +297,13 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* NATIVE THEME-AWARE TOOL CARDS */
+    /* ----------------- NATIVE THEME-AWARE TOOL CARDS ----------------- */
     .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
         margin-bottom: 22px !important;
     }
 
+    /* DEFAULT (LIGHT THEME): WHITE CARD & JET BLACK TEXT */
     .dashboard-tool-container div[data-testid="stButton"] button {
         width: 100% !important;
         min-height: 160px !important;
@@ -325,13 +327,14 @@ st.markdown("""
     .dashboard-tool-container div[data-testid="stButton"] button p span {
         font-size: 24px !important;
         font-weight: 900 !important;
-        color: #0f172a !important;
+        color: #0f172a !important; /* DEEP BLACK IN LIGHT THEME */
         margin: 0 !important;
         white-space: pre-line !important;
         line-height: 1.4 !important;
         text-align: left !important;
     }
 
+    /* DARK THEME MEDIA QUERY (AUTOMATIC DETECTION) */
     @media (prefers-color-scheme: dark) {
         .dashboard-tool-container div[data-testid="stButton"] button {
             background-color: #1e293b !important;
@@ -341,7 +344,7 @@ st.markdown("""
         .dashboard-tool-container div[data-testid="stButton"] button p,
         .dashboard-tool-container div[data-testid="stButton"] button p strong,
         .dashboard-tool-container div[data-testid="stButton"] button p span {
-            color: #ffffff !important;
+            color: #ffffff !important; /* PURE WHITE IN DARK THEME */
         }
     }
 
@@ -735,7 +738,7 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ----------------- HISTORY VIEW (WITH DYNAMIC ORDER ID SEARCH & AUTO-SPLIT) -----------------
+# ----------------- HISTORY VIEW (WITH UNIVERSAL SEARCH, SPLIT, VIEW & PRINT) -----------------
 elif st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "icon": "📁"})
     h_top_c1, h_top_c2 = st.columns([4, 1])
@@ -752,12 +755,12 @@ elif st.session_state.show_history:
                 clear_disk_history(wh_filter=st.session_state.selected_wh, mod_filter=st.session_state.active_tab)
                 st.rerun()
 
-    # Search bar for Order ID / Invoice Number
-    search_col1, search_col2 = st.columns([3.5, 0.5])
+    # Search bar for Order ID / Invoice Number / Tracking ID
+    search_col1, search_col2 = st.columns([3.8, 0.4])
     with search_col1:
         search_query = st.text_input(
-            "🔍 Search Invoice by Order ID / Invoice No / Keyword:",
-            placeholder="Type Order ID (e.g. 402-1234567-8901234) or Invoice No...",
+            "🔍 Search Invoice by Order ID / Invoice No / Tracking ID:",
+            placeholder="Type Order ID (e.g. 402-1234567-8901234), Invoice Number, or Tracking ID...",
             key=f"search_order_{st.session_state.selected_wh}_{st.session_state.active_tab}"
         ).strip()
     with search_col2:
@@ -767,7 +770,7 @@ elif st.session_state.show_history:
             st.session_state[f"search_order_{st.session_state.selected_wh}_{st.session_state.active_tab}"] = ""
             st.rerun()
 
-    # Split extraction function
+    # Split extraction function that checks full text of every page
     def extract_single_order_page(pdf_bytes, query_clean):
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -797,9 +800,8 @@ elif st.session_state.show_history:
             clean_q = re.sub(r'[^a-zA-Z0-9]', '', search_query.lower())
             search_matched_items = []
             
-            with st.spinner("Searching and extracting matching invoice pages..."):
+            with st.spinner("Searching, extracting & splitting invoice page..."):
                 for item in loc_history:
-                    # Check in file name / metadata first
                     f_clean = re.sub(r'[^a-zA-Z0-9]', '', str(item.get('file_name', '')).lower())
                     o_clean = re.sub(r'[^a-zA-Z0-9]', '', str(item.get('original_name', '')).lower())
                     
@@ -808,7 +810,7 @@ elif st.session_state.show_history:
                     if split_pdf_bytes:
                         item_copy = dict(item)
                         item_copy["data"] = split_pdf_bytes
-                        item_copy["file_name"] = f"Order_{search_query[:15]}_{item['file_name']}"
+                        item_copy["file_name"] = f"Invoice_{search_query[:15]}.pdf"
                         item_copy["pages"] = split_pages
                         item_copy["is_split"] = True
                         search_matched_items.append(item_copy)
@@ -818,10 +820,10 @@ elif st.session_state.show_history:
                         search_matched_items.append(item_copy)
 
             if not search_matched_items:
-                st.warning(f"❌ Koi invoice nahi mila jisme Order ID / keyword **'{search_query}'** maujood ho.")
+                st.warning(f"❌ Koi invoice nahi mila jisme **'{search_query}'** maujood ho.")
                 display_history = []
             else:
-                st.success(f"🎯 Mil gaya! **{len(search_matched_items)}** Matching invoice(s) for Order ID: **{search_query}**")
+                st.success(f"🎯 Mil gaya! **{len(search_matched_items)}** Matching Single Invoice for: **{search_query}**")
                 display_history = search_matched_items
         else:
             display_history = loc_history
@@ -859,15 +861,16 @@ elif st.session_state.show_history:
         for idx, item in enumerate(display_history):
             name_root = item['file_name'][:-4] if item['file_name'].endswith(".pdf") else item['file_name']
             
-            d_col1, d_col2, d_col3, d_col4 = st.columns([3.2, 0.9, 0.9, 0.9])
+            # Action Rows
+            d_col1, d_col2, d_col3, d_col4 = st.columns([3.0, 1.0, 0.9, 0.9])
             with d_col1:
-                split_tag = " ✂️ *(Split Page)*" if item.get("is_split") else ""
+                split_tag = " ✂️ *(Single Page Invoice)*" if item.get("is_split") else ""
                 st.write(
                     f"📁 **{item['file_name']}**{split_tag} — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
                     f"⏰ *{item.get('time', '')}*"
                 )
             with d_col2:
-                btn_label = "📥 Split PDF" if item.get("is_split") else "📥 PDF"
+                btn_label = "📥 Download PDF"
                 st.download_button(
                     label=btn_label,
                     data=item["data"],
@@ -900,6 +903,31 @@ elif st.session_state.show_history:
                     )
                 else:
                     st.button("🧾 JSON", key=f"dis_js_{idx}_{search_query[:5]}", disabled=True, use_container_width=True)
+
+            # Agar search se single invoice nikaala gaya hai, toh inline PRINT button aur viewer provide karein
+            if search_query and item.get("is_split"):
+                b64_pdf = base64.b64encode(item["data"]).decode('utf-8')
+                print_view_html = f"""
+                <div style="margin-top: 10px; margin-bottom: 20px; background: #ffffff; padding: 12px; border-radius: 14px; border: 1.5px solid #cbd5e1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: 800; color: #0f172a; font-size: 14px;">🖨️ Invoice Viewer & Direct Print</span>
+                        <button onclick="printSinglePDF()" style="background: #2563eb; color: #ffffff; border: none; padding: 6px 18px; border-radius: 8px; font-weight: 700; cursor: pointer;">
+                            🖨️ Print This Invoice
+                        </button>
+                    </div>
+                    <iframe id="single_pdf_frame" src="data:application/pdf;base64,{b64_pdf}" width="100%" height="480px" style="border: 1px solid #e2e8f0; border-radius: 8px;"></iframe>
+                </div>
+                <script>
+                function printSinglePDF() {{
+                    const iframe = document.getElementById('single_pdf_frame');
+                    if (iframe) {{
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                    }}
+                }}
+                </script>
+                """
+                components.html(print_view_html, height=540)
 
 # ----------------- MODULE 1: AMAZON INVOICE EDITOR -----------------
 elif st.session_state.active_tab == "AMZ":

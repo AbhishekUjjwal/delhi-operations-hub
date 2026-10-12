@@ -221,12 +221,16 @@ st.markdown("""
     div[class*="manage-app"] {display: none !important;}
     div[class*="floating"] {display: none !important;}
 
-    /* Sidebar permanently visible & fixed */
+    /* SIDEBAR ALWAYS OPEN & VISIBLE */
     section[data-testid="stSidebar"] {
         display: block !important;
         visibility: visible !important;
-        min-width: 290px !important;
-        max-width: 330px !important;
+        transform: none !important;
+        min-width: 300px !important;
+        max-width: 320px !important;
+    }
+    button[data-testid="stSidebarCollapseButton"] {
+        display: none !important;
     }
 
     .block-container {
@@ -301,7 +305,7 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* ----------------- CLEAN BUTTON-CARD SYSTEM ----------------- */
+    /* ----------------- CLEAN BADA CARD BUTTON SYSTEM ----------------- */
     .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
         margin-bottom: 20px !important;
@@ -321,7 +325,7 @@ st.markdown("""
         align-items: flex-start !important;
         justify-content: center !important;
         text-align: left !important;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12) !important;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14) !important;
         cursor: pointer !important;
         transition: all 0.22s ease-in-out !important;
     }
@@ -331,27 +335,24 @@ st.markdown("""
         margin: 0 !important;
         padding: 0 !important;
         white-space: pre-line !important;
-        font-family: inherit !important;
-    }
-
-    .dashboard-tool-container div[data-testid="stButton"] button p strong {
-        font-size: 23px !important;
-        font-weight: 900 !important;
+        font-size: 22px !important;
+        font-weight: 800 !important;
         color: #0f172a !important;
-        display: block !important;
-        letter-spacing: -0.3px !important;
+        line-height: 1.4 !important;
     }
 
+    /* DARK THEME ME CARDS VISIBLE & CRISP */
     @media (prefers-color-scheme: dark) {
         .dashboard-tool-container div[data-testid="stButton"] button {
             background: #1e293b !important;
-            border-color: rgba(148, 163, 184, 0.25) !important;
+            border-color: rgba(148, 163, 184, 0.28) !important;
         }
-        .dashboard-tool-container div[data-testid="stButton"] button p strong {
+        .dashboard-tool-container div[data-testid="stButton"] button p {
             color: #ffffff !important;
         }
     }
 
+    /* HOVER BORDER GLOW */
     .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {
         border-color: #2563eb !important;
         transform: translateY(-4px) !important;
@@ -394,7 +395,7 @@ ORDERED_LOCATIONS = list(LOCATION_DISPLAY_MAP.keys())
 
 AVAILABLE_MODULES = {
     "AMZ": {
-        "name": "1. B2B Invoice Process",
+        "name": "1. Amazon Invoice Process",
         "code": "AMZ-ED",
         "icon": "📄",
         "css_cls": "card-amz"
@@ -428,7 +429,7 @@ AVAILABLE_MODULES = {
 if "selected_wh" not in st.session_state:
     st.session_state.selected_wh = "DEL"
 if "open_tabs" not in st.session_state:
-    st.session_state.open_tabs = ["HOME", "AMZ"]
+    st.session_state.open_tabs = ["HOME"]
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "HOME"
 if "uploader_key" not in st.session_state:
@@ -457,7 +458,7 @@ def reset_current_workspace():
     st.session_state.current_batch_results = []
     st.session_state.blnk_batch_results = []
     st.session_state.show_history = False
-    st.session_state.open_tabs = ["HOME", "AMZ"]
+    st.session_state.open_tabs = ["HOME"]  # Sirf HOME rahega
     st.session_state.active_tab = "HOME"
     st.session_state.selected_wh = "DEL"
     st.rerun()
@@ -682,7 +683,7 @@ with h_right:
             st.session_state.show_history = not st.session_state.show_history
             st.rerun()
     with reset_col:
-        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset whole workspace", use_container_width=True):
+        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset workspace", use_container_width=True):
             reset_current_workspace()
 
     st.markdown('</div>', unsafe_allow_html=True)
@@ -726,8 +727,8 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
             with col_obj:
                 st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Single clean card button text with clear icon and big bold title
-                button_content = f"{mod_data['icon']}\n\n**{mod_data['name']}**"
+                # Big clean card button text
+                button_content = f"{mod_data['icon']}\n\n{mod_data['name']}"
                 
                 if st.button(button_content, key=f"box_card_{m_key}", use_container_width=True):
                     if m_key not in st.session_state.open_tabs:
@@ -1182,7 +1183,7 @@ elif st.session_state.active_tab == "BLNK":
         "13": "NAGALAND", "14": "MANIPUR", "15": "MIZORAM", "16": "TRIPURA",
         "17": "MEGHALAYA", "18": "ASSAM", "19": "WEST BENGAL", "20": "JHARKHAND",
         "21": "ODISHA", "22": "CHATTISGARH", "23": "MADHYA PRADESH", "24": "GUJARAT",
-        "26": "DADRA AND NAGAR HAVELI AND DAMAN AND DIU", "27": "MAHARASHTRA", "29": "KARNATBACK",
+        "26": "DADRA AND NAGAR HAVELI AND DAMAN AND DIU", "27": "MAHARASHTRA", "29": "KARNATAKA",
         "30": "GOA", "31": "LAKSHADWEEP", "32": "KERALA", "33": "TAMIL NADU",
         "34": "PUDUCHERRY", "35": "ANDAMAN AND NICOBAR ISLANDS", "36": "TELANGANA", "37": "ANDHRA PRADESH",
         "38": "LADAKH"

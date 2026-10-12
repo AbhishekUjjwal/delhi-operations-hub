@@ -221,6 +221,14 @@ st.markdown("""
     div[class*="manage-app"] {display: none !important;}
     div[class*="floating"] {display: none !important;}
 
+    /* Sidebar permanently visible & fixed */
+    section[data-testid="stSidebar"] {
+        display: block !important;
+        visibility: visible !important;
+        min-width: 290px !important;
+        max-width: 330px !important;
+    }
+
     .block-container {
         padding-top: 0.4rem !important;
         padding-bottom: 0.8rem !important;
@@ -284,7 +292,6 @@ st.markdown("""
         margin: 8px 0px;
     }
 
-    /* Pinned Tabs Styling */
     .top-tab-strip div[data-testid="stButton"] button {
         border-radius: 18px !important;
         font-size: 12px !important;
@@ -294,7 +301,7 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* ----------------- CLEAN BUTTON-CARD SYSTEM (NO OVERLAPS, PURE STABILITY) ----------------- */
+    /* ----------------- CLEAN BUTTON-CARD SYSTEM ----------------- */
     .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
         margin-bottom: 20px !important;
@@ -327,13 +334,6 @@ st.markdown("""
         font-family: inherit !important;
     }
 
-    /* TOOL ICON & TITLE BIG & CRISP */
-    .dashboard-tool-container div[data-testid="stButton"] button p .tool-icon {
-        font-size: 32px !important;
-        display: block !important;
-        margin-bottom: 12px !important;
-    }
-
     .dashboard-tool-container div[data-testid="stButton"] button p strong {
         font-size: 23px !important;
         font-weight: 900 !important;
@@ -342,7 +342,6 @@ st.markdown("""
         letter-spacing: -0.3px !important;
     }
 
-    /* DARK THEME ADAPTATION */
     @media (prefers-color-scheme: dark) {
         .dashboard-tool-container div[data-testid="stButton"] button {
             background: #1e293b !important;
@@ -353,7 +352,6 @@ st.markdown("""
         }
     }
 
-    /* DYNAMIC OUTLINE HOVER HIGHLIGHTS */
     .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {
         border-color: #2563eb !important;
         transform: translateY(-4px) !important;
@@ -459,6 +457,9 @@ def reset_current_workspace():
     st.session_state.current_batch_results = []
     st.session_state.blnk_batch_results = []
     st.session_state.show_history = False
+    st.session_state.open_tabs = ["HOME", "AMZ"]
+    st.session_state.active_tab = "HOME"
+    st.session_state.selected_wh = "DEL"
     st.rerun()
 
 def clear_all_pinned_tabs():
@@ -681,7 +682,7 @@ with h_right:
             st.session_state.show_history = not st.session_state.show_history
             st.rerun()
     with reset_col:
-        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset workspace", use_container_width=True):
+        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset whole workspace", use_container_width=True):
             reset_current_workspace()
 
     st.markdown('</div>', unsafe_allow_html=True)
@@ -710,7 +711,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ----------------- CLEAN BOX DESIGN: ONLY TOOL NAME & ICON (MODULE 1/2 REMOVED) -----------------
+# ----------------- CLEAN BOX DESIGN: ONLY TOOL NAME & ICON -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
     st.markdown('<div style="font-size: 13.5px; font-weight: 800; color: #94a3b8; margin-bottom: 18px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
@@ -725,7 +726,7 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
             with col_obj:
                 st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Single clean card button text with clear icon and big bold title (NO MODULE BADGE)
+                # Single clean card button text with clear icon and big bold title
                 button_content = f"{mod_data['icon']}\n\n**{mod_data['name']}**"
                 
                 if st.button(button_content, key=f"box_card_{m_key}", use_container_width=True):
@@ -1181,7 +1182,7 @@ elif st.session_state.active_tab == "BLNK":
         "13": "NAGALAND", "14": "MANIPUR", "15": "MIZORAM", "16": "TRIPURA",
         "17": "MEGHALAYA", "18": "ASSAM", "19": "WEST BENGAL", "20": "JHARKHAND",
         "21": "ODISHA", "22": "CHATTISGARH", "23": "MADHYA PRADESH", "24": "GUJARAT",
-        "26": "DADRA AND NAGAR HAVELI AND DAMAN AND DIU", "27": "MAHARASHTRA", "29": "KARNATAKA",
+        "26": "DADRA AND NAGAR HAVELI AND DAMAN AND DIU", "27": "MAHARASHTRA", "29": "KARNATBACK",
         "30": "GOA", "31": "LAKSHADWEEP", "32": "KERALA", "33": "TAMIL NADU",
         "34": "PUDUCHERRY", "35": "ANDAMAN AND NICOBAR ISLANDS", "36": "TELANGANA", "37": "ANDHRA PRADESH",
         "38": "LADAKH"

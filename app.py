@@ -208,6 +208,7 @@ st.set_page_config(
 # ----------------- SYSTEM-ADAPTIVE CONTRAST CSS -----------------
 st.markdown("""
     <style>
+    /* SIDEBAR ALWAYS LOCKED OPEN */
     section[data-testid="stSidebar"] {
         display: block !important;
         visibility: visible !important;
@@ -293,6 +294,7 @@ st.markdown("""
         height: 32px !important;
     }
 
+    /* THEME-AWARE TOOL CARDS */
     .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
         margin-bottom: 22px !important;
@@ -1764,7 +1766,7 @@ elif st.session_state.active_tab == "BLNK":
         meta["line_items"] = line_items
         return out_pdf_buf, meta
 
-    # ----------------- RELIABLE 4x6 BOX LABEL GENERATOR -----------------
+    # ----------------- BULLET-PROOF 4x6 BOX LABEL GENERATOR -----------------
     def generate_4x6_box_labels_pdf(meta_data):
         try:
             code128_cls = barcode.get_barcode_class('code128')
@@ -1852,11 +1854,14 @@ elif st.session_state.active_tab == "BLNK":
             label_doc.save(out_buf)
             label_doc.close()
             return out_buf.getvalue(), total_boxes
-        except Exception as e:
-            # Fallback simple 1 page label
+        except Exception:
+            # Fallback
             doc_err = fitz.open()
             p = doc_err.new_page(width=288, height=432)
-            p.insert_text((20, 50), f"LABEL: {meta_data.get('invoice_no', '')}", fontsize=12)
+            p.draw_rect(fitz.Rect(10, 10, 278, 422), color=(0,0,0), width=2)
+            p.insert_text((20, 50), f"DISPATCH BOX LABEL", fontsize=14, fontname="hebo")
+            p.insert_text((20, 90), f"ORDER ID: {meta_data.get('ext_order_id', '')}", fontsize=11)
+            p.insert_text((20, 120), f"INVOICE NO: {meta_data.get('invoice_no', '')}", fontsize=11)
             b = doc_err.tobytes()
             doc_err.close()
             return b, 1
@@ -1872,7 +1877,7 @@ elif st.session_state.active_tab == "BLNK":
         tot_sgst = 0.0
         tot_igst = 0.0
 
-        for idx, item in enumerate(data["line_items"], 1):
+        for idx, item in enumerate(data.get("line_items", []), 1):
             qty = item["qty"]
             unit_price = item["unit_price"]
             unit_label = item.get("unit", "BOX")
@@ -2123,7 +2128,7 @@ elif st.session_state.active_tab == "BLNK":
             tot_igst = 0.0
             tot_discount = 0.0
 
-            for it in inv["line_items"]:
+            for it in inv.get("line_items", []):
                 qty = it["qty"]
                 price = it["unit_price"]
                 disc = it.get("discount", 0.0)
@@ -2239,8 +2244,8 @@ elif st.session_state.active_tab == "BLNK":
 
     def render_exact_government_einvoice_preview(meta):
         is_interstate = meta["is_interstate"]
-        tot_taxable = meta.get("printed_taxable_total") or sum([it['taxable_val'] for it in meta['line_items']])
-        tot_discount = sum([it.get('discount', 0.0) for it in meta['line_items']])
+        tot_taxable = meta.get("printed_taxable_total") or sum([it['taxable_val'] for it in meta.get('line_items', [])])
+        tot_discount = sum([it.get('discount', 0.0) for it in meta.get('line_items', [])])
 
         if is_interstate:
             tot_igst = meta.get("printed_tax_total") or round(tot_taxable * 0.05, 2)
@@ -2255,7 +2260,7 @@ elif st.session_state.active_tab == "BLNK":
         ack_date_str = f"{meta['clean_date']} 17:00:00"
 
         table_rows = ""
-        for idx, it in enumerate(meta['line_items'], 1):
+        for idx, it in enumerate(meta.get('line_items', []), 1):
             q = it['qty']
             p = it['unit_price']
             taxable = it['taxable_val']
@@ -2441,6 +2446,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
         if processed_docs:
             st.session_state.blnk_batch_results = processed_docs
 
+    # GUARANTEED RENDER FOR DOWNLOAD BUTTONS & PREVIEW
     if st.session_state.blnk_batch_results:
         active_docs = st.session_state.blnk_batch_results
         st.success(f"✅ Successfully processed {len(active_docs)} Invoices!")
@@ -2453,12 +2459,12 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             pdf_buf = doc["pdf_buf"]
             json_payload = build_einvoice_json_v101(meta)
             json_raw_bytes = json.dumps(json_payload, indent=4).encode('utf-8')
-            inv_no = meta["invoice_no"]
-            pdf_name = meta["pdf_filename"]
+            inv_no = meta.get("invoice_no", "INV-001")
+            pdf_name = meta.get("pdf_filename", "Invoice.pdf")
 
-            inv_tot_val = float(meta.get("printed_grand_total") or sum(it['taxable_val'] for it in meta['line_items']) * 1.05)
+            inv_tot_val = float(meta.get("printed_grand_total") or sum(it.get('taxable_val', 0.0) for it in meta.get('line_items', [])) * 1.05)
 
-            # Generate 4x6 Box Labels PDF
+            # Generate 4x6 Box Labels PDF safely
             label_pdf_bytes, total_box_count = generate_4x6_box_labels_pdf(meta)
 
             hist_item = {
@@ -2468,14 +2474,15 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 "excel_data": excel_raw_bytes,
                 "json_data": json_raw_bytes,
                 "pages": 1,
-                "stamped": len(meta["line_items"]),
+                "stamped": len(meta.get("line_items", [])),
                 "location": st.session_state.selected_wh,
                 "module": "BLNK",
-                "buyer": meta["buyer_name"],
+                "buyer": meta.get("buyer_name", "Blinkit"),
                 "total_value": inv_tot_val
             }
 
-            # ACTION DOWNLOAD BUTTONS ROW (ALL 4 BUTTONS PROMINENT & ACTIVE)
+            st.write("")
+            # ALL 4 ACTION BUTTONS IN CLEAN ROW
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.download_button(
@@ -2520,9 +2527,9 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     use_container_width=True
                 )
 
-            # COMPACT PREVIEW TOGGLE TOOL (CLEAN & EXPANDABLE)
+            # CLEAN COMPACT PREVIEW TOOL
             with st.expander("👁️ Preview Official Government e-Invoice"):
-                calc_height = 560 + (len(meta['line_items']) * 36)
+                calc_height = 560 + (len(meta.get('line_items', [])) * 36)
                 preview_html = render_exact_government_einvoice_preview(meta)
                 components.html(preview_html, height=calc_height, scrolling=True)
 
@@ -2532,7 +2539,6 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             bulk_json = [build_einvoice_json_v101(d["meta"]) for d in active_docs]
             date_str = datetime.now(IST).strftime('%d-%m-%Y')
 
-            # Bundle all 4x6 labels for bulk invoices
             bulk_labels_doc = fitz.open()
             total_bulk_boxes = 0
 
@@ -2561,7 +2567,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     zip_file.writestr(f"{name_root}.xlsx", single_excel_bytes)
                     zip_file.writestr(f"{name_root}.json", single_json_bytes)
 
-                    inv_tot_val = float(doc["meta"].get("printed_grand_total") or sum(it['taxable_val'] for it in doc["meta"]['line_items']) * 1.05)
+                    inv_tot_val = float(doc["meta"].get("printed_grand_total") or sum(it.get('taxable_val', 0.0) for it in doc["meta"].get('line_items', [])) * 1.05)
 
                     batch_hist.append({
                         "original_name": doc["original_name"],
@@ -2570,14 +2576,15 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                         "excel_data": single_excel_bytes,
                         "json_data": single_json_bytes,
                         "pages": 1,
-                        "stamped": len(doc["meta"]["line_items"]),
+                        "stamped": len(doc["meta"].get("line_items", [])),
                         "location": st.session_state.selected_wh,
                         "module": "BLNK",
-                        "buyer": doc["meta"]["buyer_name"],
+                        "buyer": doc["meta"].get("buyer_name", "Blinkit"),
                         "total_value": inv_tot_val
                     })
             zip_buffer.seek(0)
 
+            st.write("")
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.download_button(
@@ -2614,7 +2621,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 )
             with c4:
                 st.download_button(
-                    label=f"🏷️ All 4x6 Labels ({total_bulk_boxes} Boxes)",
+                    label=f"🏷️ All Labels ({total_bulk_boxes} Boxes)",
                     data=bulk_labels_bytes,
                     file_name=f"All_Bulk_Box_Labels_{date_str}.pdf",
                     mime="application/pdf",
@@ -2622,13 +2629,12 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     use_container_width=True
                 )
 
-            # COMPACT PREVIEW TOGGLE TOOL FOR BULK
             with st.expander("👁️ Preview Invoices"):
                 preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
                 for i, tab in enumerate(preview_tabs):
                     with tab:
                         curr_meta = active_docs[i]['meta']
-                        calc_height = 560 + (len(curr_meta['line_items']) * 36)
+                        calc_height = 560 + (len(curr_meta.get('line_items', [])) * 36)
                         p_html = render_exact_government_einvoice_preview(curr_meta)
                         components.html(p_html, height=calc_height, scrolling=True)
 

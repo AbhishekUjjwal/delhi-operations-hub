@@ -25,10 +25,6 @@ RETENTION_DAYS = 30
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
-# ----------------- SESSION THEME SETUP -----------------
-if "app_theme" not in st.session_state:
-    st.session_state.app_theme = "dark"
-
 def load_disk_history():
     if not os.path.exists(METADATA_FILE):
         return []
@@ -297,7 +293,6 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* THEME-AWARE TOOL CARDS */
     .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
         margin-bottom: 22px !important;
@@ -1769,92 +1764,102 @@ elif st.session_state.active_tab == "BLNK":
         meta["line_items"] = line_items
         return out_pdf_buf, meta
 
-    # ----------------- DEDICATED 4x6 BOX LABEL GENERATOR -----------------
+    # ----------------- RELIABLE 4x6 BOX LABEL GENERATOR -----------------
     def generate_4x6_box_labels_pdf(meta_data):
-        code128_cls = barcode.get_barcode_class('code128')
-        writer = ImageWriter()
-        writer.font_path = None
+        try:
+            code128_cls = barcode.get_barcode_class('code128')
+            writer = ImageWriter()
+            writer.font_path = None
 
-        def make_bc(val):
-            try:
-                b = code128_cls(str(val).strip(), writer=writer)
-                buf = io.BytesIO()
-                b.write(buf, options={'write_text': False, 'module_width': 0.45, 'module_height': 14.0, 'quiet_zone': 1.0, 'dpi': 200})
-                return buf.getvalue()
-            except Exception:
-                return None
+            def make_bc(val):
+                try:
+                    b = code128_cls(str(val).strip(), writer=writer)
+                    buf = io.BytesIO()
+                    b.write(buf, options={'write_text': False, 'module_width': 0.45, 'module_height': 14.0, 'quiet_zone': 1.0, 'dpi': 200})
+                    return buf.getvalue()
+                except Exception:
+                    return None
 
-        total_boxes = sum(item['qty'] for item in meta_data.get('line_items', []))
-        if total_boxes <= 0:
-            total_boxes = 1
+            items = meta_data.get('line_items', [])
+            total_boxes = sum(int(item.get('qty', 1)) for item in items) if items else 1
+            if total_boxes <= 0:
+                total_boxes = 1
 
-        label_doc = fitz.open()
-        w_pt, h_pt = 288, 432  # 4x6 Inch Standard Dimensions (72 DPI)
+            label_doc = fitz.open()
+            w_pt, h_pt = 288, 432  # 4x6 Inch Standard Dimensions (72 DPI)
 
-        order_id = str(meta_data.get('ext_order_id', 'ORD-001'))
-        inv_no = str(meta_data.get('invoice_no', 'INV-001'))
-        inv_dt = str(meta_data.get('clean_date', ''))
-        buyer_nm = str(meta_data.get('buyer_name', 'Blinkit Facility'))
-        buyer_addr = f"{meta_data.get('buyer_addr1', '')} {meta_data.get('buyer_addr2', '')}".strip()
-        buyer_loc = f"{meta_data.get('buyer_loc', '')} - {meta_data.get('buyer_pin', '')}".strip()
-        seller_nm = str(meta_data.get('seller_name', 'ROMSONS PRIME PRIVATE LIMITED'))
+            order_id = str(meta_data.get('ext_order_id', 'ORD-001'))
+            inv_no = str(meta_data.get('invoice_no', 'INV-001'))
+            inv_dt = str(meta_data.get('clean_date', ''))
+            buyer_nm = str(meta_data.get('buyer_name', 'Blinkit Facility'))
+            buyer_addr = f"{meta_data.get('buyer_addr1', '')} {meta_data.get('buyer_addr2', '')}".strip()
+            buyer_loc = f"{meta_data.get('buyer_loc', '')} - {meta_data.get('buyer_pin', '')}".strip()
+            seller_nm = str(meta_data.get('seller_name', 'ROMSONS PRIME PRIVATE LIMITED'))
 
-        bc_bytes = make_bc(order_id)
-
-        for b_no in range(1, total_boxes + 1):
-            page = label_doc.new_page(width=w_pt, height=h_pt)
-
-            # Outer Boundary Border
-            page.draw_rect(fitz.Rect(10, 10, w_pt - 10, h_pt - 10), color=(0, 0, 0), width=2)
-            page.draw_line(fitz.Point(10, 52), fitz.Point(w_pt - 10, 52), color=(0, 0, 0), width=1.5)
-
-            # Header Brand / Title
-            page.insert_text((16, 32), "ROMSONS DISPATCH LABEL", fontsize=13, fontname="hebo", color=(0, 0, 0))
-            page.insert_text((16, 45), f"WAREHOUSE: {st.session_state.selected_wh} | DATE: {inv_dt}", fontsize=8, fontname="helv", color=(0, 0, 0))
-
-            # Large Box Counter Badge
-            page.draw_rect(fitz.Rect(w_pt - 98, 14, w_pt - 14, 46), color=(0, 0, 0), fill=(0, 0, 0), width=0)
-            page.insert_text((w_pt - 92, 35), f"BOX {b_no} OF {total_boxes}", fontsize=10.5, fontname="hebo", color=(1, 1, 1))
-
-            # Order ID Barcode Area
-            if bc_bytes:
-                page.insert_image(fitz.Rect(25, 62, w_pt - 25, 115), stream=bc_bytes, keep_proportion=False)
-            page.insert_text((w_pt/2 - 50, 128), f"ORDER: {order_id}", fontsize=11, fontname="hebo", color=(0, 0, 0))
-
-            page.draw_line(fitz.Point(10, 138), fitz.Point(w_pt - 10, 138), color=(0, 0, 0), width=1)
-
-            # Invoice No. Section
-            page.insert_text((16, 156), f"INVOICE NO: {inv_no}", fontsize=11, fontname="hebo", color=(0, 0, 0))
-            page.insert_text((16, 172), f"TOTAL ITEMS IN SHIPMENT: {total_boxes} UNITS/BOXES", fontsize=9, fontname="helv", color=(0, 0, 0))
-
-            page.draw_line(fitz.Point(10, 184), fitz.Point(w_pt - 10, 184), color=(0, 0, 0), width=1)
-
-            # Recipient Address Box
-            page.insert_text((16, 202), "SHIP TO:", fontsize=9.5, fontname="hebo", color=(0, 0, 0))
-            page.insert_text((16, 218), buyer_nm[:34], fontsize=11, fontname="hebo", color=(0, 0, 0))
-            page.insert_text((16, 234), buyer_addr[:45], fontsize=8.5, fontname="helv", color=(0, 0, 0))
-            page.insert_text((16, 248), buyer_loc, fontsize=9.5, fontname="hebo", color=(0, 0, 0))
-
-            page.draw_line(fitz.Point(10, 264), fitz.Point(w_pt - 10, 264), color=(0, 0, 0), width=1)
-
-            # Secondary Barcode / Invoice Barcode
+            bc_bytes = make_bc(order_id)
             inv_bc = make_bc(inv_no)
-            if inv_bc:
-                page.insert_image(fitz.Rect(35, 276, w_pt - 35, 320), stream=inv_bc, keep_proportion=False)
-            page.insert_text((w_pt/2 - 40, 332), f"{inv_no}", fontsize=9, fontname="hebo", color=(0, 0, 0))
 
-            page.draw_line(fitz.Point(10, 344), fitz.Point(w_pt - 10, 344), color=(0, 0, 0), width=1)
+            for b_no in range(1, total_boxes + 1):
+                page = label_doc.new_page(width=w_pt, height=h_pt)
 
-            # Shipped By Details
-            page.insert_text((16, 362), "SHIPPED BY:", fontsize=8.5, fontname="hebo", color=(0, 0, 0))
-            page.insert_text((16, 376), seller_nm[:40], fontsize=9, fontname="hebo", color=(0, 0, 0))
-            page.insert_text((16, 390), f"GSTIN: {meta_data.get('seller_gstin', '')}", fontsize=8.5, fontname="helv", color=(0, 0, 0))
-            page.insert_text((16, 404), "VERIFIED & SCANNED FOR DISPATCH", fontsize=7.5, fontname="helv", color=(0, 0, 0))
+                # Outer Boundary Border
+                page.draw_rect(fitz.Rect(10, 10, w_pt - 10, h_pt - 10), color=(0, 0, 0), width=2)
+                page.draw_line(fitz.Point(10, 52), fitz.Point(w_pt - 10, 52), color=(0, 0, 0), width=1.5)
 
-        out_buf = io.BytesIO()
-        label_doc.save(out_buf)
-        label_doc.close()
-        return out_buf.getvalue(), total_boxes
+                # Header Brand / Title
+                page.insert_text((16, 32), "ROMSONS DISPATCH LABEL", fontsize=13, fontname="hebo", color=(0, 0, 0))
+                page.insert_text((16, 45), f"WAREHOUSE: {st.session_state.selected_wh} | DATE: {inv_dt}", fontsize=8, fontname="helv", color=(0, 0, 0))
+
+                # Large Box Counter Badge
+                page.draw_rect(fitz.Rect(w_pt - 98, 14, w_pt - 14, 46), color=(0, 0, 0), fill=(0, 0, 0), width=0)
+                page.insert_text((w_pt - 92, 35), f"BOX {b_no} OF {total_boxes}", fontsize=10.5, fontname="hebo", color=(1, 1, 1))
+
+                # Order ID Barcode Area
+                if bc_bytes:
+                    page.insert_image(fitz.Rect(25, 62, w_pt - 25, 115), stream=bc_bytes, keep_proportion=False)
+                page.insert_text((w_pt/2 - 50, 128), f"ORDER: {order_id}", fontsize=11, fontname="hebo", color=(0, 0, 0))
+
+                page.draw_line(fitz.Point(10, 138), fitz.Point(w_pt - 10, 138), color=(0, 0, 0), width=1)
+
+                # Invoice No. Section
+                page.insert_text((16, 156), f"INVOICE NO: {inv_no}", fontsize=11, fontname="hebo", color=(0, 0, 0))
+                page.insert_text((16, 172), f"TOTAL ITEMS IN SHIPMENT: {total_boxes} UNITS/BOXES", fontsize=9, fontname="helv", color=(0, 0, 0))
+
+                page.draw_line(fitz.Point(10, 184), fitz.Point(w_pt - 10, 184), color=(0, 0, 0), width=1)
+
+                # Recipient Address Box
+                page.insert_text((16, 202), "SHIP TO:", fontsize=9.5, fontname="hebo", color=(0, 0, 0))
+                page.insert_text((16, 218), buyer_nm[:34], fontsize=11, fontname="hebo", color=(0, 0, 0))
+                page.insert_text((16, 234), buyer_addr[:45], fontsize=8.5, fontname="helv", color=(0, 0, 0))
+                page.insert_text((16, 248), buyer_loc, fontsize=9.5, fontname="hebo", color=(0, 0, 0))
+
+                page.draw_line(fitz.Point(10, 264), fitz.Point(w_pt - 10, 264), color=(0, 0, 0), width=1)
+
+                # Secondary Barcode / Invoice Barcode
+                if inv_bc:
+                    page.insert_image(fitz.Rect(35, 276, w_pt - 35, 320), stream=inv_bc, keep_proportion=False)
+                page.insert_text((w_pt/2 - 40, 332), f"{inv_no}", fontsize=9, fontname="hebo", color=(0, 0, 0))
+
+                page.draw_line(fitz.Point(10, 344), fitz.Point(w_pt - 10, 344), color=(0, 0, 0), width=1)
+
+                # Shipped By Details
+                page.insert_text((16, 362), "SHIPPED BY:", fontsize=8.5, fontname="hebo", color=(0, 0, 0))
+                page.insert_text((16, 376), seller_nm[:40], fontsize=9, fontname="hebo", color=(0, 0, 0))
+                page.insert_text((16, 390), f"GSTIN: {meta_data.get('seller_gstin', '')}", fontsize=8.5, fontname="helv", color=(0, 0, 0))
+                page.insert_text((16, 404), "VERIFIED & SCANNED FOR DISPATCH", fontsize=7.5, fontname="helv", color=(0, 0, 0))
+
+            out_buf = io.BytesIO()
+            label_doc.save(out_buf)
+            label_doc.close()
+            return out_buf.getvalue(), total_boxes
+        except Exception as e:
+            # Fallback simple 1 page label
+            doc_err = fitz.open()
+            p = doc_err.new_page(width=288, height=432)
+            p.insert_text((20, 50), f"LABEL: {meta_data.get('invoice_no', '')}", fontsize=12)
+            b = doc_err.tobytes()
+            doc_err.close()
+            return b, 1
 
     def build_einvoice_json_v101(data):
         is_interstate = data["is_interstate"]
@@ -2470,7 +2475,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 "total_value": inv_tot_val
             }
 
-            # ACTION DOWNLOAD BUTTONS ROW (WITH NEW BOX LABEL TOOL)
+            # ACTION DOWNLOAD BUTTONS ROW (ALL 4 BUTTONS PROMINENT & ACTIVE)
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.download_button(
@@ -2512,12 +2517,11 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     file_name=f"BoxLabels_{inv_no}.pdf",
                     mime="application/pdf",
                     key="dl_single_box_labels",
-                    use_container_width=True,
-                    help="Thermal 4x6 Inch Label Print based on Total Invoice Qty"
+                    use_container_width=True
                 )
 
-            # COMPACT PREVIEW TOOL (CLEAN ACCORDION / TOGGLE)
-            with st.expander("👁️ Preview Official e-Invoice"):
+            # COMPACT PREVIEW TOGGLE TOOL (CLEAN & EXPANDABLE)
+            with st.expander("👁️ Preview Official Government e-Invoice"):
                 calc_height = 560 + (len(meta['line_items']) * 36)
                 preview_html = render_exact_government_einvoice_preview(meta)
                 components.html(preview_html, height=calc_height, scrolling=True)
@@ -2615,11 +2619,10 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     file_name=f"All_Bulk_Box_Labels_{date_str}.pdf",
                     mime="application/pdf",
                     key="dl_bulk_box_labels",
-                    use_container_width=True,
-                    help="Download all thermal box labels combined in a single PDF"
+                    use_container_width=True
                 )
 
-            # COMPACT BULK PREVIEW ACCORDION
+            # COMPACT PREVIEW TOGGLE TOOL FOR BULK
             with st.expander("👁️ Preview Invoices"):
                 preview_tabs = st.tabs([f"INV: {d['meta']['invoice_no']}" for d in processed_docs])
                 for i, tab in enumerate(preview_tabs):

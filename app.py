@@ -127,11 +127,6 @@ def save_item_to_disk_history(item):
         with open(os.path.join(STORAGE_DIR, disk_json_fname), "wb") as fj:
             fj.write(item["json_data"])
 
-    try:
-        val_to_save = float(item.get("total_value", 0.0))
-    except (ValueError, TypeError):
-        val_to_save = 0.0
-
     meta_record = {
         "original_name": item.get("original_name", base_name),
         "file_name": new_file_name,
@@ -142,8 +137,8 @@ def save_item_to_disk_history(item):
         "stamped": item.get("stamped", 0),
         "location": wh,
         "module": mod,
-        "buyer": item.get("buyer", "Unknown"),
-        "total_value": val_to_save,
+        "buyer": item.get("buyer", "Commercial Buyer"),
+        "total_value": float(item.get("total_value", 0.0)),
         "created_ts": current_ts,
         "time": get_current_ist_str()
     }
@@ -234,7 +229,25 @@ st.markdown("""
         border-color: rgba(58, 80, 107, 0.3) !important;
     }
 
-    /* Small action buttons in top bar */
+    .pan-brand-title {
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: -0.3px;
+        background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0px 0px 1px 0px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .pan-brand-subtitle {
+        font-size: 12.5px;
+        font-weight: 500;
+        color: #94a3b8;
+        margin-bottom: 8px;
+    }
+
     .right-action-cluster div[data-testid="stButton"] button {
         border-radius: 16px !important;
         font-size: 12px !important;
@@ -256,23 +269,14 @@ st.markdown("""
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }
 
-    .pan-brand-title {
-        font-size: 22px;
-        font-weight: 900;
-        letter-spacing: -0.3px;
-        background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin: 0px 0px 1px 0px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .pan-brand-subtitle {
-        font-size: 12.5px;
-        font-weight: 500;
-        color: #94a3b8;
-        margin-bottom: 8px;
+    .top-tab-strip div[data-testid="stButton"] button {
+        border-radius: 18px !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        padding: 4px 14px !important;
+        min-height: 32px !important;
+        height: 32px !important;
+        border: 1px solid rgba(148, 163, 184, 0.3) !important;
     }
 
     .pro-success-card {
@@ -284,100 +288,55 @@ st.markdown("""
         margin: 8px 0px;
     }
 
-    /* Pinned Tabs Styling */
-    .top-tab-strip div[data-testid="stButton"] button {
-        border-radius: 18px !important;
-        font-size: 12px !important;
-        font-weight: 700 !important;
-        padding: 4px 14px !important;
-        min-height: 32px !important;
-        height: 32px !important;
-    }
-
-    /* ----------------- CLEAN BUTTON-CARD SYSTEM (NO OVERLAPS, PURE STABILITY) ----------------- */
-    .dashboard-tool-container div[data-testid="stButton"] {
+    /* EXACT OVAL CARD STYLING ON STREAMLIT BUTTON DIRECTLY */
+    .dashboard-grid-area div[data-testid="stButton"] {
         width: 100% !important;
-        margin-bottom: 20px !important;
+        margin-bottom: 14px !important;
     }
-
-    .dashboard-tool-container div[data-testid="stButton"] button {
+    .dashboard-grid-area div[data-testid="stButton"] button {
         width: 100% !important;
-        min-height: 145px !important;
-        height: auto !important;
+        min-height: 168px !important;
         background: #ffffff !important;
         color: #0f172a !important;
-        border: 2px solid #cbd5e1 !important;
+        border: 2px solid #e2e8f0 !important;
         border-radius: 26px !important;
-        padding: 24px 30px !important;
+        padding: 22px 24px !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: flex-start !important;
-        justify-content: center !important;
+        justify-content: space-between !important;
         text-align: left !important;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12) !important;
-        cursor: pointer !important;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06) !important;
+        white-space: pre-wrap !important;
         transition: all 0.22s ease-in-out !important;
+        cursor: pointer !important;
     }
 
-    .dashboard-tool-container div[data-testid="stButton"] button p {
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        white-space: pre-line !important;
-        font-family: inherit !important;
-    }
-
-    /* TOOL ICON & TITLE BIG & CRISP */
-    .dashboard-tool-container div[data-testid="stButton"] button p .tool-icon {
-        font-size: 32px !important;
-        display: block !important;
-        margin-bottom: 12px !important;
-    }
-
-    .dashboard-tool-container div[data-testid="stButton"] button p strong {
-        font-size: 23px !important;
-        font-weight: 900 !important;
-        color: #0f172a !important;
-        display: block !important;
-        letter-spacing: -0.3px !important;
-    }
-
-    /* DARK THEME ADAPTATION */
-    @media (prefers-color-scheme: dark) {
-        .dashboard-tool-container div[data-testid="stButton"] button {
-            background: #1e293b !important;
-            border-color: rgba(148, 163, 184, 0.25) !important;
-        }
-        .dashboard-tool-container div[data-testid="stButton"] button p strong {
-            color: #ffffff !important;
-        }
-    }
-
-    /* DYNAMIC OUTLINE HOVER HIGHLIGHTS */
-    .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {
+    /* DYNAMIC OVAL BORDER HIGHLIGHTS ON HOVER */
+    .dashboard-grid-area .btn-amz div[data-testid="stButton"] button:hover {
         border-color: #2563eb !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25) !important;
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.16) !important;
     }
-    .dashboard-tool-container .card-blnk-po div[data-testid="stButton"] button:hover {
+    .dashboard-grid-area .btn-blnk-po div[data-testid="stButton"] button:hover {
         border-color: #059669 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(5, 150, 105, 0.25) !important;
+        box-shadow: 0 10px 24px rgba(5, 150, 105, 0.16) !important;
     }
-    .dashboard-tool-container .card-blnk div[data-testid="stButton"] button:hover {
+    .dashboard-grid-area .btn-blnk div[data-testid="stButton"] button:hover {
         border-color: #d97706 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(217, 119, 6, 0.25) !important;
+        box-shadow: 0 10px 24px rgba(217, 119, 6, 0.16) !important;
     }
-    .dashboard-tool-container .card-lbl div[data-testid="stButton"] button:hover {
+    .dashboard-grid-area .btn-lbl div[data-testid="stButton"] button:hover {
         border-color: #7c3aed !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(124, 58, 237, 0.25) !important;
+        box-shadow: 0 10px 24px rgba(124, 58, 237, 0.16) !important;
     }
-    .dashboard-tool-container .card-conf div[data-testid="stButton"] button:hover {
+    .dashboard-grid-area .btn-conf div[data-testid="stButton"] button:hover {
         border-color: #475569 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(71, 85, 105, 0.25) !important;
+        box-shadow: 0 10px 24px rgba(71, 85, 105, 0.16) !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -396,34 +355,44 @@ ORDERED_LOCATIONS = list(LOCATION_DISPLAY_MAP.keys())
 
 AVAILABLE_MODULES = {
     "AMZ": {
-        "name": "1. Amazon Invoice Process",
+        "mod_no": "MODULE 01",
+        "name": "1. Amazon Invoice Editor",
         "code": "AMZ-ED",
-        "icon": "📄",
-        "css_cls": "card-amz"
+        "short_open": "Open AMZ-ED ➔",
+        "logo": "📄",
+        "css_cls": "btn-amz"
     },
     "BLNK_PO": {
-        "name": "2. Blinkit PO Pounch",
+        "mod_no": "MODULE 02",
+        "name": "2. Blinkit PO Pouch",
         "code": "BLNK-PO",
-        "icon": "🛍️",
-        "css_cls": "card-blnk-po"
+        "short_open": "Open BLNK-PO ➔",
+        "logo": "🛍️",
+        "css_cls": "btn-blnk-po"
     },
     "BLNK": {
+        "mod_no": "MODULE 03",
         "name": "3. Blinkit e-Invoice Tool",
         "code": "BLNK-INV",
-        "icon": "🧾",
-        "css_cls": "card-blnk"
+        "short_open": "Open BLNK-INV ➔",
+        "logo": "🧾",
+        "css_cls": "btn-blnk"
     },
     "LBL": {
+        "mod_no": "MODULE 04",
         "name": "4. Label Editor Tool",
         "code": "LBL-ED",
-        "icon": "🏷️",
-        "css_cls": "card-lbl"
+        "short_open": "Open LBL-ED ➔",
+        "logo": "🏷️",
+        "css_cls": "btn-lbl"
     },
     "CONF": {
+        "mod_no": "MODULE 05",
         "name": "5. Settings & Config",
         "code": "SETTINGS",
-        "icon": "⚙️",
-        "css_cls": "card-conf"
+        "short_open": "Open SETTINGS ➔",
+        "logo": "⚙️",
+        "css_cls": "btn-conf"
     }
 }
 
@@ -454,11 +423,13 @@ def get_current_location_history():
 
     return [item for item in module_items if item.get("location") == current_wh]
 
-def reset_current_workspace():
+def reset_complete_workspace():
     st.session_state.uploader_key += 1
     st.session_state.current_batch_results = []
     st.session_state.blnk_batch_results = []
     st.session_state.show_history = False
+    st.session_state.open_tabs = ["HOME"]
+    st.session_state.active_tab = "HOME"
     st.rerun()
 
 def clear_all_pinned_tabs():
@@ -467,32 +438,42 @@ def clear_all_pinned_tabs():
     st.session_state.show_history = False
     st.rerun()
 
-# ----------------- SIDEBAR: ANALOG CLOCK + LIVE ACCURATE GRAPH -----------------
+# ----------------- SIDEBAR: CRASH-PROOF CLOCK + INVOICE ANALYTICS -----------------
 with st.sidebar:
-    clock_html = """
+    clock_component_code = """
     <!DOCTYPE html>
     <html>
     <head>
+    <meta charset="utf-8">
     <style>
-    .clock-wrapper {
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        background: transparent;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 6px 0px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        user-select: none;
+        overflow: hidden;
     }
-    .analog-clock {
-        width: 135px;
-        height: 135px;
+    .clock-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 4px 0;
+    }
+    .clock-dial {
+        width: 130px;
+        height: 130px;
         border-radius: 50%;
         background: #0f172a;
         border: 4px solid #38bdf8;
-        box-shadow: 0 0 18px rgba(56, 189, 248, 0.4);
+        box-shadow: 0 0 16px rgba(56, 189, 248, 0.45);
         position: relative;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }
-    .center-dot {
+    .center-pin {
         width: 8px;
         height: 8px;
         background: #38bdf8;
@@ -503,44 +484,45 @@ with st.sidebar:
         transform: translate(-50%, -50%);
         z-index: 10;
     }
-    .hand {
+    .needle {
         position: absolute;
         bottom: 50%;
         left: 50%;
         transform-origin: bottom center;
         border-radius: 4px;
     }
-    .hour-hand {
+    .needle-hour {
         width: 4px;
-        height: 38px;
+        height: 36px;
         background: #f8fafc;
         margin-left: -2px;
     }
-    .minute-hand {
+    .needle-min {
         width: 2.5px;
-        height: 50px;
+        height: 48px;
         background: #94a3b8;
         margin-left: -1.25px;
     }
-    .second-hand {
+    .needle-sec {
         width: 1.5px;
-        height: 56px;
+        height: 54px;
         background: #ef4444;
         margin-left: -0.75px;
     }
-    .time-ist-tag {
+    .badge-ist {
         font-size: 11px;
         font-weight: 800;
         color: #38bdf8;
-        letter-spacing: 1px;
+        letter-spacing: 0.8px;
+        margin-top: 2px;
     }
-    .digital-time {
-        font-size: 15px;
+    .text-time {
+        font-size: 14.5px;
         font-weight: 700;
         color: #f1f5f9;
         margin-top: 2px;
     }
-    .digital-date {
+    .text-date {
         font-size: 11px;
         color: #94a3b8;
         margin-top: 1px;
@@ -548,54 +530,66 @@ with st.sidebar:
     </style>
     </head>
     <body>
-    <div class="clock-wrapper">
-        <div class="analog-clock">
-            <div class="center-dot"></div>
-            <div class="hand hour-hand" id="hour"></div>
-            <div class="hand minute-hand" id="min"></div>
-            <div class="hand second-hand" id="sec"></div>
+    <div class="clock-container">
+        <div class="clock-dial">
+            <div class="center-pin"></div>
+            <div class="needle needle-hour" id="n_hour"></div>
+            <div class="needle needle-min" id="n_min"></div>
+            <div class="needle needle-sec" id="n_sec"></div>
         </div>
-        <div class="time-ist-tag">🇮🇳 INDIA TIME (IST)</div>
-        <div class="digital-time" id="digi-time">--:--:-- --</div>
-        <div class="digital-date" id="digi-date">--</div>
+        <div class="badge-ist">🇮🇳 INDIA TIME (IST)</div>
+        <div class="text-time" id="val_time">--:--:-- --</div>
+        <div class="text-date" id="val_date">--</div>
     </div>
     <script>
-    function updateClock() {
-        const now = new Date();
-        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-        const ist = new Date(utc + (3600000 * 5.5));
-        
-        const h = ist.getHours();
-        const m = ist.getMinutes();
-        const s = ist.getSeconds();
+    function renderISTClock() {
+        try {
+            const now = new Date();
+            const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const istTime = new Date(utcTime + (3600000 * 5.5));
+            
+            const hours = istTime.getHours();
+            const minutes = istTime.getMinutes();
+            const seconds = istTime.getSeconds();
 
-        const hDeg = (h % 12) * 30 + (m / 2);
-        const mDeg = m * 6;
-        const sDeg = s * 6;
+            const degH = (hours % 12) * 30 + (minutes / 2);
+            const degM = minutes * 6;
+            const degS = seconds * 6;
 
-        document.getElementById('hour').style.transform = `rotate(${hDeg}deg)`;
-        document.getElementById('min').style.transform = `rotate(${mDeg}deg)`;
-        document.getElementById('sec').style.transform = `rotate(${sDeg}deg)`;
+            const elH = document.getElementById('n_hour');
+            const elM = document.getElementById('n_min');
+            const elS = document.getElementById('n_sec');
+            const elTime = document.getElementById('val_time');
+            const elDate = document.getElementById('val_date');
 
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        const h12 = h % 12 || 12;
-        const pad = (n) => n < 10 ? '0' + n : n;
-        document.getElementById('digi-time').innerText = `${pad(h12)}:${pad(m)}:${pad(s)} ${ampm}`;
-        
-        const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
-        document.getElementById('digi-date').innerText = ist.toLocaleDateString('en-IN', options);
+            if (elH) elH.style.transform = "rotate(" + degH + "deg)";
+            if (elM) elM.style.transform = "rotate(" + degM + "deg)";
+            if (elS) elS.style.transform = "rotate(" + degS + "deg)";
+
+            const pad = (n) => (n < 10 ? "0" + n : n);
+            const ampm = hours >= 12 ? "PM" : "AM";
+            const h12 = hours % 12 || 12;
+
+            if (elTime) elTime.innerText = pad(h12) + ":" + pad(minutes) + ":" + pad(seconds) + " " + ampm;
+            if (elDate) {
+                const opt = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+                elDate.innerText = istTime.toLocaleDateString('en-IN', opt);
+            }
+        } catch (err) {
+            console.error("Clock update error:", err);
+        }
     }
-    setInterval(updateClock, 1000);
-    updateClock();
+    renderISTClock();
+    setInterval(renderISTClock, 1000);
     </script>
     </body>
     </html>
     """
-    components.html(clock_html, height=225)
+    components.html(clock_component_code, height=215)
     st.markdown(f"**WH Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`")
     st.divider()
 
-    # --- INVOICE ANALYTICS GRAPH (DEDUPLICATED & BLINKIT VS OTHER BUYERS) ---
+    # --- DEDUPLICATED INVOICE ANALYTICS WITH EXACT VALUE (₹) ---
     st.markdown("📊 **Invoice Upload Analytics**")
     all_history_records = load_disk_history()
 
@@ -608,6 +602,18 @@ with st.sidebar:
     for r in active_records:
         inv_key = r.get("original_name") or r.get("file_name")
         if inv_key not in unique_invoices:
+            stored_val = float(r.get("total_value", 0.0))
+            if stored_val == 0.0 and "data" in r:
+                try:
+                    tdoc = fitz.open(stream=r["data"], filetype="pdf")
+                    t_txt = tdoc[0].get_text()
+                    gt_m = re.search(r"(?:Grand\s*Total|Invoice\s*Total|Total\s*Invoice\s*Value)[:\s]*[₹\s]*([0-9,]+\.\d{2})", t_txt, re.I)
+                    if gt_m:
+                        stored_val = float(gt_m.group(1).replace(",", ""))
+                    tdoc.close()
+                except Exception:
+                    pass
+            r["calc_val"] = stored_val
             unique_invoices[inv_key] = r
 
     dedup_list = list(unique_invoices.values())
@@ -619,11 +625,7 @@ with st.sidebar:
 
     for item in dedup_list:
         buyer_str = str(item.get("buyer", "")).lower() + " " + str(item.get("file_name", "")).lower()
-        try:
-            val = float(item.get("total_value", 0.0))
-        except (ValueError, TypeError):
-            val = 0.0
-            
+        val = float(item.get("calc_val", 0.0))
         if "blink" in buyer_str:
             blinkit_count += 1
             blinkit_val += val
@@ -631,22 +633,26 @@ with st.sidebar:
             other_count += 1
             other_val += val
 
+    def fmt_amt(amt):
+        if amt >= 100000:
+            return f"₹{amt/100000:.2f} L"
+        elif amt > 0:
+            return f"₹{amt:,.0f}"
+        return "₹0"
+
     m_col1, m_col2 = st.columns(2)
     with m_col1:
-        st.metric("⚡ Blinkit", f"{blinkit_count} Inv", delta=f"₹{blinkit_val:,.0f}" if blinkit_val > 0 else "₹0")
+        st.metric("⚡ Blinkit", f"{blinkit_count} Inv", delta=fmt_amt(blinkit_val) if blinkit_val > 0 else None)
     with m_col2:
-        st.metric("🏢 Others", f"{other_count} Inv", delta=f"₹{other_val:,.0f}" if other_val > 0 else "₹0")
+        st.metric("🏢 Others", f"{other_count} Inv", delta=fmt_amt(other_val) if other_val > 0 else None)
 
     chart_df = pd.DataFrame({
-        "Category": ["Blinkit Invoices", "Other Invoices"],
-        "Count": [blinkit_count, other_count],
-        "Total Value (₹)": [blinkit_val, other_val]
+        "Category": ["Blinkit Invoices", "Other Buyers"],
+        "Count": [blinkit_count, other_count]
     }).set_index("Category")
 
-    st.bar_chart(chart_df[["Total Value (₹)"]], height=135, use_container_width=True)
-
-    total_net_val = blinkit_val + other_val
-    st.caption(f"Total Unique Invoices: **{len(dedup_list)}** | Net Total: **₹{total_net_val:,.2f}**")
+    st.bar_chart(chart_df, height=130, use_container_width=True)
+    st.markdown(f"**Total Value:** `{fmt_amt(blinkit_val + other_val)}` | **Invoices:** `{len(dedup_list)}`")
     st.divider()
 
 # ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
@@ -662,7 +668,7 @@ with h_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
     with loc_sub1:
-        if st.button("🔄", key="btn_refresh_pinned", help="Clear all extra tabs", use_container_width=True):
+        if st.button("🔄", key="btn_refresh_pinned", help="Clear all extra pinned tabs", use_container_width=True):
             clear_all_pinned_tabs()
     with loc_sub2:
         selected_display = st.selectbox(
@@ -681,8 +687,9 @@ with h_right:
             st.session_state.show_history = not st.session_state.show_history
             st.rerun()
     with reset_col:
-        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset workspace", use_container_width=True):
-            reset_current_workspace()
+        # FULL RESET: Pinned tabs saaf hokar seedhe HOME par aa jayenge
+        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset workspace and remove pinned tabs", use_container_width=True):
+            reset_complete_workspace()
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -694,7 +701,7 @@ for idx, t_key in enumerate(st.session_state.open_tabs):
         tab_label = "🏠 HOME"
     else:
         info = AVAILABLE_MODULES[t_key]
-        tab_label = f"{info['icon']} {info['code']} ✕" if len(st.session_state.open_tabs) > 1 else f"{info['icon']} {info['code']}"
+        tab_label = f"{info['logo']} {info['code']} ✕" if len(st.session_state.open_tabs) > 1 else f"{info['logo']} {info['code']}"
 
     is_active = (t_key == st.session_state.active_tab and not st.session_state.show_history)
     with tab_cols[idx]:
@@ -710,11 +717,11 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ----------------- CLEAN BOX DESIGN: ONLY TOOL NAME & ICON (MODULE 1/2 REMOVED) -----------------
+# ----------------- DASHBOARD VIEW: EXACT OVAL CARDS (CLICK ANYWHERE DIRECTLY ON THE CARD) -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
-    st.markdown('<div style="font-size: 13.5px; font-weight: 800; color: #94a3b8; margin-bottom: 18px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size: 13px; font-weight: 800; color: #64748b; margin-bottom: 12px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="dashboard-tool-container">', unsafe_allow_html=True)
+    st.markdown('<div class="dashboard-grid-area">', unsafe_allow_html=True)
     keys = list(AVAILABLE_MODULES.keys())
     for i in range(0, len(keys), 2):
         c1, c2 = st.columns(2)
@@ -725,10 +732,14 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
             with col_obj:
                 st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Single clean card button text with clear icon and big bold title (NO MODULE BADGE)
-                button_content = f"{mod_data['icon']}\n\n**{mod_data['name']}**"
+                card_text = (
+                    f"{mod_data['logo']}          [{mod_data['mod_no']}]\n\n"
+                    f"{mod_data['name']}\n\n"
+                    f"────────────────────────\n"
+                    f"{mod_data['short_open']}"
+                )
                 
-                if st.button(button_content, key=f"box_card_{m_key}", use_container_width=True):
+                if st.button(card_text, key=f"card_btn_{m_key}"):
                     if m_key not in st.session_state.open_tabs:
                         st.session_state.open_tabs.append(m_key)
                     st.session_state.active_tab = m_key
@@ -740,13 +751,13 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
 
 # ----------------- HISTORY VIEW -----------------
 elif st.session_state.show_history:
-    cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "icon": "📁"})
+    cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "logo": "📁"})
     h_top_c1, h_top_c2 = st.columns([4, 1])
     with h_top_c1:
         if st.session_state.selected_wh == "Headoffice":
-            st.subheader(f"📜 {cur_mod_info['icon']} {cur_mod_info['name']} — Central Master History (All Locations)")
+            st.subheader(f"📜 {cur_mod_info['logo']} {cur_mod_info['name']} — Central Master History (All Locations)")
         else:
-            st.subheader(f"📜 {cur_mod_info['icon']} {cur_mod_info['name']} — [{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}]")
+            st.subheader(f"📜 {cur_mod_info['logo']} {cur_mod_info['name']} — [{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}]")
 
     with h_top_c2:
         if loc_history:
@@ -1151,7 +1162,7 @@ elif st.session_state.active_tab == "AMZ":
 
 # ----------------- MODULE 2: BLINKIT PO UPLOADER -----------------
 elif st.session_state.active_tab == "BLNK_PO":
-    st.subheader("🛍️ Blinkit PO Pounch & Manifest Processor")
+    st.subheader("🛍️ Blinkit PO Pouch & Manifest Processor")
     st.caption("Upload Blinkit Purchase Order (PO) PDFs for extraction and dispatch processing.")
 
     po_col1, po_col2 = st.columns(2)
@@ -1330,6 +1341,7 @@ elif st.session_state.active_tab == "BLNK":
         clean_dt = re.sub(r'[^A-Za-z0-9\-_]', '', clean_date)
         pdf_filename = f"{clean_ext}_{clean_inv}_{clean_dt}.pdf"
 
+        # --- SELLER EXTRACTION ---
         sold_header = [w for w in words if "sold" in w[4].lower()]
         bill_header = [w for w in words if "billing" in w[4].lower()]
         y_sold = sold_header[0][1] if sold_header else 80
@@ -1350,6 +1362,7 @@ elif st.session_state.active_tab == "BLNK":
         seller_loc = clean_extracted_city(seller_text, seller_state_name)
         s_addr1, s_addr2 = format_best_address(s_lines[1:], seller_name, seller_pin, seller_loc, seller_state_name)
 
+        # ----------------- PARSING BILLING & SHIPPING ADDRESSES -----------------
         b_idx = full_text.find("Billing Address")
         s_idx = full_text.find("Shipping Address")
         t_idx = full_text.find("S.No")
@@ -1403,6 +1416,7 @@ elif st.session_state.active_tab == "BLNK":
         buyer_loc = clean_extracted_city(billing_text_block, buyer_state_name)
         buyer_addr1, buyer_addr2 = format_best_address(b_lines, buyer_name, buyer_pin, buyer_loc, buyer_state_name)
 
+        # Shipping Details
         shp_gst_m = re.search(r"GSTIN\s*[:\s]*([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})", shipping_text_block, re.IGNORECASE)
         ship_gstin = shp_gst_m.group(1).strip() if shp_gst_m else buyer_gstin
         ship_state_code = ship_gstin[:2] if len(ship_gstin) >= 2 else buyer_state_code
@@ -1422,6 +1436,7 @@ elif st.session_state.active_tab == "BLNK":
 
         is_blinkit = bool(re.search(r"blink\s*commerce|blinkit", f"{buyer_name} {full_text}", re.IGNORECASE))
 
+        # ----------------- SHIPPING RULE -----------------
         if is_blinkit:
             shipping_is_different = False
         else:
@@ -1449,7 +1464,7 @@ elif st.session_state.active_tab == "BLNK":
         is_interstate = (seller_state_code != buyer_pos_code)
 
         inv_total_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
-        printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else None
+        printed_grand_total = float(inv_total_m.group(1).replace(",", "")) if inv_total_m else 0.0
 
         summary_m = re.search(r"Total\s*Amount\(\+\)\s*[:\s]*([0-9,]+\.\d{2})", full_text, re.I)
         printed_taxable_total = float(summary_m.group(1).replace(",", "")) if summary_m else None
@@ -1735,7 +1750,7 @@ elif st.session_state.active_tab == "BLNK":
                 "TotItemVal": tot_item_val
             })
 
-        exact_calc_total = data.get("printed_grand_total") or round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
+        exact_calc_total = float(data.get("printed_grand_total") or 0.0) or round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
 
         ship_dtls = None
         if data.get("shipping_is_different", False):
@@ -1976,7 +1991,7 @@ elif st.session_state.active_tab == "BLNK":
 
             final_taxable_sum = inv.get("printed_taxable_total") or round(tot_taxable, 2)
             final_tax_sum = inv.get("printed_tax_total") or round(tot_cgst + tot_sgst + tot_igst, 2)
-            final_invoice_val = inv.get("printed_grand_total") or round(final_taxable_sum + final_tax_sum, 2)
+            final_invoice_val = float(inv.get("printed_grand_total") or 0.0) or round(final_taxable_sum + final_tax_sum, 2)
 
             if inv.get("shipping_is_different", False):
                 ship_vals = [
@@ -2071,7 +2086,7 @@ elif st.session_state.active_tab == "BLNK":
             tot_cgst = round(tot_taxable * 0.025, 2)
             tot_sgst = round(tot_taxable * 0.025, 2)
 
-        exact_total = meta.get("printed_grand_total") or round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
+        exact_total = float(meta.get("printed_grand_total") or 0.0) or round(tot_taxable + tot_cgst + tot_sgst + tot_igst, 2)
         ack_date_str = f"{meta['clean_date']} 17:00:00"
 
         table_rows = ""
@@ -2289,7 +2304,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 </div>
             """, unsafe_allow_html=True)
 
-            inv_tot_val = float(meta.get("printed_grand_total") or sum(it['taxable_val'] for it in meta['line_items']) * 1.05)
+            inv_tot_val = float(meta.get("printed_grand_total") or 0.0)
 
             hist_item = {
                 "original_name": doc["original_name"],
@@ -2364,7 +2379,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     zip_file.writestr(f"{name_root}.xlsx", single_excel_bytes)
                     zip_file.writestr(f"{name_root}.json", single_json_bytes)
 
-                    inv_tot_val = float(doc["meta"].get("printed_grand_total") or sum(it['taxable_val'] for it in doc["meta"]['line_items']) * 1.05)
+                    inv_tot_val = float(doc["meta"].get("printed_grand_total") or 0.0)
 
                     batch_hist.append({
                         "original_name": doc["original_name"],

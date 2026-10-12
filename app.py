@@ -296,13 +296,12 @@ st.markdown("""
         height: 32px !important;
     }
 
-    /* ----------------- NATIVE THEME-AWARE TOOL CARDS ----------------- */
+    /* NATIVE THEME-AWARE TOOL CARDS */
     .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
         margin-bottom: 22px !important;
     }
 
-    /* DEFAULT (LIGHT THEME): WHITE CARD & JET BLACK TEXT */
     .dashboard-tool-container div[data-testid="stButton"] button {
         width: 100% !important;
         min-height: 160px !important;
@@ -326,14 +325,13 @@ st.markdown("""
     .dashboard-tool-container div[data-testid="stButton"] button p span {
         font-size: 24px !important;
         font-weight: 900 !important;
-        color: #0f172a !important; /* DEEP BLACK IN LIGHT THEME */
+        color: #0f172a !important;
         margin: 0 !important;
         white-space: pre-line !important;
         line-height: 1.4 !important;
         text-align: left !important;
     }
 
-    /* DARK THEME MEDIA QUERY (AUTOMATIC DETECTION) */
     @media (prefers-color-scheme: dark) {
         .dashboard-tool-container div[data-testid="stButton"] button {
             background-color: #1e293b !important;
@@ -343,7 +341,7 @@ st.markdown("""
         .dashboard-tool-container div[data-testid="stButton"] button p,
         .dashboard-tool-container div[data-testid="stButton"] button p strong,
         .dashboard-tool-container div[data-testid="stButton"] button p span {
-            color: #ffffff !important; /* PURE WHITE IN DARK THEME */
+            color: #ffffff !important;
         }
     }
 
@@ -539,7 +537,7 @@ with st.sidebar:
     }
     .digital-date {
         font-size: 11px;
-        color: #94a3b8;
+        color: #64748b;
         margin-top: 1px;
     }
     </style>
@@ -737,7 +735,7 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ----------------- HISTORY VIEW -----------------
+# ----------------- HISTORY VIEW (WITH DYNAMIC ORDER ID SEARCH & AUTO-SPLIT) -----------------
 elif st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "icon": "📁"})
     h_top_c1, h_top_c2 = st.columns([4, 1])
@@ -754,15 +752,85 @@ elif st.session_state.show_history:
                 clear_disk_history(wh_filter=st.session_state.selected_wh, mod_filter=st.session_state.active_tab)
                 st.rerun()
 
+    # Search bar for Order ID / Invoice Number
+    search_col1, search_col2 = st.columns([3.5, 0.5])
+    with search_col1:
+        search_query = st.text_input(
+            "🔍 Search Invoice by Order ID / Invoice No / Keyword:",
+            placeholder="Type Order ID (e.g. 402-1234567-8901234) or Invoice No...",
+            key=f"search_order_{st.session_state.selected_wh}_{st.session_state.active_tab}"
+        ).strip()
+    with search_col2:
+        st.write("")
+        st.write("")
+        if st.button("❌ Clear", key="clear_search_btn", use_container_width=True):
+            st.session_state[f"search_order_{st.session_state.selected_wh}_{st.session_state.active_tab}"] = ""
+            st.rerun()
+
+    # Split extraction function
+    def extract_single_order_page(pdf_bytes, query_clean):
+        try:
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            matched_doc = fitz.open()
+            for p_no in range(len(doc)):
+                txt = doc[p_no].get_text().lower()
+                clean_p_txt = re.sub(r'[^a-zA-Z0-9]', '', txt)
+                if query_clean in clean_p_txt:
+                    matched_doc.insert_pdf(doc, from_page=p_no, to_page=p_no)
+            
+            if len(matched_doc) > 0:
+                out = matched_doc.tobytes(deflate=True)
+                count = len(matched_doc)
+                matched_doc.close()
+                doc.close()
+                return out, count
+            doc.close()
+            return None, 0
+        except Exception:
+            return None, 0
+
     if not loc_history:
         st.info("No files in history.")
     else:
-        st.success(f"💾 Total Saved Files: **{len(loc_history)}** (Auto retained for 30 days)")
+        # Search query execution
+        if search_query:
+            clean_q = re.sub(r'[^a-zA-Z0-9]', '', search_query.lower())
+            search_matched_items = []
+            
+            with st.spinner("Searching and extracting matching invoice pages..."):
+                for item in loc_history:
+                    # Check in file name / metadata first
+                    f_clean = re.sub(r'[^a-zA-Z0-9]', '', str(item.get('file_name', '')).lower())
+                    o_clean = re.sub(r'[^a-zA-Z0-9]', '', str(item.get('original_name', '')).lower())
+                    
+                    split_pdf_bytes, split_pages = extract_single_order_page(item["data"], clean_q)
+                    
+                    if split_pdf_bytes:
+                        item_copy = dict(item)
+                        item_copy["data"] = split_pdf_bytes
+                        item_copy["file_name"] = f"Order_{search_query[:15]}_{item['file_name']}"
+                        item_copy["pages"] = split_pages
+                        item_copy["is_split"] = True
+                        search_matched_items.append(item_copy)
+                    elif clean_q in f_clean or clean_q in o_clean:
+                        item_copy = dict(item)
+                        item_copy["is_split"] = False
+                        search_matched_items.append(item_copy)
 
-        if len(loc_history) > 1:
+            if not search_matched_items:
+                st.warning(f"❌ Koi invoice nahi mila jisme Order ID / keyword **'{search_query}'** maujood ho.")
+                display_history = []
+            else:
+                st.success(f"🎯 Mil gaya! **{len(search_matched_items)}** Matching invoice(s) for Order ID: **{search_query}**")
+                display_history = search_matched_items
+        else:
+            display_history = loc_history
+            st.success(f"💾 Total Saved Files: **{len(loc_history)}** (Auto retained for 30 days)")
+
+        if len(display_history) > 1 and not search_query:
             zip_buf = io.BytesIO()
             with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                for idx, item in enumerate(loc_history):
+                for idx, item in enumerate(display_history):
                     loc_tag = item.get("location", "GEN")
                     name_root = item['file_name'][:-4] if item['file_name'].endswith(".pdf") else item['file_name']
 
@@ -777,7 +845,7 @@ elif st.session_state.show_history:
 
             zip_bytes = zip_buf.getvalue()
 
-            zip_title = f"📦 Download All Complete Invoices Bundle as ZIP ({len(loc_history)} Records)"
+            zip_title = f"📦 Download All Complete Invoices Bundle as ZIP ({len(display_history)} Records)"
             st.download_button(
                 label=zip_title,
                 data=zip_bytes,
@@ -788,26 +856,28 @@ elif st.session_state.show_history:
             )
 
         st.write("---")
-        for idx, item in enumerate(loc_history):
+        for idx, item in enumerate(display_history):
             name_root = item['file_name'][:-4] if item['file_name'].endswith(".pdf") else item['file_name']
             
             d_col1, d_col2, d_col3, d_col4 = st.columns([3.2, 0.9, 0.9, 0.9])
             with d_col1:
+                split_tag = " ✂️ *(Split Page)*" if item.get("is_split") else ""
                 st.write(
-                    f"📁 **{item['file_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
+                    f"📁 **{item['file_name']}**{split_tag} — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
                     f"⏰ *{item.get('time', '')}*"
                 )
             with d_col2:
+                btn_label = "📥 Split PDF" if item.get("is_split") else "📥 PDF"
                 st.download_button(
-                    label="📥 PDF",
+                    label=btn_label,
                     data=item["data"],
                     file_name=item["file_name"],
                     mime="application/pdf",
-                    key=f"dl_hist_pdf_{st.session_state.selected_wh}_{idx}",
+                    key=f"dl_hist_pdf_{st.session_state.selected_wh}_{idx}_{search_query[:5]}",
                     use_container_width=True
                 )
             with d_col3:
-                if "excel_data" in item and item["excel_data"]:
+                if "excel_data" in item and item["excel_data"] and not item.get("is_split"):
                     st.download_button(
                         label="📊 Excel",
                         data=item["excel_data"],
@@ -817,9 +887,9 @@ elif st.session_state.show_history:
                         use_container_width=True
                     )
                 else:
-                    st.button("📊 Excel", key=f"dis_xl_{idx}", disabled=True, use_container_width=True)
+                    st.button("📊 Excel", key=f"dis_xl_{idx}_{search_query[:5]}", disabled=True, use_container_width=True)
             with d_col4:
-                if "json_data" in item and item["json_data"]:
+                if "json_data" in item and item["json_data"] and not item.get("is_split"):
                     st.download_button(
                         label="🧾 JSON",
                         data=item["json_data"],
@@ -829,7 +899,7 @@ elif st.session_state.show_history:
                         use_container_width=True
                     )
                 else:
-                    st.button("🧾 JSON", key=f"dis_js_{idx}", disabled=True, use_container_width=True)
+                    st.button("🧾 JSON", key=f"dis_js_{idx}_{search_query[:5]}", disabled=True, use_container_width=True)
 
 # ----------------- MODULE 1: AMAZON INVOICE EDITOR -----------------
 elif st.session_state.active_tab == "AMZ":
@@ -2280,8 +2350,8 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             ship_status = "⚠️ Different (Shipping Details Filled in Excel)" if meta["shipping_is_different"] else "✅ Same (Shipping Blank in Excel)"
 
             st.markdown(f"""
-                <div style="background-color: {card_bg}; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'}; border: 1px solid {card_border}; color: {card_text_color};">
-                    <b>Buyer Name:</b> <code style="color: {card_text_color};">{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Tax Rule:</b> <code>{tax_badge}</code><br>
+                <div style="background-color: #ffffff; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'}; border: 1px solid #cbd5e1; color: #0f172a;">
+                    <b>Buyer Name:</b> <code style="color: #0f172a;">{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Tax Rule:</b> <code>{tax_badge}</code><br>
                     <b>Address 1:</b> <code>{meta['buyer_addr1']}</code> &nbsp;|&nbsp; <b>Address 2:</b> <code>{meta.get('buyer_addr2', '')}</code><br>
                     <b>City:</b> <code>{meta['buyer_loc']}</code> ({meta['buyer_pin']}) &nbsp;|&nbsp; <b>Shipping Status:</b> <code>{ship_status}</code><br>
                     <b>Seller:</b> {meta['seller_name']} ({meta['seller_gstin']})
@@ -2403,7 +2473,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 )
             with c3:
                 st.download_button(
-                    label="🧾 Download Bulk e-Invoice JSON ({len(bulk_json)} Invoices)",
+                    label=f"🧾 Download Bulk e-Invoice JSON ({len(bulk_json)} Invoices)",
                     data=json.dumps(bulk_json, indent=4).encode('utf-8'),
                     file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
                     mime="application/json",

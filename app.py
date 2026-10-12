@@ -208,43 +208,43 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ----------------- UNIVERSAL CONTRAST CSS -----------------
+# ----------------- THEME COLOR VARIABLES -----------------
 is_dark = (st.session_state.app_theme == "dark")
 
 if is_dark:
-    bg_color = "#0a0e17"
-    text_color = "#ffffff"
-    sidebar_bg = "#0f172a"
+    app_bg = "#0f172a"
+    sidebar_bg = "#0b1120"
     card_bg = "#1e293b"
     card_border = "#334155"
-    card_text = "#ffffff"
-    sub_text = "#94a3b8"
+    card_text_color = "#ffffff"
+    sub_color = "#94a3b8"
+    clock_face_bg = "#0f172a"
 else:
-    bg_color = "#f1f5f9"
-    text_color = "#0f172a"
+    app_bg = "#f8fafc"
     sidebar_bg = "#ffffff"
     card_bg = "#ffffff"
     card_border = "#cbd5e1"
-    card_text = "#000000"
-    sub_text = "#475569"
+    card_text_color = "#0f172a"
+    sub_color = "#475569"
+    clock_face_bg = "#ffffff"
 
 st.markdown(f"""
     <style>
-    /* MAIN APPLICATION CONTAINER */
+    /* PAGE BACKGROUND */
     .stApp, body {{
-        background-color: {bg_color} !important;
-        color: {text_color} !important;
+        background-color: {app_bg} !important;
+        color: {card_text_color} !important;
     }}
 
-    /* SIDEBAR ALWAYS OPEN */
+    /* SIDEBAR ALWAYS LOCKED OPEN */
     section[data-testid="stSidebar"] {{
         background-color: {sidebar_bg} !important;
         display: block !important;
         visibility: visible !important;
         transform: none !important;
-        min-width: 300px !important;
+        min-width: 290px !important;
         max-width: 320px !important;
-        border-right: 1px solid rgba(148, 163, 184, 0.2) !important;
+        border-right: 1px solid rgba(148, 163, 184, 0.25) !important;
     }}
     button[data-testid="stSidebarCollapseButton"] {{
         display: none !important;
@@ -267,50 +267,7 @@ st.markdown(f"""
         border-color: rgba(148, 163, 184, 0.25) !important;
     }}
 
-    /* TOP ACTION BUTTONS */
-    .right-action-cluster div[data-testid="stButton"] button {{
-        border-radius: 14px !important;
-        font-size: 12px !important;
-        font-weight: 600 !important;
-        min-height: 28px !important;
-        height: 28px !important;
-        line-height: 1 !important;
-        width: 100% !important;
-    }}
-
-    /* SQUARE THEME SWITCHERS */
-    .theme-box-dark div[data-testid="stButton"] button {{
-        background: #000000 !important;
-        border: 2px solid #38bdf8 !important;
-        border-radius: 8px !important;
-        height: 28px !important;
-        min-height: 28px !important;
-        width: 28px !important;
-        padding: 0 !important;
-        cursor: pointer !important;
-    }}
-    .theme-box-light div[data-testid="stButton"] button {{
-        background: #ffffff !important;
-        border: 2px solid #64748b !important;
-        border-radius: 8px !important;
-        height: 28px !important;
-        min-height: 28px !important;
-        width: 28px !important;
-        padding: 0 !important;
-        cursor: pointer !important;
-    }}
-
-    div[data-testid="stSelectbox"] label {{ display: none !important; }}
-    div[data-testid="stSelectbox"] {{ width: 100% !important; }}
-    div[data-testid="stSelectbox"] > div > div {{
-        min-height: 28px !important;
-        height: 28px !important;
-        padding: 0px 8px !important;
-        font-size: 12px !important;
-        border-radius: 14px !important;
-        border: 1px solid rgba(148, 163, 184, 0.3) !important;
-    }}
-
+    /* HEADER TITLES */
     .pan-brand-title {{
         font-size: 22px;
         font-weight: 900;
@@ -326,16 +283,73 @@ st.markdown(f"""
     .pan-brand-subtitle {{
         font-size: 12.5px;
         font-weight: 500;
-        color: {sub_text};
+        color: {sub_color};
         margin-bottom: 8px;
     }}
-
     .section-title-label {{
         font-size: 13.5px;
         font-weight: 800;
-        color: {sub_text};
+        color: {sub_color};
         margin-bottom: 18px;
         letter-spacing: 0.8px;
+    }}
+
+    /* TOP ACTION CLUSTER */
+    .right-action-cluster div[data-testid="stButton"] button {{
+        border-radius: 14px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        min-height: 28px !important;
+        height: 28px !important;
+        line-height: 1 !important;
+        width: 100% !important;
+    }}
+
+    /* THEME SWITCH SQUARE BUTTONS - COLOR LOCKED */
+    .theme-box-dark div[data-testid="stButton"] button {{
+        background: #000000 !important;
+        background-color: #000000 !important;
+        border: 2px solid {'#38bdf8' if is_dark else '#64748b'} !important;
+        border-radius: 8px !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        width: 100% !important;
+        padding: 0 !important;
+        box-shadow: 0 0 {'10px rgba(56, 189, 248, 0.7)' if is_dark else '0px transparent'} !important;
+        cursor: pointer !important;
+    }}
+    .theme-box-light div[data-testid="stButton"] button {{
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        border: 2px solid {'#38bdf8' if not is_dark else '#cbd5e1'} !important;
+        border-radius: 8px !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        width: 100% !important;
+        padding: 0 !important;
+        box-shadow: 0 0 {'10px rgba(56, 189, 248, 0.7)' if not is_dark else '0px transparent'} !important;
+        cursor: pointer !important;
+    }}
+
+    div[data-testid="stSelectbox"] label {{ display: none !important; }}
+    div[data-testid="stSelectbox"] {{ width: 100% !important; }}
+    div[data-testid="stSelectbox"] > div > div {{
+        min-height: 28px !important;
+        height: 28px !important;
+        padding: 0px 8px !important;
+        font-size: 12px !important;
+        border-radius: 14px !important;
+        border: 1px solid rgba(148, 163, 184, 0.3) !important;
+    }}
+
+    /* PINNED TABS */
+    .top-tab-strip div[data-testid="stButton"] button {{
+        border-radius: 18px !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        padding: 4px 14px !important;
+        min-height: 32px !important;
+        height: 32px !important;
     }}
 
     /* ----------------- BIG BULLET-PROOF TOOL CARDS ----------------- */
@@ -346,10 +360,10 @@ st.markdown(f"""
 
     .dashboard-tool-container div[data-testid="stButton"] button {{
         width: 100% !important;
-        min-height: 155px !important;
-        height: auto !important;
+        min-height: 160px !important;
+        height: 160px !important;
+        background: {card_bg} !important;
         background-color: {card_bg} !important;
-        color: {card_text} !important;
         border: 2px solid {card_border} !important;
         border-radius: 26px !important;
         padding: 24px 30px !important;
@@ -358,7 +372,7 @@ st.markdown(f"""
         align-items: flex-start !important;
         justify-content: center !important;
         text-align: left !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, {'0.4' if is_dark else '0.08'}) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, {'0.35' if is_dark else '0.08'}) !important;
         cursor: pointer !important;
         transition: all 0.22s ease-in-out !important;
     }}
@@ -366,39 +380,40 @@ st.markdown(f"""
     .dashboard-tool-container div[data-testid="stButton"] button p,
     .dashboard-tool-container div[data-testid="stButton"] button p strong,
     .dashboard-tool-container div[data-testid="stButton"] button p span {{
-        font-size: 23px !important;
+        font-size: 24px !important;
         font-weight: 900 !important;
-        color: {card_text} !important;
+        color: {card_text_color} !important;
         margin: 0 !important;
         white-space: pre-line !important;
-        line-height: 1.45 !important;
+        line-height: 1.4 !important;
+        text-align: left !important;
     }}
 
-    /* HOVER BORDER GLOW */
+    /* HOVER BORDER HIGHLIGHTS */
     .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {{
         border-color: #2563eb !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.3) !important;
+        box-shadow: 0 14px 30px rgba(37, 99, 235, 0.35) !important;
     }}
     .dashboard-tool-container .card-blnk-po div[data-testid="stButton"] button:hover {{
         border-color: #059669 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(5, 150, 105, 0.3) !important;
+        box-shadow: 0 14px 30px rgba(5, 150, 105, 0.35) !important;
     }}
     .dashboard-tool-container .card-blnk div[data-testid="stButton"] button:hover {{
         border-color: #d97706 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(217, 119, 6, 0.3) !important;
+        box-shadow: 0 14px 30px rgba(217, 119, 6, 0.35) !important;
     }}
     .dashboard-tool-container .card-lbl div[data-testid="stButton"] button:hover {{
         border-color: #7c3aed !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(124, 58, 237, 0.3) !important;
+        box-shadow: 0 14px 30px rgba(124, 58, 237, 0.35) !important;
     }}
     .dashboard-tool-container .card-conf div[data-testid="stButton"] button:hover {{
         border-color: #64748b !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(100, 116, 139, 0.3) !important;
+        box-shadow: 0 14px 30px rgba(100, 116, 139, 0.35) !important;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -493,30 +508,30 @@ def clear_all_pinned_tabs():
 
 # ----------------- SIDEBAR: ANALOG CLOCK + LIVE ACCURATE GRAPH -----------------
 with st.sidebar:
-    clock_html = """
+    clock_html = f"""
     <!DOCTYPE html>
     <html>
     <head>
     <style>
-    .clock-wrapper {
+    .clock-wrapper {{
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         padding: 6px 0px;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .analog-clock {
+    }}
+    .analog-clock {{
         width: 135px;
         height: 135px;
         border-radius: 50%;
-        background: #0f172a;
+        background: {clock_face_bg};
         border: 4px solid #38bdf8;
         box-shadow: 0 0 18px rgba(56, 189, 248, 0.4);
         position: relative;
         margin-bottom: 10px;
-    }
-    .center-dot {
+    }}
+    .center-dot {{
         width: 8px;
         height: 8px;
         background: #38bdf8;
@@ -526,49 +541,49 @@ with st.sidebar:
         left: 50%;
         transform: translate(-50%, -50%);
         z-index: 10;
-    }
-    .hand {
+    }}
+    .hand {{
         position: absolute;
         bottom: 50%;
         left: 50%;
         transform-origin: bottom center;
         border-radius: 4px;
-    }
-    .hour-hand {
+    }}
+    .hour-hand {{
         width: 4px;
         height: 38px;
-        background: #f8fafc;
+        background: {'#f8fafc' if is_dark else '#0f172a'};
         margin-left: -2px;
-    }
-    .minute-hand {
+    }}
+    .minute-hand {{
         width: 2.5px;
         height: 50px;
         background: #94a3b8;
         margin-left: -1.25px;
-    }
-    .second-hand {
+    }}
+    .second-hand {{
         width: 1.5px;
         height: 56px;
         background: #ef4444;
         margin-left: -0.75px;
-    }
-    .time-ist-tag {
+    }}
+    .time-ist-tag {{
         font-size: 11px;
         font-weight: 800;
         color: #38bdf8;
         letter-spacing: 1px;
-    }
-    .digital-time {
+    }}
+    .digital-time {{
         font-size: 15px;
         font-weight: 700;
         color: #38bdf8;
         margin-top: 2px;
-    }
-    .digital-date {
+    }}
+    .digital-date {{
         font-size: 11px;
         color: #64748b;
         margin-top: 1px;
-    }
+    }}
     </style>
     </head>
     <body>
@@ -584,7 +599,7 @@ with st.sidebar:
         <div class="digital-date" id="digi-date">--</div>
     </div>
     <script>
-    function updateClock() {
+    function updateClock() {{
         const now = new Date();
         const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
         const ist = new Date(utc + (3600000 * 5.5));
@@ -597,18 +612,18 @@ with st.sidebar:
         const mDeg = m * 6;
         const sDeg = s * 6;
 
-        document.getElementById('hour').style.transform = `rotate(${hDeg}deg)`;
-        document.getElementById('min').style.transform = `rotate(${mDeg}deg)`;
-        document.getElementById('sec').style.transform = `rotate(${sDeg}deg)`;
+        document.getElementById('hour').style.transform = `rotate(${{hDeg}}deg)`;
+        document.getElementById('min').style.transform = `rotate(${{mDeg}}deg)`;
+        document.getElementById('sec').style.transform = `rotate(${{sDeg}}deg)`;
 
         const ampm = h >= 12 ? 'PM' : 'AM';
         const h12 = h % 12 || 12;
         const pad = (n) => n < 10 ? '0' + n : n;
-        document.getElementById('digi-time').innerText = `${pad(h12)}:${pad(m)}:${pad(s)} ${ampm}`;
+        document.getElementById('digi-time').innerText = `${{pad(h12)}}:${{pad(m)}}:${{pad(s)}} ${{ampm}}`;
         
-        const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+        const options = {{ weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }};
         document.getElementById('digi-date').innerText = ist.toLocaleDateString('en-IN', options);
-    }
+    }}
     setInterval(updateClock, 1000);
     updateClock();
     </script>
@@ -674,7 +689,7 @@ with st.sidebar:
     st.divider()
 
 # ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
-h_left, h_right = st.columns([6.0, 4.0])
+h_left, h_right = st.columns([5.8, 4.2])
 
 with h_left:
     st.markdown("""
@@ -685,8 +700,8 @@ with h_left:
 with h_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     
-    # Theme switches shifted cleanly to the LEFT so Refresh and Location don't get hidden
-    c_dark, c_light, c_spacer, c_ref, c_loc = st.columns([0.38, 0.38, 0.15, 0.42, 1.67])
+    # ⬛ ⬜ Pure Theme Boxes (Color-Locked & Clean Placement)
+    c_dark, c_light, c_spacer, c_ref, c_loc = st.columns([0.38, 0.38, 0.12, 0.42, 1.70])
     
     with c_dark:
         st.markdown('<div class="theme-box-dark">', unsafe_allow_html=True)
@@ -697,7 +712,7 @@ with h_right:
 
     with c_light:
         st.markdown('<div class="theme-box-light">', unsafe_allow_html=True)
-        if st.button(" ", key="theme_light_btn", help="Light Theme"):
+        if st.button(" ", key="theme_light_btn", help="White Theme"):
             st.session_state.app_theme = "light"
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -2323,8 +2338,8 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             ship_status = "⚠️ Different (Shipping Details Filled in Excel)" if meta["shipping_is_different"] else "✅ Same (Shipping Blank in Excel)"
 
             st.markdown(f"""
-                <div style="background-color: #ffffff; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'}; border: 1px solid #cbd5e1; color: #0f172a;">
-                    <b>Buyer Name:</b> <code style="color: #0f172a;">{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Tax Rule:</b> <code>{tax_badge}</code><br>
+                <div style="background-color: {card_bg}; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'}; border: 1px solid {card_border}; color: {card_text_color};">
+                    <b>Buyer Name:</b> <code style="color: {card_text_color};">{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Tax Rule:</b> <code>{tax_badge}</code><br>
                     <b>Address 1:</b> <code>{meta['buyer_addr1']}</code> &nbsp;|&nbsp; <b>Address 2:</b> <code>{meta.get('buyer_addr2', '')}</code><br>
                     <b>City:</b> <code>{meta['buyer_loc']}</code> ({meta['buyer_pin']}) &nbsp;|&nbsp; <b>Shipping Status:</b> <code>{ship_status}</code><br>
                     <b>Seller:</b> {meta['seller_name']} ({meta['seller_gstin']})

@@ -396,7 +396,7 @@ ORDERED_LOCATIONS = list(LOCATION_DISPLAY_MAP.keys())
 
 AVAILABLE_MODULES = {
     "AMZ": {
-        "name": "1. B2B Invoice Process",
+        "name": "1. Amazon Invoice Process",
         "code": "AMZ-ED",
         "icon": "📄",
         "css_cls": "card-amz"

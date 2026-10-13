@@ -7,6 +7,7 @@ import io
 import json
 import os
 import zipfile
+import base64
 import barcode
 from barcode.writer import ImageWriter
 from datetime import datetime, timezone, timedelta
@@ -23,10 +24,6 @@ METADATA_FILE = os.path.join(STORAGE_DIR, "history_db.json")
 RETENTION_DAYS = 30
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
-
-# ----------------- SESSION THEME SETUP -----------------
-if "app_theme" not in st.session_state:
-    st.session_state.app_theme = "dark"
 
 def load_disk_history():
     if not os.path.exists(METADATA_FILE):
@@ -208,110 +205,41 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ----------------- UNIVERSAL CONTRAST CSS -----------------
-is_dark = (st.session_state.app_theme == "dark")
-
-if is_dark:
-    bg_color = "#0a0e17"
-    text_color = "#ffffff"
-    sidebar_bg = "#0f172a"
-    card_bg = "#1e293b"
-    card_border = "#334155"
-    card_text = "#ffffff"
-    sub_text = "#94a3b8"
-else:
-    bg_color = "#f1f5f9"
-    text_color = "#0f172a"
-    sidebar_bg = "#ffffff"
-    card_bg = "#ffffff"
-    card_border = "#cbd5e1"
-    card_text = "#0f172a"
-    sub_text = "#475569"
-
-st.markdown(f"""
+# ----------------- SYSTEM-ADAPTIVE CONTRAST CSS -----------------
+st.markdown("""
     <style>
-    /* MAIN APPLICATION CONTAINER */
-    .stApp, body {{
-        background-color: {bg_color} !important;
-        color: {text_color} !important;
-    }}
-
-    /* SIDEBAR ALWAYS OPEN */
-    section[data-testid="stSidebar"] {{
-        background-color: {sidebar_bg} !important;
+    /* SIDEBAR ALWAYS LOCKED OPEN */
+    section[data-testid="stSidebar"] {
         display: block !important;
         visibility: visible !important;
         transform: none !important;
-        min-width: 300px !important;
+        min-width: 290px !important;
         max-width: 320px !important;
-        border-right: 1px solid rgba(148, 163, 184, 0.2) !important;
-    }}
-    button[data-testid="stSidebarCollapseButton"] {{
+        border-right: 1px solid rgba(148, 163, 184, 0.25) !important;
+    }
+    button[data-testid="stSidebarCollapseButton"] {
         display: none !important;
-    }}
+    }
 
-    #MainMenu, header, footer, .stDeployButton {{
+    #MainMenu, header, footer, .stDeployButton {
         visibility: hidden; display: none !important;
-    }}
+    }
 
-    .block-container {{
+    .block-container {
         padding-top: 0.4rem !important;
         padding-bottom: 0.8rem !important;
         padding-left: 1.2rem !important;
         padding-right: 1.2rem !important;
-    }}
+    }
 
-    hr {{
+    hr {
         margin-top: 6px !important;
         margin-bottom: 8px !important;
         border-color: rgba(148, 163, 184, 0.25) !important;
-    }}
+    }
 
-    /* TOP ACTION BUTTONS */
-    .right-action-cluster div[data-testid="stButton"] button {{
-        border-radius: 14px !important;
-        font-size: 12px !important;
-        font-weight: 600 !important;
-        min-height: 28px !important;
-        height: 28px !important;
-        line-height: 1 !important;
-        width: 100% !important;
-    }}
-
-    /* SQUARE THEME SWITCHERS */
-    .theme-box-dark div[data-testid="stButton"] button {{
-        background: #000000 !important;
-        border: 2px solid #38bdf8 !important;
-        border-radius: 8px !important;
-        height: 28px !important;
-        min-height: 28px !important;
-        width: 28px !important;
-        padding: 0 !important;
-        cursor: pointer !important;
-    }}
-    .theme-box-light div[data-testid="stButton"] button {{
-        background: #ffffff !important;
-        border: 2px solid #64748b !important;
-        border-radius: 8px !important;
-        height: 28px !important;
-        min-height: 28px !important;
-        width: 28px !important;
-        padding: 0 !important;
-        cursor: pointer !important;
-    }}
-
-    div[data-testid="stSelectbox"] label {{ display: none !important; }}
-    div[data-testid="stSelectbox"] {{ width: 100% !important; }}
-    div[data-testid="stSelectbox"] > div > div {{
-        min-height: 28px !important;
-        height: 28px !important;
-        padding: 0px 8px !important;
-        font-size: 12px !important;
-        border-radius: 14px !important;
-        border: 1px solid rgba(148, 163, 184, 0.3) !important;
-    }}
-
-    .pan-brand-title {{
+    /* HEADER TITLES */
+    .pan-brand-title {
         font-size: 22px;
         font-weight: 900;
         letter-spacing: -0.3px;
@@ -322,35 +250,66 @@ st.markdown(f"""
         display: flex;
         align-items: center;
         gap: 8px;
-    }}
-    .pan-brand-subtitle {{
+    }
+    .pan-brand-subtitle {
         font-size: 12.5px;
         font-weight: 500;
-        color: {sub_text};
+        color: #94a3b8;
         margin-bottom: 8px;
-    }}
-
-    .section-title-label {{
+    }
+    .section-title-label {
         font-size: 13.5px;
         font-weight: 800;
-        color: {sub_text};
+        color: #94a3b8;
         margin-bottom: 18px;
         letter-spacing: 0.8px;
-    }}
+    }
 
-    /* ----------------- BIG BULLET-PROOF TOOL CARDS ----------------- */
-    .dashboard-tool-container div[data-testid="stButton"] {{
+    /* TOP ACTION BUTTONS */
+    .right-action-cluster div[data-testid="stButton"] button {
+        border-radius: 14px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        min-height: 28px !important;
+        height: 28px !important;
+        line-height: 1 !important;
+        width: 100% !important;
+    }
+
+    div[data-testid="stSelectbox"] label { display: none !important; }
+    div[data-testid="stSelectbox"] { width: 100% !important; }
+    div[data-testid="stSelectbox"] > div > div {
+        min-height: 28px !important;
+        height: 28px !important;
+        padding: 0px 8px !important;
+        font-size: 12px !important;
+        border-radius: 14px !important;
+        border: 1px solid rgba(148, 163, 184, 0.3) !important;
+    }
+
+    /* PINNED TABS */
+    .top-tab-strip div[data-testid="stButton"] button {
+        border-radius: 18px !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        padding: 4px 14px !important;
+        min-height: 32px !important;
+        height: 32px !important;
+    }
+
+    /* ----------------- NATIVE THEME-AWARE TOOL CARDS ----------------- */
+    .dashboard-tool-container div[data-testid="stButton"] {
         width: 100% !important;
         margin-bottom: 22px !important;
-    }}
+    }
 
-    .dashboard-tool-container div[data-testid="stButton"] button {{
+    /* DEFAULT (LIGHT THEME): WHITE CARD & JET BLACK TEXT */
+    .dashboard-tool-container div[data-testid="stButton"] button {
         width: 100% !important;
-        min-height: 155px !important;
-        height: auto !important;
-        background-color: {card_bg} !important;
-        color: {card_text} !important;
-        border: 2px solid {card_border} !important;
+        min-height: 160px !important;
+        height: 160px !important;
+        background-color: #ffffff !important;
+        border: 2px solid #cbd5e1 !important;
         border-radius: 26px !important;
         padding: 24px 30px !important;
         display: flex !important;
@@ -358,46 +317,63 @@ st.markdown(f"""
         align-items: flex-start !important;
         justify-content: center !important;
         text-align: left !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, {'0.4' if is_dark else '0.08'}) !important;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08) !important;
         cursor: pointer !important;
         transition: all 0.22s ease-in-out !important;
-    }}
+    }
 
-    .dashboard-tool-container div[data-testid="stButton"] button p {{
-        font-size: 23px !important;
+    .dashboard-tool-container div[data-testid="stButton"] button p,
+    .dashboard-tool-container div[data-testid="stButton"] button p strong,
+    .dashboard-tool-container div[data-testid="stButton"] button p span {
+        font-size: 24px !important;
         font-weight: 900 !important;
-        color: {card_text} !important;
+        color: #0f172a !important; /* DEEP BLACK IN LIGHT THEME */
         margin: 0 !important;
         white-space: pre-line !important;
-        line-height: 1.45 !important;
-    }}
+        line-height: 1.4 !important;
+        text-align: left !important;
+    }
 
-    /* HOVER BORDER GLOW */
-    .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {{
+    /* DARK THEME MEDIA QUERY (AUTOMATIC DETECTION) */
+    @media (prefers-color-scheme: dark) {
+        .dashboard-tool-container div[data-testid="stButton"] button {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+        }
+        .dashboard-tool-container div[data-testid="stButton"] button p,
+        .dashboard-tool-container div[data-testid="stButton"] button p strong,
+        .dashboard-tool-container div[data-testid="stButton"] button p span {
+            color: #ffffff !important; /* PURE WHITE IN DARK THEME */
+        }
+    }
+
+    /* HOVER BORDER HIGHLIGHTS */
+    .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {
         border-color: #2563eb !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.3) !important;
-    }}
-    .dashboard-tool-container .card-blnk-po div[data-testid="stButton"] button:hover {{
+        box-shadow: 0 14px 30px rgba(37, 99, 235, 0.35) !important;
+    }
+    .dashboard-tool-container .card-blnk-po div[data-testid="stButton"] button:hover {
         border-color: #059669 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(5, 150, 105, 0.3) !important;
-    }}
-    .dashboard-tool-container .card-blnk div[data-testid="stButton"] button:hover {{
+        box-shadow: 0 14px 30px rgba(5, 150, 105, 0.35) !important;
+    }
+    .dashboard-tool-container .card-blnk div[data-testid="stButton"] button:hover {
         border-color: #d97706 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(217, 119, 6, 0.3) !important;
-    }}
-    .dashboard-tool-container .card-lbl div[data-testid="stButton"] button:hover {{
+        box-shadow: 0 14px 30px rgba(217, 119, 6, 0.35) !important;
+    }
+    .dashboard-tool-container .card-lbl div[data-testid="stButton"] button:hover {
         border-color: #7c3aed !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(124, 58, 237, 0.3) !important;
-    }}
-    .dashboard-tool-container .card-conf div[data-testid="stButton"] button:hover {{
+        box-shadow: 0 14px 30px rgba(124, 58, 237, 0.35) !important;
+    }
+    .dashboard-tool-container .card-conf div[data-testid="stButton"] button:hover {
         border-color: #64748b !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(100, 116, 139, 0.3) !important;
-    }}
+        box-shadow: 0 14px 30px rgba(100, 116, 139, 0.35) !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -683,27 +659,12 @@ with h_left:
 with h_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
     
-    # ⬛ ⬜ pure square theme switchers
-    c_dark, c_light, c_ref, c_loc = st.columns([0.35, 0.35, 0.38, 1.92])
-    with c_dark:
-        st.markdown('<div class="theme-box-dark">', unsafe_allow_html=True)
-        if st.button(" ", key="theme_dark_btn", help="Switch Dark Mode"):
-            st.session_state.app_theme = "dark"
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with c_light:
-        st.markdown('<div class="theme-box-light">', unsafe_allow_html=True)
-        if st.button(" ", key="theme_light_btn", help="Switch Light Mode"):
-            st.session_state.app_theme = "light"
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with c_ref:
+    top_c1, top_c2 = st.columns([0.45, 1.55])
+    with top_c1:
         if st.button("🔄", key="btn_refresh_pinned", help="Clear extra tabs", use_container_width=True):
             clear_all_pinned_tabs()
 
-    with c_loc:
+    with top_c2:
         selected_display = st.selectbox(
             "WH | Location",
             options=ORDERED_LOCATIONS,
@@ -720,7 +681,7 @@ with h_right:
             st.session_state.show_history = not st.session_state.show_history
             st.rerun()
     with reset_col:
-        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset workspace", use_container_width=True):
+        if st.button("🔄 Reset", key="top_reset_btn", type="secondary", help="Reset workspace to HOME", use_container_width=True):
             reset_current_workspace()
 
     st.markdown('</div>', unsafe_allow_html=True)
@@ -777,7 +738,7 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ----------------- HISTORY VIEW -----------------
+# ----------------- HISTORY VIEW (WITH UNIVERSAL SEARCH, SPLIT, VIEW & PRINT) -----------------
 elif st.session_state.show_history:
     cur_mod_info = AVAILABLE_MODULES.get(st.session_state.active_tab, {"name": "Module", "icon": "📁"})
     h_top_c1, h_top_c2 = st.columns([4, 1])
@@ -794,15 +755,84 @@ elif st.session_state.show_history:
                 clear_disk_history(wh_filter=st.session_state.selected_wh, mod_filter=st.session_state.active_tab)
                 st.rerun()
 
+    # Search bar for Order ID / Invoice Number / Tracking ID
+    search_col1, search_col2 = st.columns([3.8, 0.4])
+    with search_col1:
+        search_query = st.text_input(
+            "🔍 Search Invoice by Order ID / Invoice No / Tracking ID:",
+            placeholder="Type Order ID (e.g. 402-1234567-8901234), Invoice Number, or Tracking ID...",
+            key=f"search_order_{st.session_state.selected_wh}_{st.session_state.active_tab}"
+        ).strip()
+    with search_col2:
+        st.write("")
+        st.write("")
+        if st.button("❌ Clear", key="clear_search_btn", use_container_width=True):
+            st.session_state[f"search_order_{st.session_state.selected_wh}_{st.session_state.active_tab}"] = ""
+            st.rerun()
+
+    # Split extraction function that checks full text of every page
+    def extract_single_order_page(pdf_bytes, query_clean):
+        try:
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            matched_doc = fitz.open()
+            for p_no in range(len(doc)):
+                txt = doc[p_no].get_text().lower()
+                clean_p_txt = re.sub(r'[^a-zA-Z0-9]', '', txt)
+                if query_clean in clean_p_txt:
+                    matched_doc.insert_pdf(doc, from_page=p_no, to_page=p_no)
+            
+            if len(matched_doc) > 0:
+                out = matched_doc.tobytes(deflate=True)
+                count = len(matched_doc)
+                matched_doc.close()
+                doc.close()
+                return out, count
+            doc.close()
+            return None, 0
+        except Exception:
+            return None, 0
+
     if not loc_history:
         st.info("No files in history.")
     else:
-        st.success(f"💾 Total Saved Files: **{len(loc_history)}** (Auto retained for 30 days)")
+        # Search query execution
+        if search_query:
+            clean_q = re.sub(r'[^a-zA-Z0-9]', '', search_query.lower())
+            search_matched_items = []
+            
+            with st.spinner("Searching, extracting & splitting invoice page..."):
+                for item in loc_history:
+                    f_clean = re.sub(r'[^a-zA-Z0-9]', '', str(item.get('file_name', '')).lower())
+                    o_clean = re.sub(r'[^a-zA-Z0-9]', '', str(item.get('original_name', '')).lower())
+                    
+                    split_pdf_bytes, split_pages = extract_single_order_page(item["data"], clean_q)
+                    
+                    if split_pdf_bytes:
+                        item_copy = dict(item)
+                        item_copy["data"] = split_pdf_bytes
+                        item_copy["file_name"] = f"Invoice_{search_query[:15]}.pdf"
+                        item_copy["pages"] = split_pages
+                        item_copy["is_split"] = True
+                        search_matched_items.append(item_copy)
+                    elif clean_q in f_clean or clean_q in o_clean:
+                        item_copy = dict(item)
+                        item_copy["is_split"] = False
+                        search_matched_items.append(item_copy)
 
-        if len(loc_history) > 1:
+            if not search_matched_items:
+                st.warning(f"❌ Koi invoice nahi mila jisme **'{search_query}'** maujood ho.")
+                display_history = []
+            else:
+                st.success(f"🎯 Mil gaya! **{len(search_matched_items)}** Matching Single Invoice for: **{search_query}**")
+                display_history = search_matched_items
+        else:
+            display_history = loc_history
+            st.success(f"💾 Total Saved Files: **{len(loc_history)}** (Auto retained for 30 days)")
+
+        if len(display_history) > 1 and not search_query:
             zip_buf = io.BytesIO()
             with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                for idx, item in enumerate(loc_history):
+                for idx, item in enumerate(display_history):
                     loc_tag = item.get("location", "GEN")
                     name_root = item['file_name'][:-4] if item['file_name'].endswith(".pdf") else item['file_name']
 
@@ -817,7 +847,7 @@ elif st.session_state.show_history:
 
             zip_bytes = zip_buf.getvalue()
 
-            zip_title = f"📦 Download All Complete Invoices Bundle as ZIP ({len(loc_history)} Records)"
+            zip_title = f"📦 Download All Complete Invoices Bundle as ZIP ({len(display_history)} Records)"
             st.download_button(
                 label=zip_title,
                 data=zip_bytes,
@@ -828,26 +858,29 @@ elif st.session_state.show_history:
             )
 
         st.write("---")
-        for idx, item in enumerate(loc_history):
+        for idx, item in enumerate(display_history):
             name_root = item['file_name'][:-4] if item['file_name'].endswith(".pdf") else item['file_name']
             
-            d_col1, d_col2, d_col3, d_col4 = st.columns([3.2, 0.9, 0.9, 0.9])
+            # Action Rows
+            d_col1, d_col2, d_col3, d_col4 = st.columns([3.0, 1.0, 0.9, 0.9])
             with d_col1:
+                split_tag = " ✂️ *(Single Page Invoice)*" if item.get("is_split") else ""
                 st.write(
-                    f"📁 **{item['file_name']}** — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
+                    f"📁 **{item['file_name']}**{split_tag} — `[{LOCATION_DISPLAY_MAP.get(item.get('location'), item.get('location'))}]` | "
                     f"⏰ *{item.get('time', '')}*"
                 )
             with d_col2:
+                btn_label = "📥 Download PDF"
                 st.download_button(
-                    label="📥 PDF",
+                    label=btn_label,
                     data=item["data"],
                     file_name=item["file_name"],
                     mime="application/pdf",
-                    key=f"dl_hist_pdf_{st.session_state.selected_wh}_{idx}",
+                    key=f"dl_hist_pdf_{st.session_state.selected_wh}_{idx}_{search_query[:5]}",
                     use_container_width=True
                 )
             with d_col3:
-                if "excel_data" in item and item["excel_data"]:
+                if "excel_data" in item and item["excel_data"] and not item.get("is_split"):
                     st.download_button(
                         label="📊 Excel",
                         data=item["excel_data"],
@@ -857,9 +890,9 @@ elif st.session_state.show_history:
                         use_container_width=True
                     )
                 else:
-                    st.button("📊 Excel", key=f"dis_xl_{idx}", disabled=True, use_container_width=True)
+                    st.button("📊 Excel", key=f"dis_xl_{idx}_{search_query[:5]}", disabled=True, use_container_width=True)
             with d_col4:
-                if "json_data" in item and item["json_data"]:
+                if "json_data" in item and item["json_data"] and not item.get("is_split"):
                     st.download_button(
                         label="🧾 JSON",
                         data=item["json_data"],
@@ -869,7 +902,32 @@ elif st.session_state.show_history:
                         use_container_width=True
                     )
                 else:
-                    st.button("🧾 JSON", key=f"dis_js_{idx}", disabled=True, use_container_width=True)
+                    st.button("🧾 JSON", key=f"dis_js_{idx}_{search_query[:5]}", disabled=True, use_container_width=True)
+
+            # Agar search se single invoice nikaala gaya hai, toh inline PRINT button aur viewer provide karein
+            if search_query and item.get("is_split"):
+                b64_pdf = base64.b64encode(item["data"]).decode('utf-8')
+                print_view_html = f"""
+                <div style="margin-top: 10px; margin-bottom: 20px; background: #ffffff; padding: 12px; border-radius: 14px; border: 1.5px solid #cbd5e1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: 800; color: #0f172a; font-size: 14px;">🖨️ Invoice Viewer & Direct Print</span>
+                        <button onclick="printSinglePDF()" style="background: #2563eb; color: #ffffff; border: none; padding: 6px 18px; border-radius: 8px; font-weight: 700; cursor: pointer;">
+                            🖨️ Print This Invoice
+                        </button>
+                    </div>
+                    <iframe id="single_pdf_frame" src="data:application/pdf;base64,{b64_pdf}" width="100%" height="480px" style="border: 1px solid #e2e8f0; border-radius: 8px;"></iframe>
+                </div>
+                <script>
+                function printSinglePDF() {{
+                    const iframe = document.getElementById('single_pdf_frame');
+                    if (iframe) {{
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                    }}
+                }}
+                </script>
+                """
+                components.html(print_view_html, height=540)
 
 # ----------------- MODULE 1: AMAZON INVOICE EDITOR -----------------
 elif st.session_state.active_tab == "AMZ":
@@ -2320,8 +2378,8 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             ship_status = "⚠️ Different (Shipping Details Filled in Excel)" if meta["shipping_is_different"] else "✅ Same (Shipping Blank in Excel)"
 
             st.markdown(f"""
-                <div style="background-color: {card_bg}; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'}; border: 1px solid {card_border};">
-                    <b>Buyer Name:</b> <code>{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Tax Rule:</b> <code>{tax_badge}</code><br>
+                <div style="background-color: #ffffff; padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid {'#10b981' if is_blinkit else '#3b82f6'}; border: 1px solid #cbd5e1; color: #0f172a;">
+                    <b>Buyer Name:</b> <code style="color: #0f172a;">{meta['buyer_name']}</code> &nbsp;|&nbsp; <b>Tax Rule:</b> <code>{tax_badge}</code><br>
                     <b>Address 1:</b> <code>{meta['buyer_addr1']}</code> &nbsp;|&nbsp; <b>Address 2:</b> <code>{meta.get('buyer_addr2', '')}</code><br>
                     <b>City:</b> <code>{meta['buyer_loc']}</code> ({meta['buyer_pin']}) &nbsp;|&nbsp; <b>Shipping Status:</b> <code>{ship_status}</code><br>
                     <b>Seller:</b> {meta['seller_name']} ({meta['seller_gstin']})

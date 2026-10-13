@@ -24,6 +24,10 @@ RETENTION_DAYS = 30
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
+# ----------------- THEME STATE INITIALIZATION -----------------
+if "app_theme" not in st.session_state:
+    st.session_state.app_theme = "dark"
+
 def load_disk_history():
     if not os.path.exists(METADATA_FILE):
         return []
@@ -204,50 +208,118 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.markdown("""
-    <style>
-    #MainMenu {visibility: hidden; display: none !important;}
-    header {visibility: hidden; display: none !important;}
-    footer {visibility: hidden; display: none !important;}
-    .stDeployButton {display: none !important;}
-    div[data-testid="stToolbar"] {visibility: hidden; display: none !important;}
-    div[data-testid="stDecoration"] {visibility: hidden; display: none !important;}
-    div[data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
+# ----------------- DYNAMIC LIGHT / DARK THEME CSS INJECTION -----------------
+theme_mode = st.session_state.app_theme
 
-    [data-testid="stViewerBadge"] {display: none !important; visibility: hidden !important;}
-    div[class*="viewerBadge"] {display: none !important; visibility: hidden !important;}
-    iframe[title*="streamlit"] {display: none !important;}
-    div[data-testid="manage-app-button"] {display: none !important;}
-    div[class*="manage-app"] {display: none !important;}
-    div[class*="floating"] {display: none !important;}
+if theme_mode == "light":
+    theme_css = """
+        body, .stApp {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+        }
+        section[data-testid="stSidebar"] {
+            background-color: #ffffff !important;
+            border-right: 1px solid #e2e8f0 !important;
+        }
+        .section-header-title {
+            color: #475569 !important;
+        }
+        .dashboard-tool-container div[data-testid="stButton"] button {
+            background-color: #ffffff !important;
+            border: 2px solid #cbd5e1 !important;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08) !important;
+        }
+        .dashboard-tool-container div[data-testid="stButton"] button p {
+            color: #0f172a !important;
+        }
+        .pan-brand-subtitle {
+            color: #475569 !important;
+        }
+        div[data-testid="stMetricValue"] {
+            color: #0f172a !important;
+        }
+        div[data-testid="stMetricLabel"] {
+            color: #475569 !important;
+        }
+    """
+else:
+    theme_css = """
+        body, .stApp {
+            background-color: #0a0e17 !important;
+            color: #f8fafc !important;
+        }
+        section[data-testid="stSidebar"] {
+            background-color: #0f172a !important;
+            border-right: 1px solid rgba(148, 163, 184, 0.15) !important;
+        }
+        .section-header-title {
+            color: #94a3b8 !important;
+        }
+        .dashboard-tool-container div[data-testid="stButton"] button {
+            background-color: #1e293b !important;
+            border: 2px solid rgba(148, 163, 184, 0.28) !important;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+        }
+        .dashboard-tool-container div[data-testid="stButton"] button p {
+            color: #ffffff !important;
+        }
+        .pan-brand-subtitle {
+            color: #94a3b8 !important;
+        }
+        div[data-testid="stMetricValue"] {
+            color: #f8fafc !important;
+        }
+        div[data-testid="stMetricLabel"] {
+            color: #94a3b8 !important;
+        }
+    """
+
+st.markdown(f"""
+    <style>
+    {theme_css}
+
+    #MainMenu {{visibility: hidden; display: none !important;}}
+    header {{visibility: hidden; display: none !important;}}
+    footer {{visibility: hidden; display: none !important;}}
+    .stDeployButton {{display: none !important;}}
+    div[data-testid="stToolbar"] {{visibility: hidden; display: none !important;}}
+    div[data-testid="stDecoration"] {{visibility: hidden; display: none !important;}}
+    div[data-testid="stStatusWidget"] {{visibility: hidden; display: none !important;}}
+
+    [data-testid="stViewerBadge"] {{display: none !important; visibility: hidden !important;}}
+    div[class*="viewerBadge"] {{display: none !important; visibility: hidden !important;}}
+    iframe[title*="streamlit"] {{display: none !important;}}
+    div[data-testid="manage-app-button"] {{display: none !important;}}
+    div[class*="manage-app"] {{display: none !important;}}
+    div[class*="floating"] {{display: none !important;}}
 
     /* SIDEBAR ALWAYS OPEN & VISIBLE */
-    section[data-testid="stSidebar"] {
+    section[data-testid="stSidebar"] {{
         display: block !important;
         visibility: visible !important;
         transform: none !important;
         min-width: 300px !important;
         max-width: 320px !important;
-    }
-    button[data-testid="stSidebarCollapseButton"] {
+    }}
+    button[data-testid="stSidebarCollapseButton"] {{
         display: none !important;
-    }
+    }}
 
-    .block-container {
+    .block-container {{
         padding-top: 0.4rem !important;
         padding-bottom: 0.8rem !important;
         padding-left: 1.2rem !important;
         padding-right: 1.2rem !important;
-    }
+    }}
 
-    hr {
+    hr {{
         margin-top: 6px !important;
         margin-bottom: 8px !important;
-        border-color: rgba(58, 80, 107, 0.3) !important;
-    }
+        border-color: rgba(148, 163, 184, 0.25) !important;
+    }}
 
     /* Small action buttons in top bar */
-    .right-action-cluster div[data-testid="stButton"] button {
+    .right-action-cluster div[data-testid="stButton"] button {{
         border-radius: 16px !important;
         font-size: 12px !important;
         font-weight: 600 !important;
@@ -255,20 +327,42 @@ st.markdown("""
         height: 28px !important;
         line-height: 1 !important;
         width: 100% !important;
-    }
+    }}
 
-    div[data-testid="stSelectbox"] label { display: none !important; }
-    div[data-testid="stSelectbox"] { width: 100% !important; }
-    div[data-testid="stSelectbox"] > div > div {
+    /* THEME TOGGLE SQUARES */
+    .btn-theme-dark div[data-testid="stButton"] button {{
+        background: #000000 !important;
+        border: 2px solid #38bdf8 !important;
+        border-radius: 10px !important;
+        min-height: 28px !important;
+        height: 28px !important;
+        width: 100% !important;
+        box-shadow: 0 0 8px rgba(56, 189, 248, 0.4) !important;
+        cursor: pointer !important;
+    }}
+    .btn-theme-light div[data-testid="stButton"] button {{
+        background: #ffffff !important;
+        border: 2px solid #cbd5e1 !important;
+        border-radius: 10px !important;
+        min-height: 28px !important;
+        height: 28px !important;
+        width: 100% !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+        cursor: pointer !important;
+    }}
+
+    div[data-testid="stSelectbox"] label {{ display: none !important; }}
+    div[data-testid="stSelectbox"] {{ width: 100% !important; }}
+    div[data-testid="stSelectbox"] > div > div {{
         min-height: 28px !important;
         height: 28px !important;
         padding: 0px 8px !important;
         font-size: 12px !important;
         border-radius: 16px !important;
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
-    }
+    }}
 
-    .pan-brand-title {
+    .pan-brand-title {{
         font-size: 22px;
         font-weight: 900;
         letter-spacing: -0.3px;
@@ -279,45 +373,27 @@ st.markdown("""
         display: flex;
         align-items: center;
         gap: 8px;
-    }
-    .pan-brand-subtitle {
-        font-size: 12.5px;
-        font-weight: 500;
-        color: #94a3b8;
-        margin-bottom: 8px;
-    }
+    }}
 
-    .pro-success-card {
-        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.25) 100%);
-        border: 1px solid rgba(52, 211, 153, 0.5);
-        border-radius: 10px;
-        padding: 12px 16px;
-        color: #ecfdf5;
-        margin: 8px 0px;
-    }
-
-    .top-tab-strip div[data-testid="stButton"] button {
+    .top-tab-strip div[data-testid="stButton"] button {{
         border-radius: 18px !important;
         font-size: 12px !important;
         font-weight: 700 !important;
         padding: 4px 14px !important;
         min-height: 32px !important;
         height: 32px !important;
-    }
+    }}
 
     /* ----------------- CLEAN BADA CARD BUTTON SYSTEM ----------------- */
-    .dashboard-tool-container div[data-testid="stButton"] {
+    .dashboard-tool-container div[data-testid="stButton"] {{
         width: 100% !important;
         margin-bottom: 20px !important;
-    }
+    }}
 
-    .dashboard-tool-container div[data-testid="stButton"] button {
+    .dashboard-tool-container div[data-testid="stButton"] button {{
         width: 100% !important;
         min-height: 145px !important;
         height: auto !important;
-        background: #ffffff !important;
-        color: #0f172a !important;
-        border: 2px solid #cbd5e1 !important;
         border-radius: 26px !important;
         padding: 24px 30px !important;
         display: flex !important;
@@ -325,59 +401,47 @@ st.markdown("""
         align-items: flex-start !important;
         justify-content: center !important;
         text-align: left !important;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14) !important;
         cursor: pointer !important;
         transition: all 0.22s ease-in-out !important;
-    }
+    }}
 
-    .dashboard-tool-container div[data-testid="stButton"] button p {
+    .dashboard-tool-container div[data-testid="stButton"] button p {{
         width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         white-space: pre-line !important;
-        font-size: 22px !important;
-        font-weight: 800 !important;
-        color: #0f172a !important;
+        font-size: 23px !important;
+        font-weight: 900 !important;
         line-height: 1.4 !important;
-    }
-
-    /* DARK THEME ME CARDS VISIBLE & CRISP */
-    @media (prefers-color-scheme: dark) {
-        .dashboard-tool-container div[data-testid="stButton"] button {
-            background: #1e293b !important;
-            border-color: rgba(148, 163, 184, 0.28) !important;
-        }
-        .dashboard-tool-container div[data-testid="stButton"] button p {
-            color: #ffffff !important;
-        }
-    }
+        letter-spacing: -0.3px !important;
+    }}
 
     /* HOVER BORDER GLOW */
-    .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {
+    .dashboard-tool-container .card-amz div[data-testid="stButton"] button:hover {{
         border-color: #2563eb !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25) !important;
-    }
-    .dashboard-tool-container .card-blnk-po div[data-testid="stButton"] button:hover {
+        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.28) !important;
+    }}
+    .dashboard-tool-container .card-blnk-po div[data-testid="stButton"] button:hover {{
         border-color: #059669 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(5, 150, 105, 0.25) !important;
-    }
-    .dashboard-tool-container .card-blnk div[data-testid="stButton"] button:hover {
+        box-shadow: 0 12px 28px rgba(5, 150, 105, 0.28) !important;
+    }}
+    .dashboard-tool-container .card-blnk div[data-testid="stButton"] button:hover {{
         border-color: #d97706 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(217, 119, 6, 0.25) !important;
-    }
-    .dashboard-tool-container .card-lbl div[data-testid="stButton"] button:hover {
+        box-shadow: 0 12px 28px rgba(217, 119, 6, 0.28) !important;
+    }}
+    .dashboard-tool-container .card-lbl div[data-testid="stButton"] button:hover {{
         border-color: #7c3aed !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(124, 58, 237, 0.25) !important;
-    }
-    .dashboard-tool-container .card-conf div[data-testid="stButton"] button:hover {
+        box-shadow: 0 12px 28px rgba(124, 58, 237, 0.28) !important;
+    }}
+    .dashboard-tool-container .card-conf div[data-testid="stButton"] button:hover {{
         border-color: #475569 !important;
         transform: translateY(-4px) !important;
-        box-shadow: 0 12px 28px rgba(71, 85, 105, 0.25) !important;
-    }
+        box-shadow: 0 12px 28px rgba(71, 85, 105, 0.28) !important;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -458,7 +522,7 @@ def reset_current_workspace():
     st.session_state.current_batch_results = []
     st.session_state.blnk_batch_results = []
     st.session_state.show_history = False
-    st.session_state.open_tabs = ["HOME"]  # Sirf HOME rahega
+    st.session_state.open_tabs = ["HOME"]
     st.session_state.active_tab = "HOME"
     st.session_state.selected_wh = "DEL"
     st.rerun()
@@ -539,12 +603,12 @@ with st.sidebar:
     .digital-time {
         font-size: 15px;
         font-weight: 700;
-        color: #f1f5f9;
+        color: #38bdf8;
         margin-top: 2px;
     }
     .digital-date {
         font-size: 11px;
-        color: #94a3b8;
+        color: #64748b;
         margin-top: 1px;
     }
     </style>
@@ -652,7 +716,7 @@ with st.sidebar:
     st.divider()
 
 # ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
-h_left, h_right = st.columns([7.5, 2.5])
+h_left, h_right = st.columns([6.8, 3.2])
 
 with h_left:
     st.markdown("""
@@ -662,11 +726,29 @@ with h_left:
 
 with h_right:
     st.markdown('<div class="right-action-cluster">', unsafe_allow_html=True)
-    loc_sub1, loc_sub2 = st.columns([0.38, 1.62])
-    with loc_sub1:
+    
+    # Theme buttons, Pinned Clear, Location Select
+    sub_c1, sub_c2, sub_c3, sub_c4 = st.columns([0.42, 0.42, 0.42, 1.74])
+    
+    with sub_c1:
+        st.markdown('<div class="btn-theme-dark">', unsafe_allow_html=True)
+        if st.button(" ", key="btn_switch_dark", help="Dark Theme"):
+            st.session_state.app_theme = "dark"
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    with sub_c2:
+        st.markdown('<div class="btn-theme-light">', unsafe_allow_html=True)
+        if st.button(" ", key="btn_switch_light", help="White Theme"):
+            st.session_state.app_theme = "light"
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with sub_c3:
         if st.button("🔄", key="btn_refresh_pinned", help="Clear all extra tabs", use_container_width=True):
             clear_all_pinned_tabs()
-    with loc_sub2:
+
+    with sub_c4:
         selected_display = st.selectbox(
             "WH | Location",
             options=ORDERED_LOCATIONS,
@@ -714,7 +796,7 @@ st.divider()
 
 # ----------------- CLEAN BOX DESIGN: ONLY TOOL NAME & ICON -----------------
 if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
-    st.markdown('<div style="font-size: 13.5px; font-weight: 800; color: #94a3b8; margin-bottom: 18px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header-title" style="font-size: 13.5px; font-weight: 800; margin-bottom: 18px; letter-spacing: 0.8px;">SELECT OPERATION MODULE</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="dashboard-tool-container">', unsafe_allow_html=True)
     keys = list(AVAILABLE_MODULES.keys())
@@ -727,7 +809,7 @@ if st.session_state.active_tab == "HOME" and not st.session_state.show_history:
             with col_obj:
                 st.markdown(f'<div class="{mod_data["css_cls"]}">', unsafe_allow_html=True)
                 
-                # Big clean card button text
+                # Single clean card button text with clear icon and big bold title
                 button_content = f"{mod_data['icon']}\n\n{mod_data['name']}"
                 
                 if st.button(button_content, key=f"box_card_{m_key}", use_container_width=True):

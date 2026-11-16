@@ -19,11 +19,31 @@ IST = timezone(timedelta(hours=5, minutes=30))
 def get_current_ist_str():
     return datetime.now(IST).strftime("%d-%b %I:%M %p")
 
-STORAGE_DIR = ".pan_history"
+# Persistent storage path across app restarts/reruns
+_BASE_PERSIST_DIR = os.path.expanduser("~") if os.access(os.path.expanduser("~"), os.W_OK) else os.getcwd()
+STORAGE_DIR = os.path.join(_BASE_PERSIST_DIR, ".pan_india_hub_history")
 METADATA_FILE = os.path.join(STORAGE_DIR, "history_db.json")
-RETENTION_DAYS = 30
+RETENTION_DAYS = 30  # Auto-delete ONLY after 30 days (or manual delete click)
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
+
+# Migrate any existing history from local .pan_history if present
+_LEGACY_DIR = ".pan_history"
+_LEGACY_META = os.path.join(_LEGACY_DIR, "history_db.json")
+if os.path.exists(_LEGACY_META) and not os.path.exists(METADATA_FILE):
+    try:
+        import shutil
+        with open(_LEGACY_META, "r", encoding="utf-8") as _lf:
+            _lmeta = json.load(_lf)
+        for _rec in _lmeta:
+            for _fk in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
+                _fn = _rec.get(_fk)
+                if _fn and os.path.exists(os.path.join(_LEGACY_DIR, _fn)):
+                    shutil.copy2(os.path.join(_LEGACY_DIR, _fn), os.path.join(STORAGE_DIR, _fn))
+        with open(METADATA_FILE, "w", encoding="utf-8") as _nf:
+            json.dump(_lmeta, _nf, indent=2)
+    except Exception:
+        pass
 
 def load_disk_history():
     if not os.path.exists(METADATA_FILE):
@@ -41,6 +61,7 @@ def load_disk_history():
 
         for m in meta_list:
             created_ts = m.get("created_ts", now_ts)
+            # Delete ONLY when older than 30 days
             if created_ts < cutoff_ts:
                 cleaned_up = True
                 for f_key in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
@@ -77,7 +98,8 @@ def load_disk_history():
                 valid_items.append(m_copy)
                 updated_meta.append(m)
             else:
-                cleaned_up = True
+                # Keep metadata intact even if temporarily unavailable; do not auto-purge
+                updated_meta.append(m)
 
         if cleaned_up:
             with open(METADATA_FILE, "w", encoding="utf-8") as f:
@@ -88,6 +110,9 @@ def load_disk_history():
         return []
 
 def save_item_to_disk_history(item):
+    # Prevent duplicate saves for the same generated item
+    if item.get("_saved_to_history"):
+        return
     base_name = item.get("file_name", "invoice.pdf")
     wh = item.get("location", "DEL")
     mod = item.get("module", "GEN")
@@ -160,6 +185,7 @@ def save_item_to_disk_history(item):
     current_meta.append(meta_record)
     with open(METADATA_FILE, "w", encoding="utf-8") as f:
         json.dump(current_meta, f, indent=2)
+    item["_saved_to_history"] = True
 
 def save_batch_to_disk_history(batch_items):
     for item in batch_items:
@@ -181,6 +207,33 @@ def clear_disk_history(wh_filter=None, mod_filter=None):
                 should_delete = False
 
             if should_delete:
+                for f_key in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
+                    fname = m.get(f_key)
+                    if fname:
+                        fpath = os.path.join(STORAGE_DIR, fname)
+                        if os.path.exists(fpath):
+                            try:
+                                os.remove(fpath)
+                            except Exception:
+                                pass
+            else:
+                remaining_meta.append(m)
+
+        with open(METADATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(remaining_meta, f, indent=2)
+    except Exception:
+        pass
+
+def delete_single_disk_history_item(disk_filename):
+    if not disk_filename or not os.path.exists(METADATA_FILE):
+        return
+    try:
+        with open(METADATA_FILE, "r", encoding="utf-8") as f:
+            meta_list = json.load(f)
+
+        remaining_meta = []
+        for m in meta_list:
+            if m.get("disk_filename") == disk_filename:
                 for f_key in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
                     fname = m.get(f_key)
                     if fname:
@@ -862,7 +915,7 @@ elif st.session_state.show_history:
             name_root = item['file_name'][:-4] if item['file_name'].endswith(".pdf") else item['file_name']
             
             # Action Rows
-            d_col1, d_col2, d_col3, d_col4 = st.columns([3.0, 1.0, 0.9, 0.9])
+            d_col1, d_col2, d_col3, d_col4, d_col5 = st.columns([2.8, 1.0, 0.85, 0.85, 0.5])
             with d_col1:
                 split_tag = " ✂️ *(Single Page Invoice)*" if item.get("is_split") else ""
                 st.write(
@@ -903,6 +956,11 @@ elif st.session_state.show_history:
                     )
                 else:
                     st.button("🧾 JSON", key=f"dis_js_{idx}_{search_query[:5]}", disabled=True, use_container_width=True)
+            with d_col5:
+                if not item.get("is_split") and item.get("disk_filename"):
+                    if st.button("🗑️", key=f"del_single_hist_{st.session_state.selected_wh}_{idx}", help="Delete this record from History", use_container_width=True):
+                        delete_single_disk_history_item(item.get("disk_filename"))
+                        st.rerun()
 
             # Agar search se single invoice nikaala gaya hai, toh inline PRINT button aur viewer provide karein
             if search_query and item.get("is_split"):
@@ -1187,12 +1245,13 @@ elif st.session_state.active_tab == "AMZ":
             status_text.empty()
             progress_bar.empty()
 
+            save_batch_to_disk_history(processed_items)
             st.session_state.current_batch_results = processed_items
 
             st.markdown(f"""
                 <div class="pro-success-card">
                     <b style="font-size: 15px; color: #34d399;">✔ Operation Completed Successfully!</b><br>
-                    <span style="font-size: 13px; color: #cbd5e1;">All {len(processed_items)} invoice file(s) for <b>{st.session_state.selected_wh}</b> have been accurately verified, filtered, and stamped with dispatch barcodes. Download below to record in History.</span>
+                    <span style="font-size: 13px; color: #cbd5e1;">All {len(processed_items)} invoice file(s) for <b>{st.session_state.selected_wh}</b> have been accurately verified, filtered, stamped, and saved in History (retained for 30 days until manually deleted).</span>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -2353,6 +2412,26 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 st.error(f"Error processing {file.name}: {str(e)}")
 
         if processed_docs:
+            for _pdoc in processed_docs:
+                _m = _pdoc["meta"]
+                _inv_tot = float(_m.get("printed_grand_total") or sum(it['taxable_val'] for it in _m['line_items']) * 1.05)
+                _single_xl = generate_official_nic_v101_excel_bytes([_m])
+                _single_js = json.dumps(build_einvoice_json_v101(_m), indent=4).encode('utf-8')
+                _h_rec = {
+                    "original_name": _pdoc["original_name"],
+                    "file_name": _m["pdf_filename"],
+                    "data": _pdoc["pdf_buf"].getvalue(),
+                    "excel_data": _single_xl,
+                    "json_data": _single_js,
+                    "pages": 1,
+                    "stamped": len(_m["line_items"]),
+                    "location": st.session_state.selected_wh,
+                    "module": "BLNK",
+                    "buyer": _m["buyer_name"],
+                    "total_value": _inv_tot
+                }
+                save_item_to_disk_history(_h_rec)
+                _pdoc["hist_item"] = _h_rec
             st.session_state.blnk_batch_results = processed_docs
 
     if st.session_state.blnk_batch_results:

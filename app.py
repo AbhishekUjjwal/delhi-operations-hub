@@ -950,8 +950,9 @@ elif st.session_state.active_tab == "AMZ":
             key=f"amz_pdf_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
         )
 
+    REGEX_INVOICE_NO = re.compile(r'Invoice\s*Number\s*[:\s]*([A-Z0-9\-/]+)', re.IGNORECASE)
     REGEX_ORDER_HYPHEN = re.compile(r'(\d{3})\s*[-–—\s]\s*(\d{7})\s*[-–—\s]\s*(\d{7})')
-    REGEX_ORDER_KEYWORD = re.compile(r'order\s*number\s*[:\s]*([0-9\-–—\s]{17,25})', re.IGNORECASE)
+    REGEX_ORDER_KEYWORD = re.compile(r'order\s*(?:number|id)\s*[:\s]*([0-9\-–—\s]{17,25})', re.IGNORECASE)
     REGEX_WORDS = re.compile(r'[a-zA-Z0-9]+')
     STOP_WORDS = {
         'the', 'and', 'for', 'with', 'pcs', 'piece', 'pieces', 'only', 'total', 
@@ -1024,42 +1025,43 @@ elif st.session_state.active_tab == "AMZ":
             st.stop()
 
         col_mapping = {str(col).strip().lower(): col for col in df.columns}
-        order_col = next((col_mapping[c] for c in col_mapping if "order" in c and "id" in c), None) or \
-                    next((col_mapping[c] for c in col_mapping if "order" in c), None)
+        ext_inv_col = next((col_mapping[c] for c in col_mapping if "extinvoice" in c.replace(" ", "") or "ext_invoice" in c), None)
         tracking_col = next((col_mapping[c] for c in col_mapping if "track" in c or "tracing" in c or "awb" in c), None)
-        title_col = next((col_mapping[c] for c in col_mapping if any(k in c for k in ["title", "item-name", "item_name", "product", "desc"])), None)
-        sku_col = next((col_mapping[c] for c in col_mapping if "sku" in c or "msku" in c), None)
+        ext_order_col = next((col_mapping[c] for c in col_mapping if "external" in c and "order" in c), None) or \
+                        next((col_mapping[c] for c in col_mapping if "order" in c and "id" in c), None) or \
+                        next((col_mapping[c] for c in col_mapping if "order" in c), None)
 
-        if not (order_col and tracking_col):
-            st.error("CSV me Order ID aur Tracking ID column hona zaroori hai!")
+        if not (ext_inv_col and tracking_col):
+            st.error("Excel/CSV me ExtInvoiceNo aur Tracking No column hona zaroori hai!")
             st.stop()
 
-        order_records_map = {}
+        ext_invoice_map = {}
+        order_fallback_map = {}
+
         for _, row in df.iterrows():
-            raw_oid = clean_val(row.get(order_col, ""))
-            clean_oid = clean_alphanumeric(raw_oid)
+            raw_ext_inv = clean_val(row.get(ext_inv_col, ""))
+            clean_ext_inv = clean_alphanumeric(raw_ext_inv)
             track_val = clean_val(row.get(tracking_col, ""))
 
-            desc_parts = []
-            if title_col and not pd.isna(row.get(title_col, "")):
-                desc_parts.append(str(row[title_col]))
-            if sku_col and not pd.isna(row.get(sku_col, "")):
-                desc_parts.append(str(row[sku_col]))
+            raw_ext_ord = clean_val(row.get(ext_order_col, "")) if ext_order_col else ""
+            base_ord_str = raw_ext_ord.split("~")[0].strip() if "~" in raw_ext_ord else raw_ext_ord
+            clean_ord_id = clean_alphanumeric(base_ord_str)
 
-            full_desc = " ".join(desc_parts).strip()
-            desc_words = get_token_words(full_desc)
+            if track_val:
+                if clean_ext_inv:
+                    ext_invoice_map[clean_ext_inv] = {
+                        "track": track_val,
+                        "ext_inv": raw_ext_inv,
+                        "order_id": base_ord_str
+                    }
+                if clean_ord_id:
+                    order_fallback_map.setdefault(clean_ord_id, []).append({
+                        "track": track_val,
+                        "ext_inv": raw_ext_inv,
+                        "used": False
+                    })
 
-            if clean_oid and track_val:
-                if clean_oid not in order_records_map:
-                    order_records_map[clean_oid] = []
-                order_records_map[clean_oid].append({
-                    "full_desc": full_desc,
-                    "desc_words": desc_words,
-                    "track": track_val,
-                    "used": False
-                })
-
-        st.info(f"📊 Unique Orders in CSV: **{len(order_records_map)}** | Selected PDFs: **{len(uploaded_pdfs)} file(s)**")
+        st.info(f"📊 Unique ExtInvoiceNo in Sheet: **{len(ext_invoice_map)}** | Selected PDFs: **{len(uploaded_pdfs)} file(s)**")
 
         if st.button("🚀 Process & Generate Stamped Invoices", type="primary", use_container_width=True):
             progress_bar = st.progress(0)
@@ -1082,6 +1084,7 @@ elif st.session_state.active_tab == "AMZ":
                 file_stamped_count = 0
                 file_removed_pan = 0
                 file_removed_desc = 0
+                unmatched_invoices = []
 
                 for page_num in range(len(doc)):
                     page = doc[page_num]
@@ -1096,6 +1099,13 @@ elif st.session_state.active_tab == "AMZ":
                         file_removed_desc += 1
                         continue
 
+                    inv_clean = None
+                    raw_pdf_inv = None
+                    inv_match = REGEX_INVOICE_NO.search(raw_text)
+                    if inv_match:
+                        raw_pdf_inv = inv_match.group(1).strip()
+                        inv_clean = clean_alphanumeric(raw_pdf_inv)
+
                     order_clean = None
                     order_match = REGEX_ORDER_HYPHEN.search(raw_text)
                     if order_match:
@@ -1109,36 +1119,16 @@ elif st.session_state.active_tab == "AMZ":
 
                     target_tracking_id = None
 
-                    if order_clean and order_clean in order_records_map:
-                        matching_rows = order_records_map[order_clean]
-
-                        if len(matching_rows) == 1:
-                            target_tracking_id = matching_rows[0]["track"]
+                    if inv_clean and inv_clean in ext_invoice_map:
+                        target_tracking_id = ext_invoice_map[inv_clean]["track"]
+                    elif order_clean and order_clean in order_fallback_map:
+                        candidates = order_fallback_map[order_clean]
+                        unused = [c for c in candidates if not c["used"]]
+                        if unused:
+                            target_tracking_id = unused[0]["track"]
+                            unused[0]["used"] = True
                         else:
-                            page_words = get_token_words(raw_text)
-                            best_match_row = None
-                            highest_overlap = -1
-
-                            for r in matching_rows:
-                                if not r["desc_words"]:
-                                    continue
-                                common = page_words.intersection(r["desc_words"])
-                                overlap_score = len(common)
-
-                                if overlap_score > highest_overlap:
-                                    highest_overlap = overlap_score
-                                    best_match_row = r
-
-                            if best_match_row and highest_overlap > 0:
-                                target_tracking_id = best_match_row["track"]
-                                best_match_row["used"] = True
-                            else:
-                                unused_rows = [r for r in matching_rows if not r["used"]]
-                                if unused_rows:
-                                    target_tracking_id = unused_rows[0]["track"]
-                                    unused_rows[0]["used"] = True
-                                else:
-                                    target_tracking_id = matching_rows[0]["track"]
+                            target_tracking_id = candidates[0]["track"]
 
                     if target_tracking_id:
                         page.draw_rect(barcode_rect, color=white_color, fill=white_color, width=0)
@@ -1167,6 +1157,8 @@ elif st.session_state.active_tab == "AMZ":
                             )
 
                         file_stamped_count += 1
+                    else:
+                        unmatched_invoices.append(raw_pdf_inv or order_clean or f"Page {page_num+1}")
 
                     new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
 
@@ -1181,6 +1173,7 @@ elif st.session_state.active_tab == "AMZ":
                     "data": out_bytes,
                     "pages": final_page_count,
                     "stamped": file_stamped_count,
+                    "unmatched": unmatched_invoices,
                     "removed_pan": file_removed_pan,
                     "removed_desc": file_removed_desc,
                     "location": st.session_state.selected_wh,
@@ -1202,6 +1195,10 @@ elif st.session_state.active_tab == "AMZ":
                     <span style="font-size: 13px; color: #cbd5e1;">All {len(processed_items)} invoice file(s) for <b>{st.session_state.selected_wh}</b> have been accurately verified, filtered, and stamped with dispatch barcodes. Download below to record in History.</span>
                 </div>
             """, unsafe_allow_html=True)
+
+            all_unmatched = [u for item in processed_items for u in item.get("unmatched", [])]
+            if all_unmatched:
+                st.warning(f"⚠️ {len(all_unmatched)} Invoice(s) Excel ke ExtInvoiceNo mein nahi mile: {', '.join(all_unmatched)}")
 
     batch_list = st.session_state.current_batch_results
     if batch_list:

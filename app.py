@@ -1843,10 +1843,13 @@ elif st.session_state.active_tab == "BLNK":
                     factor = 1
                     if is_blinkit:
                         upper_desc = pure_desc.upper()
+                        full_row_upper = " ".join([w[4].upper() for w in row_words])
                         if "DISPO" in upper_desc:
                             factor = 50
                         elif "COMFIT" in upper_desc:
                             factor = 25
+                        elif "KMN955" in upper_desc or "KMN955" in full_row_upper:
+                            factor = 5
 
                     search_words = [w for w in row_words if w[0] > (hsn_w[2] if hsn_w else (hsn_x0 + 5))]
                     search_words.sort(key=lambda w: w[0])

@@ -2593,8 +2593,11 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                 "total_value": inv_tot_val
             }
 
-            c1, c2, c3 = st.columns(3)
-            with c1:
+            s_tab_pdf, s_tab_je = st.tabs([
+                "📥 Edited Invoice PDF",
+                "🧾 JSON & 📊 Excel e-Invoice Files"
+            ])
+            with s_tab_pdf:
                 st.download_button(
                     label="📥 Download Processed PDF",
                     data=pdf_buf.getvalue(),
@@ -2604,26 +2607,28 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     args=(hist_item,),
                     key="dl_blnk_single_pdf"
                 )
-            with c2:
-                st.download_button(
-                    label="📊 Download eInvoice.xlsx (Official Format)",
-                    data=excel_raw_bytes,
-                    file_name=f"{inv_no}_eInvoice.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    on_click=save_item_to_disk_history,
-                    args=(hist_item,),
-                    key="dl_blnk_single_xlsx"
-                )
-            with c3:
-                st.download_button(
-                    label="🧾 Download e-Invoice JSON (v1.01)",
-                    data=json_raw_bytes,
-                    file_name=f"{inv_no}_eInvoice_v1.01.json",
-                    mime="application/json",
-                    on_click=save_item_to_disk_history,
-                    args=(hist_item,),
-                    key="dl_blnk_single_json"
-                )
+            with s_tab_je:
+                je_s1, je_s2 = st.columns(2)
+                with je_s1:
+                    st.download_button(
+                        label="🧾 Download e-Invoice JSON (v1.01)",
+                        data=json_raw_bytes,
+                        file_name=f"{inv_no}_eInvoice_v1.01.json",
+                        mime="application/json",
+                        on_click=save_item_to_disk_history,
+                        args=(hist_item,),
+                        key="dl_blnk_single_json"
+                    )
+                with je_s2:
+                    st.download_button(
+                        label="📊 Download eInvoice.xlsx (Official Format)",
+                        data=excel_raw_bytes,
+                        file_name=f"{inv_no}_eInvoice.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        on_click=save_item_to_disk_history,
+                        args=(hist_item,),
+                        key="dl_blnk_single_xlsx"
+                    )
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### 📄 Official Government e-Invoice Live Preview")
@@ -2632,26 +2637,20 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
             components.html(preview_html, height=calc_height, scrolling=True)
 
         else:
-            zip_buffer = io.BytesIO()
+            pdf_only_zip_buffer = io.BytesIO()
             batch_hist = []
             bulk_json = [build_einvoice_json_v101(d["meta"]) for d in active_docs]
             date_str = datetime.now(IST).strftime('%d-%m-%Y')
 
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            with zipfile.ZipFile(pdf_only_zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
                 for idx, doc in enumerate(active_docs, 1):
                     pdf_name = doc["meta"]["pdf_filename"]
-                    name_root = pdf_name[:-4] if pdf_name.endswith(".pdf") else pdf_name
                     raw_data = doc["pdf_buf"].getvalue()
-                    
                     zip_file.writestr(pdf_name, raw_data)
 
                     single_json = bulk_json[idx-1]
                     single_json_bytes = json.dumps(single_json, indent=4).encode('utf-8')
                     single_excel_bytes = generate_official_nic_v101_excel_bytes([doc["meta"]])
-
-                    zip_file.writestr(f"{name_root}.xlsx", single_excel_bytes)
-                    zip_file.writestr(f"{name_root}.json", single_json_bytes)
-
                     inv_tot_val = float(doc["meta"].get("printed_grand_total") or sum(it['taxable_val'] for it in doc["meta"]['line_items']) * 1.05)
 
                     batch_hist.append({
@@ -2667,39 +2666,49 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                         "buyer": doc["meta"]["buyer_name"],
                         "total_value": inv_tot_val
                     })
-            zip_buffer.seek(0)
+            pdf_only_zip_buffer.seek(0)
 
-            c1, c2, c3 = st.columns(3)
-            with c1:
+            tab_pdf_only, tab_json_excel = st.tabs([
+                f"📥 Edited Invoices PDF ({len(active_docs)})",
+                f"🧾 JSON & 📊 Excel e-Invoice Files"
+            ])
+
+            with tab_pdf_only:
                 st.download_button(
-                    label=f"📦 Download All Processed Files ({len(active_docs)} Invoices Bundle - ZIP)",
-                    data=zip_buffer.getvalue(),
-                    file_name=f"Invoices_Complete_Bundle_{date_str}.zip",
+                    label=f"📥 Download Processed PDFs Only ({len(active_docs)} Edited Invoices - ZIP)",
+                    data=pdf_only_zip_buffer.getvalue(),
+                    file_name=f"Processed_Invoices_PDF_{date_str}.zip",
                     mime="application/zip",
                     on_click=save_batch_to_disk_history,
                     args=(batch_hist,),
-                    key="dl_blnk_bulk_zip"
+                    key="dl_blnk_bulk_pdf_zip",
+                    use_container_width=True
                 )
-            with c2:
-                st.download_button(
-                    label=f"📊 Download Bulk eInvoice.xlsx ({len(active_docs)} Invoices)",
-                    data=excel_raw_bytes,
-                    file_name=f"Bulk_eInvoice_{date_str}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    on_click=save_batch_to_disk_history,
-                    args=(batch_hist,),
-                    key="dl_blnk_bulk_xlsx"
-                )
-            with c3:
-                st.download_button(
-                    label=f"🧾 Download Bulk e-Invoice JSON ({len(bulk_json)} Invoices)",
-                    data=json.dumps(bulk_json, indent=4).encode('utf-8'),
-                    file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
-                    mime="application/json",
-                    on_click=save_batch_to_disk_history,
-                    args=(batch_hist,),
-                    key="dl_blnk_bulk_json"
-                )
+
+            with tab_json_excel:
+                je_c1, je_c2 = st.columns(2)
+                with je_c1:
+                    st.download_button(
+                        label=f"🧾 Download Bulk e-Invoice JSON ({len(bulk_json)} Invoices)",
+                        data=json.dumps(bulk_json, indent=4).encode('utf-8'),
+                        file_name=f"Bulk_eInvoice_NIC_v1.01_{date_str}.json",
+                        mime="application/json",
+                        on_click=save_batch_to_disk_history,
+                        args=(batch_hist,),
+                        key="dl_blnk_bulk_json",
+                        use_container_width=True
+                    )
+                with je_c2:
+                    st.download_button(
+                        label=f"📊 Download Bulk eInvoice.xlsx ({len(active_docs)} Invoices)",
+                        data=excel_raw_bytes,
+                        file_name=f"Bulk_eInvoice_{date_str}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        on_click=save_batch_to_disk_history,
+                        args=(batch_hist,),
+                        key="dl_blnk_bulk_xlsx",
+                        use_container_width=True
+                    )
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### 📄 Invoices Official e-Invoice Preview")

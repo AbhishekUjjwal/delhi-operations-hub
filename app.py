@@ -118,6 +118,18 @@ def save_item_to_disk_history(item):
     mod = item.get("module", "GEN")
 
     existing_items = load_disk_history()
+    # Prevent duplicate PDF entries in History if exact same original file & invoice set already exists
+    new_uids = sorted([e.get("uid") for e in item.get("invoice_entries", []) if e.get("uid")])
+    for x in existing_items:
+        if x.get("location") == wh and x.get("module") == mod:
+            x_uids = sorted([e.get("uid") for e in x.get("invoice_entries", []) if e.get("uid")])
+            if new_uids and x_uids == new_uids:
+                item["_saved_to_history"] = True
+                return
+            if not new_uids and x.get("original_name") == item.get("original_name") and x.get("stamped") == item.get("stamped"):
+                item["_saved_to_history"] = True
+                return
+
     existing_fnames = [
         x.get("file_name") for x in existing_items
         if x.get("location") == wh and x.get("module") == mod
@@ -170,6 +182,7 @@ def save_item_to_disk_history(item):
         "module": mod,
         "buyer": item.get("buyer", "Unknown"),
         "total_value": val_to_save,
+        "invoice_entries": item.get("invoice_entries", []),
         "created_ts": current_ts,
         "time": get_current_ist_str()
     }
@@ -646,58 +659,119 @@ with st.sidebar:
     st.markdown(f"**WH Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`")
     st.divider()
 
-    # --- INVOICE ANALYTICS GRAPH (DEDUPLICATED & BLINKIT VS OTHER BUYERS) ---
-    st.markdown("📊 **Invoice Upload Analytics**")
+    # --- CONTEXT-AWARE INVOICE ANALYTICS (DEDUPLICATED BY INVOICE / FILE) ---
+    current_active_tab = st.session_state.active_tab
     all_history_records = load_disk_history()
 
     if st.session_state.selected_wh != "Headoffice":
-        active_records = [r for r in all_history_records if r.get("location") == st.session_state.selected_wh]
+        loc_records = [r for r in all_history_records if r.get("location") == st.session_state.selected_wh]
     else:
-        active_records = all_history_records
+        loc_records = all_history_records
 
-    unique_invoices = {}
-    for r in active_records:
-        inv_key = r.get("original_name") or r.get("file_name")
-        if inv_key not in unique_invoices:
-            unique_invoices[inv_key] = r
+    def compute_dedup_module_stats(records_list):
+        unique_inv_map = {}
+        unique_file_map = {}
+        for r in records_list:
+            entries = r.get("invoice_entries") or []
+            if entries:
+                for ent in entries:
+                    uid = ent.get("uid")
+                    if uid and uid not in unique_inv_map:
+                        unique_inv_map[uid] = float(ent.get("value", 0.0))
+            else:
+                # Backward compatibility for older saved records without invoice_entries
+                fkey = re.sub(r'_edit_\d+', '', str(r.get("original_name") or r.get("file_name") or "")).strip().lower()
+                if fkey and fkey not in unique_file_map:
+                    try:
+                        fval = float(r.get("total_value", 0.0))
+                    except (ValueError, TypeError):
+                        fval = 0.0
+                    f_cnt = int(r.get("stamped") or 1) if r.get("module") == "AMZ" else 1
+                    # Extract invoice numbers & values directly from saved PDF bytes if value is 0
+                    if r.get("data") and (fval <= 0 or r.get("module") == "AMZ"):
+                        try:
+                            _d = fitz.open(stream=r["data"], filetype="pdf")
+                            _extracted_cnt = 0
+                            _extracted_val = 0.0
+                            for _p in _d:
+                                _ptxt = _p.get_text()
+                                _invm = re.search(r"Invoice\s*Number\s*[:\s]*([A-Z0-9\-/]+)", _ptxt, re.I)
+                                _valm = re.search(r"Invoice\s*Value\s*[:\s]*([0-9,]+\.\d{2})", _ptxt, re.I)
+                                if _invm:
+                                    _uid = re.sub(r'[^a-zA-Z0-9]', '', _invm.group(1)).lower()
+                                    _v = float(_valm.group(1).replace(",", "")) if _valm else 0.0
+                                    if _uid not in unique_inv_map:
+                                        unique_inv_map[_uid] = _v
+                                    _extracted_cnt += 1
+                                    _extracted_val += _v
+                            _d.close()
+                            if _extracted_cnt > 0:
+                                unique_file_map[fkey] = (0, 0.0)
+                                continue
+                        except Exception:
+                            pass
+                    unique_file_map[fkey] = (f_cnt, fval)
 
-    dedup_list = list(unique_invoices.values())
+        tot_cnt = len(unique_inv_map) + sum(v[0] for v in unique_file_map.values())
+        tot_val = sum(unique_inv_map.values()) + sum(v[1] for v in unique_file_map.values())
+        return tot_cnt, round(tot_val, 2)
 
-    blinkit_count = 0
-    blinkit_val = 0.0
-    other_count = 0
-    other_val = 0.0
+    if current_active_tab == "AMZ":
+        st.markdown("📊 **Amazon Upload Analytics**")
+        amz_recs = [r for r in loc_records if r.get("module") == "AMZ"]
+        amz_cnt, amz_val = compute_dedup_module_stats(amz_recs)
 
-    for item in dedup_list:
-        buyer_str = str(item.get("buyer", "")).lower() + " " + str(item.get("file_name", "")).lower()
-        try:
-            val = float(item.get("total_value", 0.0))
-        except (ValueError, TypeError):
-            val = 0.0
-            
-        if "blink" in buyer_str:
-            blinkit_count += 1
-            blinkit_val += val
-        else:
-            other_count += 1
-            other_val += val
+        m_col1, m_col2 = st.columns(2)
+        with m_col1:
+            st.metric("📦 Total Invoices", f"{amz_cnt} Inv")
+        with m_col2:
+            st.metric("💰 Order Value", f"₹{amz_val:,.0f}")
 
-    m_col1, m_col2 = st.columns(2)
-    with m_col1:
-        st.metric("⚡ Blinkit", f"{blinkit_count} Inv", delta=f"₹{blinkit_val:,.0f}" if blinkit_val > 0 else "₹0")
-    with m_col2:
-        st.metric("🏢 Others", f"{other_count} Inv", delta=f"₹{other_val:,.0f}" if other_val > 0 else "₹0")
+        chart_df = pd.DataFrame({
+            "Channel": ["Amazon Orders"],
+            "Order Value (₹)": [amz_val]
+        }).set_index("Channel")
+        st.bar_chart(chart_df, height=135, use_container_width=True)
+        st.caption(f"Unique Amazon Invoices: **{amz_cnt}** | Total Value: **₹{amz_val:,.2f}**")
 
-    chart_df = pd.DataFrame({
-        "Category": ["Blinkit Invoices", "Other Invoices"],
-        "Count": [blinkit_count, other_count],
-        "Total Value (₹)": [blinkit_val, other_val]
-    }).set_index("Category")
+    elif current_active_tab in ["BLNK", "BLNK_PO"]:
+        st.markdown("📊 **Blinkit Upload Analytics**")
+        blnk_recs = [r for r in loc_records if r.get("module") in ["BLNK", "BLNK_PO"]]
+        blnk_cnt, blnk_val = compute_dedup_module_stats(blnk_recs)
 
-    st.bar_chart(chart_df[["Total Value (₹)"]], height=135, use_container_width=True)
+        m_col1, m_col2 = st.columns(2)
+        with m_col1:
+            st.metric("⚡ Total Invoices", f"{blnk_cnt} Inv")
+        with m_col2:
+            st.metric("💰 Total Value", f"₹{blnk_val:,.0f}")
 
-    total_net_val = blinkit_val + other_val
-    st.caption(f"Total Unique Invoices: **{len(dedup_list)}** | Net Total: **₹{total_net_val:,.2f}**")
+        chart_df = pd.DataFrame({
+            "Channel": ["Blinkit Invoices"],
+            "Total Value (₹)": [blnk_val]
+        }).set_index("Channel")
+        st.bar_chart(chart_df, height=135, use_container_width=True)
+        st.caption(f"Unique Blinkit Invoices: **{blnk_cnt}** | Net Value: **₹{blnk_val:,.2f}**")
+
+    else:
+        st.markdown("📊 **Invoice Upload Analytics**")
+        amz_cnt, amz_val = compute_dedup_module_stats([r for r in loc_records if r.get("module") == "AMZ"])
+        blnk_cnt, blnk_val = compute_dedup_module_stats([r for r in loc_records if r.get("module") in ["BLNK", "BLNK_PO"]])
+
+        m_col1, m_col2 = st.columns(2)
+        with m_col1:
+            st.metric("⚡ Blinkit", f"{blnk_cnt} Inv", delta=f"₹{blnk_val:,.0f}")
+        with m_col2:
+            st.metric("📦 Amazon", f"{amz_cnt} Inv", delta=f"₹{amz_val:,.0f}")
+
+        chart_df = pd.DataFrame({
+            "Category": ["Blinkit", "Amazon"],
+            "Total Value (₹)": [blnk_val, amz_val]
+        }).set_index("Category")
+        st.bar_chart(chart_df, height=135, use_container_width=True)
+
+        total_net_val = blnk_val + amz_val
+        st.caption(f"Total Unique Invoices: **{blnk_cnt + amz_cnt}** | Net Total: **₹{total_net_val:,.2f}**")
+
     st.divider()
 
 # ----------------- TOP BAR: HEADER BRANDING & CONTROLS -----------------
@@ -1088,6 +1162,8 @@ elif st.session_state.active_tab == "AMZ":
         ext_order_col = next((col_mapping[c] for c in col_mapping if "external" in c and "order" in c), None) or \
                         next((col_mapping[c] for c in col_mapping if "order" in c and "id" in c), None) or \
                         next((col_mapping[c] for c in col_mapping if "order" in c), None)
+        amount_col = next((col_mapping[c] for c in col_mapping if "invoice" in c and ("amount" in c or "val" in c or "total" in c)), None) or \
+                     next((col_mapping[c] for c in col_mapping if "amount" in c or "total" in c), None)
 
         if not (ext_inv_col and tracking_col):
             st.error("Excel/CSV me ExtInvoiceNo aur Tracking No column hona zaroori hai!")
@@ -1105,17 +1181,25 @@ elif st.session_state.active_tab == "AMZ":
             base_ord_str = raw_ext_ord.split("~")[0].strip() if "~" in raw_ext_ord else raw_ext_ord
             clean_ord_id = clean_alphanumeric(base_ord_str)
 
+            raw_amt = clean_val(row.get(amount_col, "")) if amount_col else ""
+            try:
+                row_amt = float(re.sub(r'[^0-9.]', '', raw_amt)) if raw_amt else 0.0
+            except ValueError:
+                row_amt = 0.0
+
             if track_val:
                 if clean_ext_inv:
                     ext_invoice_map[clean_ext_inv] = {
                         "track": track_val,
                         "ext_inv": raw_ext_inv,
-                        "order_id": base_ord_str
+                        "order_id": base_ord_str,
+                        "amount": row_amt
                     }
                 if clean_ord_id:
                     order_fallback_map.setdefault(clean_ord_id, []).append({
                         "track": track_val,
                         "ext_inv": raw_ext_inv,
+                        "amount": row_amt,
                         "used": False
                     })
 
@@ -1143,6 +1227,8 @@ elif st.session_state.active_tab == "AMZ":
                 file_removed_pan = 0
                 file_removed_desc = 0
                 unmatched_invoices = []
+                file_total_value = 0.0
+                file_invoice_entries = []
 
                 for page_num in range(len(doc)):
                     page = doc[page_num]
@@ -1176,17 +1262,30 @@ elif st.session_state.active_tab == "AMZ":
                                 order_clean = extracted
 
                     target_tracking_id = None
+                    matched_inv_amt = 0.0
 
                     if inv_clean and inv_clean in ext_invoice_map:
                         target_tracking_id = ext_invoice_map[inv_clean]["track"]
+                        matched_inv_amt = float(ext_invoice_map[inv_clean].get("amount", 0.0))
                     elif order_clean and order_clean in order_fallback_map:
                         candidates = order_fallback_map[order_clean]
                         unused = [c for c in candidates if not c["used"]]
                         if unused:
                             target_tracking_id = unused[0]["track"]
+                            matched_inv_amt = float(unused[0].get("amount", 0.0))
                             unused[0]["used"] = True
                         else:
                             target_tracking_id = candidates[0]["track"]
+                            matched_inv_amt = float(candidates[0].get("amount", 0.0))
+
+                    # Fallback: parse Invoice Value directly from PDF page text if Excel amount is 0
+                    if matched_inv_amt <= 0:
+                        pdf_val_m = re.search(r"Invoice\s*Value\s*[:\s]*([0-9,]+\.\d{2})", raw_text, re.IGNORECASE)
+                        if pdf_val_m:
+                            try:
+                                matched_inv_amt = float(pdf_val_m.group(1).replace(",", ""))
+                            except ValueError:
+                                matched_inv_amt = 0.0
 
                     if target_tracking_id:
                         page.draw_rect(barcode_rect, color=white_color, fill=white_color, width=0)
@@ -1215,6 +1314,13 @@ elif st.session_state.active_tab == "AMZ":
                             )
 
                         file_stamped_count += 1
+                        file_total_value += matched_inv_amt
+                        inv_uid = inv_clean or order_clean or f"{pdf_file.name}_p{page_num+1}"
+                        file_invoice_entries.append({
+                            "uid": inv_uid,
+                            "inv_no": raw_pdf_inv or order_clean or inv_uid,
+                            "value": round(matched_inv_amt, 2)
+                        })
                     else:
                         unmatched_invoices.append(raw_pdf_inv or order_clean or f"Page {page_num+1}")
 
@@ -1237,7 +1343,8 @@ elif st.session_state.active_tab == "AMZ":
                     "location": st.session_state.selected_wh,
                     "module": "AMZ",
                     "buyer": "Amazon Customer",
-                    "total_value": 0.0
+                    "total_value": round(file_total_value, 2),
+                    "invoice_entries": file_invoice_entries
                 })
 
                 progress_bar.progress((file_idx + 1) / total_files)
@@ -2428,7 +2535,12 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
                     "location": st.session_state.selected_wh,
                     "module": "BLNK",
                     "buyer": _m["buyer_name"],
-                    "total_value": _inv_tot
+                    "total_value": round(_inv_tot, 2),
+                    "invoice_entries": [{
+                        "uid": re.sub(r'[^a-zA-Z0-9]', '', str(_m.get("invoice_no", ""))).lower() or _pdoc["original_name"],
+                        "inv_no": str(_m.get("invoice_no", "")),
+                        "value": round(_inv_tot, 2)
+                    }]
                 }
                 save_item_to_disk_history(_h_rec)
                 _pdoc["hist_item"] = _h_rec

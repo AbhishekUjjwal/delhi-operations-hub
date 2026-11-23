@@ -3038,7 +3038,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
 # ----------------- MODULE 4: LABEL EDITOR -----------------
 elif st.session_state.active_tab == "LBL":
     st.subheader("🏷️ 4x6 Shipping & Box-Wise Product Label Generator")
-    st.caption("Upload Single or Bulk Invoice PDFs — Configure Custom Box Size per Invoice/SKU, Verify Exact Qty Match (Green Tab), and Print 4x6 Labels.")
+    st.caption("Upload Single or Bulk Invoice PDFs — Click Box Label on any invoice, configure Dedicated Box Splits / Loose Box / Mixed Box, verify Qty Match (Green Tab), and Preview / Download / Print 4x6 Thermal PDF.")
 
     def parse_invoice_for_labels(pdf_bytes):
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -3083,6 +3083,11 @@ elif st.session_state.active_tab == "LBL":
         ship_to_name = "BLINK COMMERCE PRIVATE LIMITED" if "blink" in full_text.lower() else "Customer"
         ship_to_addr = ""
         ship_to_gstin = ""
+        pos_state = ""
+
+        pos_m = re.search(r"Place\s*of\s*Supply\s*[:\s]*([A-Za-z0-9\s\-]+?)(?=\n|GST|State|$)", full_text, re.IGNORECASE)
+        if pos_m:
+            pos_state = pos_m.group(1).strip()
 
         s_idx = full_text.find("Shipping Address")
         if s_idx == -1:
@@ -3117,9 +3122,13 @@ elif st.session_state.active_tab == "LBL":
 
         # Extract Grand Total / Taxable Value if present
         grand_tot_str = ""
+        taxable_str = ""
         gt_m = re.search(r"(?:Total\s*Invoice\s*Value|Invoice\s*Total|Grand\s*Total|Total\s*Amount)[:\s]*[₹\s]*([0-9,]+\.\d{2})", full_text, re.I)
         if gt_m:
             grand_tot_str = f"₹{gt_m.group(1)}"
+        tx_m = re.search(r"Total\s*Amount\(\+\)\s*[:\s]*([0-9,]+\.\d{2})", full_text, re.I)
+        if tx_m:
+            taxable_str = f"₹{tx_m.group(1)}"
 
         # 4. Extract Seller Details
         seller_name = "Romsons Prime Private Limited"
@@ -3196,7 +3205,6 @@ elif st.session_state.active_tab == "LBL":
                 else:
                     sku_code = f"SKU-{len(extracted_skus)+1}"
 
-                # Extract Quantity cleanly: integer quantity tokens (typically <= 20000 and not a decimal rupee price)
                 qty_val = 0
                 if hsn_w:
                     after_hsn = [w for w in row_words if w[0] > hsn_w[2]]
@@ -3209,7 +3217,6 @@ elif st.session_state.active_tab == "LBL":
                             if 1 <= iv <= 50000:
                                 int_cands.append((w[0], iv))
                     if int_cands:
-                        # Qty column usually sits before price/discount/tax columns or is the first clean integer after HSN
                         qty_val = int_cands[0][1]
                 else:
                     nums = [int(float(w[4].replace(",", ""))) for w in row_words if w[0] > 220 and re.match(r"^\d+$", w[4].strip())]
@@ -3229,9 +3236,11 @@ elif st.session_state.active_tab == "LBL":
             "header_tag": buyer_header,
             "invoice_no": inv_no,
             "po_no": po_no,
+            "pos_state": pos_state,
             "ship_to_name": ship_to_name,
             "ship_to_addr": ship_to_addr,
             "ship_to_gstin": ship_to_gstin,
+            "taxable_str": taxable_str,
             "grand_total_str": grand_tot_str,
             "seller_name": seller_name,
             "seller_addr": seller_addr,
@@ -3363,8 +3372,11 @@ elif st.session_state.active_tab == "LBL":
         out_doc.close()
         return pdf_bytes
 
-    def render_single_invoice_box_configurator(inv_key, parsed_lbl, is_bulk_item=False):
-        with st.expander(f"📝 Edit Label Header & Consignee ({parsed_lbl['invoice_no']})", expanded=not is_bulk_item):
+    def render_label_config_modal_view(inv_key, parsed_lbl):
+        st.markdown(f"### 📦 Fill Box Quantities & Box Configuration — `{parsed_lbl['invoice_no']}`")
+        st.caption("Configure dedicated boxes for single items, or pack multiple items in one mixed box.")
+
+        with st.expander("📝 Edit Label Header & Consignee Details (Order ID, Invoice No, Ship To)", expanded=False):
             h_c1, h_c2, h_c3 = st.columns([1.0, 1.3, 1.3])
             with h_c1:
                 hdr_tag_in = st.text_input("Channel / Header Tag", value=parsed_lbl["header_tag"], key=f"lbl_hdr_tag_{inv_key}")
@@ -3378,7 +3390,7 @@ elif st.session_state.active_tab == "LBL":
                 ship_name_in = st.text_input("SHIP TO (Consignee Name)", value=parsed_lbl["ship_to_name"], key=f"lbl_ship_name_{inv_key}")
                 ship_gst_in = st.text_input("Consignee GSTIN", value=parsed_lbl["ship_to_gstin"], key=f"lbl_ship_gst_{inv_key}")
             with a_c2:
-                ship_addr_in = st.text_area("SHIP TO (Full Address)", value=parsed_lbl["ship_to_addr"], height=85, key=f"lbl_ship_addr_{inv_key}")
+                ship_addr_in = st.text_area("SHIP TO (Full Address)", value=parsed_lbl["ship_to_addr"], height=80, key=f"lbl_ship_addr_{inv_key}")
 
         items_list = parsed_lbl["items"]
         tiers_state_key = f"lbl_tiers_{inv_key}"
@@ -3387,15 +3399,11 @@ elif st.session_state.active_tab == "LBL":
         if tiers_state_key not in st.session_state:
             st.session_state[tiers_state_key] = {}
             for idx, it in enumerate(items_list):
-                q = int(it["qty"])
-                # Default box size = full qty if <= 300, or user-editable custom box size
-                def_bs = min(q, 300) if q > 0 else 1
-                st.session_state[tiers_state_key][idx] = [{"per_box": def_bs, "num_boxes": q // def_bs, "is_loose": False}]
+                st.session_state[tiers_state_key][idx] = [{"per_box": 0, "num_boxes": 0, "is_loose": False}]
 
         if mix_state_key not in st.session_state:
             st.session_state[mix_state_key] = []
 
-        # Compute breakdown per SKU
         def get_breakdown():
             bd = {}
             for idx, it in enumerate(items_list):
@@ -3412,10 +3420,10 @@ elif st.session_state.active_tab == "LBL":
         bd_now = get_breakdown()
         tot_short_now = sum(max(0, int(items_list[i]["qty"]) - (bd_now[i]["ded_qty"] + bd_now[i]["mix_qty"])) for i in range(len(items_list)))
 
-        top_l, top_r1, top_r2 = st.columns([2.2, 1.4, 1.4])
-        with top_l:
-            st.markdown("**📦 Fill Box Quantities & Box Configuration (Custom Box Size per SKU)**")
-        with top_r1:
+        act_l, act_r1, act_r2 = st.columns([2.0, 1.5, 1.5])
+        with act_l:
+            st.markdown(f"**SINGLE-ITEM BOX SPLITS (DEDICATED BOXES PER SKU)** — `{len(items_list)} Item(s) in Invoice`")
+        with act_r1:
             if tot_short_now > 0:
                 if st.button(f"✨ Pack Remaining ({tot_short_now}) in Mixed Box", key=f"pack_rem_mix_{inv_key}", use_container_width=True):
                     rem_list = []
@@ -3428,8 +3436,8 @@ elif st.session_state.active_tab == "LBL":
                         st.rerun()
             else:
                 st.button("✨ All Qty Packed", key=f"all_packed_btn_{inv_key}", disabled=True, use_container_width=True)
-        with top_r2:
-            if st.button("➕ Add Mixed Box (Multiple Items)", key=f"add_mix_btn_{inv_key}", use_container_width=True):
+        with act_r2:
+            if st.button("➕ Add Mixed Box (Multiple Items in 1 Box)", key=f"add_mix_btn_{inv_key}", use_container_width=True):
                 def_m = [{"sku_idx": i, "sku": it["sku"], "desc": it["desc"], "qty": 0} for i, it in enumerate(items_list)]
                 st.session_state[mix_state_key].append({"items": def_m})
                 st.rerun()
@@ -3438,48 +3446,51 @@ elif st.session_state.active_tab == "LBL":
         all_matched = True
 
         for idx, it in enumerate(items_list):
-            tiers = st.session_state[tiers_state_key].get(idx, [{"per_box": int(it["qty"]), "num_boxes": 1, "is_loose": False}])
+            tiers = st.session_state[tiers_state_key].get(idx, [{"per_box": 0, "num_boxes": 0, "is_loose": False}])
             inv_qty = int(it["qty"])
             mix_q = bd_now[idx]["mix_qty"]
 
+            ded_now = sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers)
+            tot_now = ded_now + mix_q
+            short_sku = inv_qty - tot_now
+
+            card_border_color = "#16a34a" if tot_now == inv_qty else "#f59e0b"
+
             with st.container(border=True):
-                hc1, hc2, hc3 = st.columns([2.2, 1.3, 1.3])
-                with hc1:
+                top_s1, top_s2, top_s3 = st.columns([1.4, 1.5, 1.3])
+                with top_s1:
                     it["sku"] = st.text_input("SKU", value=it["sku"], key=f"sku_{inv_key}_{idx}")
-                with hc2:
+                with top_s2:
                     it["item_code"] = st.text_input("ITEM CODE", value=it.get("item_code", it["sku"]), key=f"icode_{inv_key}_{idx}")
-                with hc3:
-                    it["qty"] = st.number_input("Total Invoice Qty", min_value=1, value=inv_qty, step=1, key=f"iq_{inv_key}_{idx}")
-                    inv_qty = int(it["qty"])
+                with top_s3:
+                    st.markdown(f"<div style='padding-top:26px; font-weight:800; text-align:right;'>Total Invoice Qty: {inv_qty}</div>", unsafe_allow_html=True)
 
-                it["desc"] = st.text_input("Title / Description", value=it["desc"], key=f"desc_{inv_key}_{idx}")
+                it["desc"] = st.text_input("Title", value=it["desc"], key=f"desc_{inv_key}_{idx}")
 
-                ded_now = sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers)
-                short_sku = inv_qty - (ded_now + mix_q)
-
-                sl, sr = st.columns([2.4, 1.6])
-                with sl:
-                    st.markdown("**Dedicated Box Splits (Apne Hisaab Se Box Size Set Karein):**")
-                with sr:
+                sub_l, sub_r = st.columns([2.2, 1.8])
+                with sub_l:
+                    st.markdown("**Dedicated Box Splits:**")
+                with sub_r:
                     if short_sku > 0:
-                        if st.button(f"➕ Add Remaining ({short_sku}) in 1 Dedicated Box", key=f"rem_ded_{inv_key}_{idx}", use_container_width=True):
+                        if st.button(f"Add Remaining ({short_sku}) in 1 Dedicated Box", key=f"rem_ded_{inv_key}_{idx}", use_container_width=True):
                             tiers.append({"per_box": int(short_sku), "num_boxes": 1, "is_loose": True})
                             st.session_state[tiers_state_key][idx] = tiers
                             st.rerun()
 
                 del_t_idxs = []
                 for t_i, tier in enumerate(tiers):
-                    c1, c2, c3, c4, c5 = st.columns([0.4, 1.3, 1.3, 1.4, 0.4])
+                    c1, c2, c3, c4, c5 = st.columns([0.4, 1.3, 1.3, 1.5, 0.4])
                     with c1:
                         st.markdown(f"<div style='padding-top:28px; font-weight:700;'>#{t_i+1}</div>", unsafe_allow_html=True)
                     with c2:
-                        tier["per_box"] = st.number_input("Per Box Qty", min_value=1, value=int(tier["per_box"]), step=1, key=f"pb_{inv_key}_{idx}_{t_i}")
+                        tier["per_box"] = st.number_input("Per Box Qty", min_value=0, value=int(tier["per_box"]), step=1, key=f"pb_{inv_key}_{idx}_{t_i}")
                     with c3:
                         tier["num_boxes"] = st.number_input("Number of Boxes", min_value=0, value=int(tier["num_boxes"]), step=1, key=f"nb_{inv_key}_{idx}_{t_i}")
                     with c4:
                         rq = int(tier["per_box"]) * int(tier["num_boxes"])
-                        l_lbl = " (Dedicated Loose)" if tier.get("is_loose") else ""
-                        st.markdown(f"<div style='padding-top:28px; font-weight:700; text-align:right;'>= {rq} Qty ({tier['num_boxes']} Boxes){l_lbl}</div>", unsafe_allow_html=True)
+                        b_lbl = "Box" if int(tier["num_boxes"]) == 1 else "Boxes"
+                        l_tag = " (Loose)" if tier.get("is_loose") else ""
+                        st.markdown(f"<div style='padding-top:28px; font-weight:700; text-align:right;'>= {rq} Qty ({tier['num_boxes']} {b_lbl}){l_tag}</div>", unsafe_allow_html=True)
                     with c5:
                         if len(tiers) > 1:
                             st.write("")
@@ -3492,9 +3503,8 @@ elif st.session_state.active_tab == "LBL":
                     st.session_state[tiers_state_key][idx] = tiers
                     st.rerun()
 
-                if st.button("➕ Add Another Split Tier", key=f"add_t_{inv_key}_{idx}"):
-                    r_new = max(1, inv_qty - (sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers) + mix_q))
-                    tiers.append({"per_box": int(r_new), "num_boxes": 1, "is_loose": True})
+                if st.button("+ Add Another Split Tier", key=f"add_t_{inv_key}_{idx}"):
+                    tiers.append({"per_box": 0, "num_boxes": 0, "is_loose": True})
                     st.session_state[tiers_state_key][idx] = tiers
                     st.rerun()
 
@@ -3502,33 +3512,44 @@ elif st.session_state.active_tab == "LBL":
                 fin_tot = fin_ded + mix_q
                 diff_q = fin_tot - inv_qty
 
-                # GREEN TAB / BADGE when Qty matches exactly
+                # GREEN TAB when Qty matches exactly; amber/red warning when short/excess
                 if fin_tot == inv_qty:
                     st.markdown(
-                        f"<div style='background: #16a34a; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-weight: 800; margin-top: 6px;'>"
-                        f"✅ QTY MATCHED ({fin_tot}/{inv_qty}) — Dedicated: {fin_ded} | Mixed: {mix_q} — Ready for Label"
+                        f"<div style='background: #16a34a; color: #ffffff; padding: 9px 14px; border-radius: 8px; font-weight: 800; margin-top: 6px;'>"
+                        f"✅ Matched ({fin_tot}/{inv_qty}): Invoice qty is {inv_qty}, total filled is {fin_tot} (Dedicated: {fin_ded} | Mixed: {mix_q})."
                         f"</div>",
                         unsafe_allow_html=True
                     )
                 elif fin_tot < inv_qty:
                     all_matched = False
-                    st.warning(f"⚠️ **Short {diff_q} ({fin_tot}/{inv_qty})** — Remaining {abs(diff_q)} pcs ko Dedicated Loose Box ya Mixed Box mein add karein.")
+                    st.markdown(
+                        f"<div style='background: #fef9c3; border: 1px solid #facc15; color: #854d0e; padding: 9px 14px; border-radius: 8px; font-weight: 700; margin-top: 6px;'>"
+                        f"⚠️ Qty Short by {abs(diff_q)}: Invoice qty is {inv_qty}, but total filled is {fin_tot}. Qty short fill hai! Kripya poori qty fill karein."
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
                 else:
                     all_matched = False
-                    st.error(f"❌ **Excess +{diff_q} ({fin_tot}/{inv_qty})** — Box Qty Invoice Qty se zyada hai.")
+                    st.markdown(
+                        f"<div style='background: #fee2e2; border: 1px solid #f87171; color: #991b1b; padding: 9px 14px; border-radius: 8px; font-weight: 700; margin-top: 6px;'>"
+                        f"❌ Qty Excess by +{diff_q}: Invoice qty is {inv_qty}, but total filled is {fin_tot}. Total box qty invoice qty se zyada hai!"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
 
                 for tier in tiers:
-                    for _ in range(int(tier["num_boxes"])):
-                        boxes_plan.append({
-                            "sku": it["sku"],
-                            "item_code": it.get("item_code", it["sku"]),
-                            "desc": it["desc"],
-                            "box_qty": int(tier["per_box"]),
-                            "box_type": "DEDICATED LOOSE BOX" if tier.get("is_loose") else "FULL BOX",
-                            "is_mixed": False
-                        })
+                    if int(tier["per_box"]) > 0 and int(tier["num_boxes"]) > 0:
+                        for _ in range(int(tier["num_boxes"])):
+                            boxes_plan.append({
+                                "sku": it["sku"],
+                                "item_code": it.get("item_code", it["sku"]),
+                                "desc": it["desc"],
+                                "box_qty": int(tier["per_box"]),
+                                "box_type": "DEDICATED LOOSE BOX" if tier.get("is_loose") else "FULL BOX",
+                                "is_mixed": False
+                            })
 
-        # Mixed boxes for this invoice
+        # Mixed boxes section
         m_boxes = st.session_state[mix_state_key]
         if m_boxes:
             st.markdown("**📦 Mixed Boxes (Multiple Items in 1 Box)**")
@@ -3569,71 +3590,95 @@ elif st.session_state.active_tab == "LBL":
                 st.session_state[mix_state_key] = m_boxes
                 st.rerun()
 
+        # Bottom Bar matching Screenshot 3 ("Total Labels to Generate" + Preview / Download Thermal PDF / Print All Labels)
         b_cnt = len(boxes_plan)
         clean_inv = re.sub(r"[^A-Za-z0-9\-_]", "", str(inv_no_in).strip()) or "Invoice"
         b_word = "Box" if b_cnt == 1 else "Boxes"
         out_fname = f"{clean_inv}_{b_cnt}_{b_word}.pdf"
 
-        if all_matched and b_cnt > 0:
+        st.markdown("---")
+        bot_l, bot_r1, bot_r2, bot_r3 = st.columns([2.2, 1.0, 1.3, 1.1])
+        with bot_l:
+            st.markdown(f"**Total Labels to Generate:** `{b_cnt}` `({len(items_list)} Items • Portrait 4x6)`")
+
+        can_generate = (all_matched and b_cnt > 0)
+
+        with bot_r1:
+            prev_clicked = st.button(f"👁️ Preview Labels ({b_cnt})", key=f"btn_prev_{inv_key}", disabled=not can_generate, use_container_width=True)
+        with bot_r2:
+            gen_dl_clicked = st.button(f"⬇️ Download Thermal PDF ({b_cnt})", key=f"btn_gen_dl_{inv_key}", disabled=not can_generate, use_container_width=True)
+        with bot_r3:
+            print_clicked = st.button(f"🖨️ Print All Labels ({b_cnt})", key=f"btn_print_all_{inv_key}", disabled=not can_generate, use_container_width=True)
+
+        gen_store_key = f"gen_lbl_{inv_key}"
+        if (prev_clicked or gen_dl_clicked or print_clicked) and can_generate:
+            meta_pdf = {
+                "header_tag": hdr_tag_in,
+                "invoice_no": inv_no_in,
+                "po_no": po_no_in,
+                "ship_to_name": ship_name_in,
+                "ship_to_addr": ship_addr_in,
+                "ship_to_gstin": ship_gst_in,
+                "seller_name": parsed_lbl["seller_name"],
+                "seller_addr": parsed_lbl["seller_addr"]
+            }
+            pdf_b = generate_4x6_labels_pdf(meta_pdf, boxes_plan)
+            st.session_state[gen_store_key] = {
+                "bytes": pdf_b,
+                "filename": out_fname,
+                "count": b_cnt,
+                "show_preview": True,
+                "auto_print": bool(print_clicked)
+            }
+            save_item_to_disk_history({
+                "original_name": out_fname,
+                "file_name": out_fname,
+                "data": pdf_b,
+                "pages": b_cnt,
+                "stamped": b_cnt,
+                "location": st.session_state.selected_wh,
+                "module": "LBL",
+                "buyer": ship_name_in,
+                "total_value": 0.0,
+                "invoice_entries": [{"uid": clean_inv.lower(), "inv_no": str(inv_no_in), "value": 0.0}]
+            })
+
+        if st.session_state.get(gen_store_key):
+            g_res = st.session_state[gen_store_key]
             st.markdown(
-                f"<div style='background: #15803d; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-weight: 800; margin: 8px 0;'>"
-                f"🟢 ALL SKU QUANTITIES MATCHED — {b_cnt} Box Label(s) Ready (`{out_fname}`)"
+                f"<div style='background: #16a34a; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-weight: 800; margin-top: 8px;'>"
+                f"✅ {g_res['count']} x 4x6 Thermal Labels Ready — File: `{g_res['filename']}`"
                 f"</div>",
                 unsafe_allow_html=True
             )
-            gen_key = f"gen_lbl_{inv_key}"
-            if st.button(f"🖨️ Generate {b_cnt} Labels ({out_fname})", key=f"btn_gen_{inv_key}", type="primary", use_container_width=True):
-                meta_pdf = {
-                    "header_tag": hdr_tag_in,
-                    "invoice_no": inv_no_in,
-                    "po_no": po_no_in,
-                    "ship_to_name": ship_name_in,
-                    "ship_to_addr": ship_addr_in,
-                    "ship_to_gstin": ship_gst_in,
-                    "seller_name": parsed_lbl["seller_name"],
-                    "seller_addr": parsed_lbl["seller_addr"]
-                }
-                pdf_b = generate_4x6_labels_pdf(meta_pdf, boxes_plan)
-                st.session_state[gen_key] = {"bytes": pdf_b, "filename": out_fname, "count": b_cnt}
-                save_item_to_disk_history({
-                    "original_name": out_fname,
-                    "file_name": out_fname,
-                    "data": pdf_b,
-                    "pages": b_cnt,
-                    "stamped": b_cnt,
-                    "location": st.session_state.selected_wh,
-                    "module": "LBL",
-                    "buyer": ship_name_in,
-                    "total_value": 0.0,
-                    "invoice_entries": [{"uid": clean_inv.lower(), "inv_no": str(inv_no_in), "value": 0.0}]
-                })
+            st.write("")
+            st.download_button(
+                label=f"📥 Save / Download {g_res['filename']} ({g_res['count']} Pages)",
+                data=g_res["bytes"],
+                file_name=g_res["filename"],
+                mime="application/pdf",
+                key=f"actual_dl_{inv_key}",
+                use_container_width=True
+            )
 
-            if st.session_state.get(gen_key):
-                g_res = st.session_state[gen_key]
-                st.download_button(
-                    label=f"📥 Download {g_res['filename']} ({g_res['count']} Pages)",
-                    data=g_res["bytes"],
-                    file_name=g_res["filename"],
-                    mime="application/pdf",
-                    key=f"dl_btn_{inv_key}",
-                    use_container_width=True
-                )
+            if g_res.get("show_preview"):
                 b64_p = base64.b64encode(g_res["bytes"]).decode("utf-8")
+                auto_p_js = "window.onload = function() { setTimeout(function(){ var fr = document.getElementById('f_" + inv_key + "'); if(fr){ fr.contentWindow.focus(); fr.contentWindow.print(); } }, 400); };" if g_res.get("auto_print") else ""
                 components.html(
                     f"""
-                    <div style="margin-top: 10px; background: #ffffff; padding: 10px; border-radius: 10px; border: 1.5px solid #cbd5e1;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                            <span style="font-weight: 800; color: #0f172a; font-size: 13px;">🖨️ 4x6 Label Preview — {g_res['filename']}</span>
-                            <button onclick="document.getElementById('f_{inv_key}').contentWindow.focus(); document.getElementById('f_{inv_key}').contentWindow.print();" style="background: #16a34a; color: #fff; border: none; padding: 5px 14px; border-radius: 6px; font-weight: 700; cursor: pointer;">🖨️ Print Labels</button>
+                    <div style="margin-top: 10px; background: #ffffff; padding: 12px; border-radius: 10px; border: 1.5px solid #cbd5e1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-weight: 800; color: #0f172a; font-size: 13px;">🏷️ 4x6 Thermal Label Preview — {g_res['filename']}</span>
+                            <button onclick="var fr = document.getElementById('f_{inv_key}'); if(fr){{ fr.contentWindow.focus(); fr.contentWindow.print(); }}" style="background: #16a34a; color: #fff; border: none; padding: 5px 14px; border-radius: 6px; font-weight: 700; cursor: pointer;">🖨️ Print All Labels</button>
                         </div>
-                        <iframe id="f_{inv_key}" src="data:application/pdf;base64,{b64_p}" width="100%" height="480px" style="border: 1px solid #e2e8f0; border-radius: 6px;"></iframe>
+                        <iframe id="f_{inv_key}" src="data:application/pdf;base64,{b64_p}" width="100%" height="520px" style="border: 1px solid #e2e8f0; border-radius: 6px;"></iframe>
                     </div>
+                    <script>{auto_p_js}</script>
                     """,
-                    height=540
+                    height=585
                 )
-        else:
-            st.button("🖨️ Generate 4x6 Labels (Match All SKU Quantities First)", key=f"dis_gen_{inv_key}", disabled=True, use_container_width=True)
 
+    # SCREENSHOT 1: Upload Invoice PDF(s)
     lbl_pdfs = st.file_uploader(
         "1. Upload Invoice PDF(s) — Single ya Bulk (Multiple Files Allowed)",
         type=["pdf"],
@@ -3642,6 +3687,9 @@ elif st.session_state.active_tab == "LBL":
     )
 
     if lbl_pdfs:
+        if "lbl_selected_inv_key" not in st.session_state:
+            st.session_state["lbl_selected_inv_key"] = None
+
         if len(lbl_pdfs) == 1:
             single_f = lbl_pdfs[0]
             ikey = f"single_{single_f.name}_{single_f.size}"
@@ -3649,12 +3697,20 @@ elif st.session_state.active_tab == "LBL":
                 single_f.seek(0)
                 pd_item = parse_invoice_for_labels(single_f.read())
                 if not pd_item["items"]:
-                    pd_item["items"] = [{"sku": "KMCN9525", "item_code": "KMCN9525", "desc": "Kare Mask Child N95 Respirators, 1 Pc/Pack", "qty": 900}]
+                    pd_item["items"] = [{"sku": "KMN9525", "item_code": "KMN9525", "desc": "Kare Mask N95 Respirators, 1 Pc/Pack", "qty": 300}]
                 st.session_state[f"parsed_{ikey}"] = pd_item
-            render_single_invoice_box_configurator(ikey, st.session_state[f"parsed_{ikey}"], is_bulk_item=False)
+            render_label_config_modal_view(ikey, st.session_state[f"parsed_{ikey}"])
         else:
-            # BULK MODE: Individual invoice list/table with custom box size per SKU + green status tab when Qty matches
-            st.markdown(f"### 📚 Bulk Invoices ({len(lbl_pdfs)} Uploaded) — Har Invoice Ka Alag Box Size Set Karein")
+            # SCREENSHOT 1 VIEW: Search bar + Invoice List Table with "Box Label" action button per row
+            top_s_col, top_act_col = st.columns([3.0, 1.0])
+            with top_s_col:
+                b_search = st.text_input("🔍 Search invoice no, buyer, or SKU...", value="", key="lbl_bulk_search").strip().lower()
+            with top_act_col:
+                if st.session_state.get("lbl_selected_inv_key"):
+                    if st.button("⬅️ Back to Invoices List", key="lbl_back_list_btn", use_container_width=True):
+                        st.session_state["lbl_selected_inv_key"] = None
+                        st.rerun()
+
             bulk_inv_records = []
             for p_idx, pf in enumerate(lbl_pdfs):
                 ikey = f"bulk_{p_idx}_{pf.name}_{pf.size}"
@@ -3662,87 +3718,88 @@ elif st.session_state.active_tab == "LBL":
                     pf.seek(0)
                     pd_item = parse_invoice_for_labels(pf.read())
                     if not pd_item["items"]:
-                        pd_item["items"] = [{"sku": "SKU-001", "item_code": "SKU-001", "desc": "Product Item", "qty": 300}]
+                        pd_item["items"] = [{"sku": "KMN9525", "item_code": "KMN9525", "desc": "Kare Mask N95 Respirators, 1 Pc/Pack", "qty": 300}]
                     st.session_state[f"parsed_{ikey}"] = pd_item
                 bulk_inv_records.append((ikey, pf.name, st.session_state[f"parsed_{ikey}"]))
 
-            # Filter box like Screenshot 2
-            b_search = st.text_input("🔍 Search invoice no, buyer, or SKU...", value="", key="lbl_bulk_search").strip().lower()
+            # If user clicked "Box Label" on a specific invoice -> show Screenshot 2 & 3 configurator for that invoice
+            active_inv_key = st.session_state.get("lbl_selected_inv_key")
+            active_rec = next((x for x in bulk_inv_records if x[0] == active_inv_key), None)
 
-            filtered_recs = []
-            for ikey, fname, p_data in bulk_inv_records:
-                hay = f"{p_data['invoice_no']} {p_data['po_no']} {p_data['ship_to_name']} " + " ".join([x["sku"] for x in p_data["items"]])
-                if not b_search or b_search in hay.lower():
-                    filtered_recs.append((ikey, fname, p_data))
+            if active_rec:
+                render_label_config_modal_view(active_rec[0], active_rec[2])
+            else:
+                # Table header matching Screenshot 1
+                th1, th2, th3, th4, th5, th6, th7 = st.columns([0.4, 1.6, 2.2, 1.0, 1.0, 1.0, 1.3])
+                th1.markdown("**#**")
+                th2.markdown("**INVOICE DETAILS**")
+                th3.markdown("**BUYER & PLACE OF SUPPLY**")
+                th4.markdown("**ITEMS**")
+                th5.markdown("**TAXABLE VAL**")
+                th6.markdown("**GRAND TOTAL**")
+                th7.markdown("**ACTIONS**")
+                st.markdown("---")
 
-            # Render clean row card per invoice where user can expand & set custom box size + see GREEN matched status
-            for r_idx, (ikey, fname, p_data) in enumerate(filtered_recs):
-                tot_inv_q = sum(int(x["qty"]) for x in p_data["items"])
-                tiers_map = st.session_state.get(f"lbl_tiers_{ikey}", {})
-                mix_list = st.session_state.get(f"lbl_mixed_{ikey}", [])
+                row_num = 0
+                for ikey, fname, p_data in bulk_inv_records:
+                    hay = f"{p_data['invoice_no']} {p_data['po_no']} {p_data['ship_to_name']} {p_data.get('pos_state', '')} " + " ".join([x["sku"] for x in p_data["items"]])
+                    if b_search and b_search not in hay.lower():
+                        continue
+                    row_num += 1
 
-                packed_so_far = 0
-                box_count_so_far = 0
-                for s_i, s_it in enumerate(p_data["items"]):
-                    t_rows = tiers_map.get(s_i, [{"per_box": min(int(s_it["qty"]), 300), "num_boxes": int(s_it["qty"]) // max(1, min(int(s_it["qty"]), 300))}])
-                    packed_so_far += sum(int(tr["per_box"]) * int(tr["num_boxes"]) for tr in t_rows)
-                    box_count_so_far += sum(int(tr["num_boxes"]) for tr in t_rows)
-                for mb in mix_list:
-                    m_q = sum(int(mi["qty"]) for mi in mb.get("items", []))
-                    if m_q > 0:
-                        packed_so_far += m_q
-                        box_count_so_far += 1
+                    tot_q = sum(int(x["qty"]) for x in p_data["items"])
+                    tiers_m = st.session_state.get(f"lbl_tiers_{ikey}", {})
+                    mix_l = st.session_state.get(f"lbl_mixed_{ikey}", [])
+                    packed_q = 0
+                    for s_i, s_it in enumerate(p_data["items"]):
+                        t_r = tiers_m.get(s_i, [])
+                        packed_q += sum(int(tr["per_box"]) * int(tr["num_boxes"]) for tr in t_r)
+                    for mb in mix_l:
+                        packed_q += sum(int(mi["qty"]) for mi in mb.get("items", []))
 
-                is_exact_match = (packed_so_far == tot_inv_q and tot_inv_q > 0)
-                status_badge_html = (
-                    "<span style='background:#16a34a; color:#fff; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:800;'>🟢 Qty Matched</span>"
-                    if is_exact_match else
-                    f"<span style='background:#fef08a; color:#854d0e; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:800;'>⚠️ {packed_so_far}/{tot_inv_q}</span>"
-                )
+                    is_done = (packed_q == tot_q and tot_q > 0)
 
-                with st.container(border=True):
-                    c_no, c_inv, c_buyer, c_skus, c_tot, c_stat = st.columns([0.4, 1.5, 2.0, 1.1, 1.1, 1.3])
-                    with c_no:
-                        st.markdown(f"**{r_idx+1}**")
-                    with c_inv:
-                        st.markdown(f"**{p_data['invoice_no']}**")
-                        st.caption(f"Order: `{p_data['po_no'] or '-'}`")
-                    with c_buyer:
-                        st.markdown(f"**{p_data['ship_to_name']}**")
-                        st.caption(f"{p_data['ship_to_addr'][:55]}...")
-                    with c_skus:
-                        st.markdown(f"**{len(p_data['items'])} SKUs**")
-                        st.caption(f"Boxes: `{box_count_so_far}`")
-                    with c_tot:
-                        st.markdown(f"**{p_data.get('grand_total_str') or f'Qty: {tot_inv_q}'}**")
-                        st.caption(f"Total Qty: `{tot_inv_q}`")
-                    with c_stat:
-                        st.markdown(status_badge_html, unsafe_allow_html=True)
+                    with st.container(border=True):
+                        r1, r2, r3, r4, r5, r6, r7 = st.columns([0.4, 1.6, 2.2, 1.0, 1.0, 1.0, 1.3])
+                        with r1:
+                            st.markdown(f"**{row_num}**")
+                        with r2:
+                            st.markdown(f"**{p_data['invoice_no']}** `Blinkit`")
+                            st.caption(f"Order: `{p_data['po_no'] or '-'}`")
+                        with r3:
+                            st.markdown(f"**{p_data['ship_to_name']}**")
+                            st.caption(f"{p_data['ship_to_addr'][:48]}...")
+                            st.caption(f"POS: `{p_data.get('pos_state') or '-'}` | GSTIN: `{p_data['ship_to_gstin'] or '-'}`")
+                        with r4:
+                            st.markdown(f"**{len(p_data['items'])} SKUs**")
+                            st.caption(f"Qty: `{tot_q}`")
+                        with r5:
+                            st.markdown(f"**{p_data.get('taxable_str') or '-'}**")
+                        with r6:
+                            st.markdown(f"**{p_data.get('grand_total_str') or '-'}**")
+                        with r7:
+                            btn_lbl = "✅ Box Label" if is_done else "📦 Box Label"
+                            if st.button(btn_lbl, key=f"open_box_lbl_{ikey}", type="primary" if is_done else "secondary", use_container_width=True):
+                                st.session_state["lbl_selected_inv_key"] = ikey
+                                st.rerun()
 
-                    with st.expander(f"⚙️ Configure Box Size & Generate Labels — {p_data['invoice_no']}", expanded=False):
-                        render_single_invoice_box_configurator(ikey, p_data, is_bulk_item=True)
-
-            # Bulk ZIP bundle of all generated invoice label PDFs
-            ready_bulk_pdfs = []
-            for ikey, fname, p_data in bulk_inv_records:
-                g_item = st.session_state.get(f"gen_lbl_{ikey}")
-                if g_item and g_item.get("bytes"):
-                    ready_bulk_pdfs.append(g_item)
-
-            if ready_bulk_pdfs:
-                b_zip = io.BytesIO()
-                with zipfile.ZipFile(b_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                    for gi in ready_bulk_pdfs:
-                        zf.writestr(gi["filename"], gi["bytes"])
-                st.download_button(
-                    label=f"📦 Download All Generated Invoice Label PDFs ({len(ready_bulk_pdfs)} Invoices - ZIP)",
-                    data=b_zip.getvalue(),
-                    file_name=f"Bulk_4x6_Box_Labels_{len(ready_bulk_pdfs)}_Invoices.zip",
-                    mime="application/zip",
-                    use_container_width=True
-                )
+                # Combined ZIP if multiple invoices have generated label PDFs
+                ready_pdfs = [st.session_state.get(f"gen_lbl_{ik}") for ik, _, _ in bulk_inv_records if st.session_state.get(f"gen_lbl_{ik}")]
+                if ready_pdfs:
+                    st.write("---")
+                    z_buf = io.BytesIO()
+                    with zipfile.ZipFile(z_buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                        for rp in ready_pdfs:
+                            zf.writestr(rp["filename"], rp["bytes"])
+                    st.download_button(
+                        label=f"📦 Download All Generated Box Label PDFs ({len(ready_pdfs)} Invoices - ZIP)",
+                        data=z_buf.getvalue(),
+                        file_name=f"All_Box_Labels_{len(ready_pdfs)}_Invoices.zip",
+                        mime="application/zip",
+                        use_container_width=True
+                    )
     else:
-        st.info("Upar single ya bulk Invoice PDFs upload karein — har invoice aur SKU ke liye apne hisaab se box size set karke 4x6 labels bana sakte hain.")
+        st.info("Upar Invoice PDF(s) upload karein — har invoice ke saamne **Box Label** button aayega jisse aap dedicated boxes, loose box, ya mixed box configure karke 4x6 labels bana sakte hain.")
 
 # ----------------- MODULE 5: SETTINGS & REPORTS -----------------
 elif st.session_state.active_tab == "CONF":

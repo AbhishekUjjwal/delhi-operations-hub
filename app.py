@@ -19,31 +19,85 @@ IST = timezone(timedelta(hours=5, minutes=30))
 def get_current_ist_str():
     return datetime.now(IST).strftime("%d-%b %I:%M %p")
 
-# Persistent storage path across app restarts/reruns
-_BASE_PERSIST_DIR = os.path.expanduser("~") if os.access(os.path.expanduser("~"), os.W_OK) else os.getcwd()
-STORAGE_DIR = os.path.join(_BASE_PERSIST_DIR, ".pan_india_hub_history")
+import shutil
+
+# Multi-location persistent storage across app restarts/reruns
+_HOME_DIR = os.path.expanduser("~") if os.access(os.path.expanduser("~"), os.W_OK) else os.getcwd()
+_TMP_DIR = "/tmp" if os.path.isdir("/tmp") and os.access("/tmp", os.W_OK) else _HOME_DIR
+
+STORAGE_DIR = os.path.join(_HOME_DIR, ".pan_india_hub_history")
+BACKUP_STORAGE_DIR = os.path.join(_TMP_DIR, ".pan_india_hub_history_backup")
+LOCAL_STORAGE_DIR = os.path.join(os.getcwd(), ".pan_history")
+
 METADATA_FILE = os.path.join(STORAGE_DIR, "history_db.json")
+BACKUP_METADATA_FILE = os.path.join(BACKUP_STORAGE_DIR, "history_db.json")
+LOCAL_METADATA_FILE = os.path.join(LOCAL_STORAGE_DIR, "history_db.json")
+
 RETENTION_DAYS = 30  # Auto-delete ONLY after 30 days (or manual delete click)
 
-os.makedirs(STORAGE_DIR, exist_ok=True)
-
-# Migrate any existing history from local .pan_history if present
-_LEGACY_DIR = ".pan_history"
-_LEGACY_META = os.path.join(_LEGACY_DIR, "history_db.json")
-if os.path.exists(_LEGACY_META) and not os.path.exists(METADATA_FILE):
+for _d in [STORAGE_DIR, BACKUP_STORAGE_DIR, LOCAL_STORAGE_DIR]:
     try:
-        import shutil
-        with open(_LEGACY_META, "r", encoding="utf-8") as _lf:
-            _lmeta = json.load(_lf)
-        for _rec in _lmeta:
-            for _fk in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
-                _fn = _rec.get(_fk)
-                if _fn and os.path.exists(os.path.join(_LEGACY_DIR, _fn)):
-                    shutil.copy2(os.path.join(_LEGACY_DIR, _fn), os.path.join(STORAGE_DIR, _fn))
-        with open(METADATA_FILE, "w", encoding="utf-8") as _nf:
-            json.dump(_lmeta, _nf, indent=2)
+        os.makedirs(_d, exist_ok=True)
     except Exception:
         pass
+
+def _sync_history_stores():
+    """Keep primary, local, and /tmp backup history stores synchronized."""
+    candidates = [
+        (METADATA_FILE, STORAGE_DIR),
+        (LOCAL_METADATA_FILE, LOCAL_STORAGE_DIR),
+        (BACKUP_METADATA_FILE, BACKUP_STORAGE_DIR),
+    ]
+    best_meta_path = None
+    best_records = []
+    for mpath, _ in candidates:
+        if os.path.exists(mpath):
+            try:
+                with open(mpath, "r", encoding="utf-8") as f:
+                    recs = json.load(f)
+                if isinstance(recs, list) and len(recs) >= len(best_records):
+                    best_records = recs
+                    best_meta_path = mpath
+            except Exception:
+                pass
+
+    if not best_records:
+        return
+
+    # Merge any unique records across stores by disk_filename
+    merged_by_key = {}
+    for mpath, _ in candidates:
+        if os.path.exists(mpath):
+            try:
+                with open(mpath, "r", encoding="utf-8") as f:
+                    recs = json.load(f)
+                for r in recs:
+                    k = r.get("disk_filename") or f"{r.get('file_name')}_{r.get('created_ts')}"
+                    if k not in merged_by_key:
+                        merged_by_key[k] = r
+            except Exception:
+                pass
+
+    merged_list = list(merged_by_key.values())
+    for mpath, sdir in candidates:
+        try:
+            for r in merged_list:
+                for fk in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
+                    fn = r.get(fk)
+                    if fn:
+                        target_f = os.path.join(sdir, fn)
+                        if not os.path.exists(target_f):
+                            for _, src_dir in candidates:
+                                src_f = os.path.join(src_dir, fn)
+                                if os.path.exists(src_f):
+                                    shutil.copy2(src_f, target_f)
+                                    break
+            with open(mpath, "w", encoding="utf-8") as out_f:
+                json.dump(merged_list, out_f, indent=2)
+        except Exception:
+            pass
+
+_sync_history_stores()
 
 def load_disk_history():
     if not os.path.exists(METADATA_FILE):
@@ -198,6 +252,7 @@ def save_item_to_disk_history(item):
     current_meta.append(meta_record)
     with open(METADATA_FILE, "w", encoding="utf-8") as f:
         json.dump(current_meta, f, indent=2)
+    _sync_history_stores()
     item["_saved_to_history"] = True
 
 def save_batch_to_disk_history(batch_items):
@@ -721,18 +776,22 @@ with st.sidebar:
         amz_recs = [r for r in loc_records if r.get("module") == "AMZ"]
         amz_cnt, amz_val = compute_dedup_module_stats(amz_recs)
 
-        m_col1, m_col2 = st.columns(2)
-        with m_col1:
-            st.metric("📦 Total Invoices", f"{amz_cnt} Inv")
-        with m_col2:
-            st.metric("💰 Order Value", f"₹{amz_val:,.0f}")
+        st.markdown(
+            f"<div style='background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;'>"
+            f"<div style='font-size: 11.5px; color: #94a3b8; font-weight: 700;'>📦 Total Invoices</div>"
+            f"<div style='font-size: 20px; font-weight: 900; color: #f8fafc; margin-bottom: 6px;'>{amz_cnt} Inv</div>"
+            f"<div style='font-size: 11.5px; color: #94a3b8; font-weight: 700;'>💰 Full Order Value</div>"
+            f"<div style='font-size: 18px; font-weight: 900; color: #34d399; word-break: break-word;'>₹{amz_val:,.2f}</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
 
         chart_df = pd.DataFrame({
             "Channel": ["Amazon Orders"],
             "Order Value (₹)": [amz_val]
         }).set_index("Channel")
         st.bar_chart(chart_df, height=135, use_container_width=True)
-        st.caption(f"Unique Amazon Invoices: **{amz_cnt}** | Total Value: **₹{amz_val:,.2f}**")
+        st.caption(f"Unique Amazon Invoices: **{amz_cnt}** | Full Total Value: **₹{amz_val:,.2f}**")
 
     elif current_active_tab in ["BLNK", "BLNK_PO"]:
         st.markdown("📊 **Blinkit Upload Analytics**")

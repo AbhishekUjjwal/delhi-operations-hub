@@ -3037,8 +3037,403 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
 
 # ----------------- MODULE 4: LABEL EDITOR -----------------
 elif st.session_state.active_tab == "LBL":
-    st.subheader("🏷️ Shipping & Product Label Editor")
-    st.info("No files")
+    st.subheader("🏷️ 4x6 Box-Wise Shipping & Product Label Generator")
+    st.caption("Upload any Invoice PDF — Auto-extracts SKU & Quantity, configures Box Size, verifies Total Qty == Sum of Boxes, and generates 4x6 Thermal Labels.")
+
+    def parse_invoice_for_labels(pdf_bytes):
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        full_text = "\n".join([p.get_text() for p in doc])
+
+        # Extract Invoice Number
+        inv_no = "INV-001"
+        for pat in [
+            r"Invoice\s*No\.?\s*[:\s]*([A-Za-z0-9\-_/]+)",
+            r"Invoice\s*Number\s*[:\s]*([A-Za-z0-9\-_/]+)",
+            r"Document\s*No\s*[:\s]*([A-Za-z0-9\-_/]+)"
+        ]:
+            m = re.search(pat, full_text, re.IGNORECASE)
+            if m:
+                inv_no = m.group(1).strip()
+                break
+
+        # Extract External Order ID / PO Number if present
+        po_no = ""
+        po_m = re.search(r"(?:Extern(?:al)?\s*Order\s*(?:No\.?|ID)?|Order\s*(?:Number|ID)|PO\s*No\.?)\s*[:\s]*([A-Za-z0-9\-]+)", full_text, re.IGNORECASE)
+        if po_m:
+            po_no = po_m.group(1).strip()
+
+        # Extract Buyer / Destination brief
+        buyer_name = "Customer"
+        if "blink" in full_text.lower():
+            buyer_name = "BLINK COMMERCE PVT LTD"
+        elif "amazon" in full_text.lower():
+            buyer_name = "Amazon Dispatch"
+        else:
+            b_m = re.search(r"Billing\s*Address\s*[:\s]*\n\s*([^\n]+)", full_text, re.IGNORECASE)
+            if b_m:
+                buyer_name = b_m.group(1).strip()[:45]
+
+        # Extract line items (SKU + Description + Qty) from table rows
+        extracted_skus = []
+        for page in doc:
+            words = page.get_text("words")
+            table_header_bottom_y = 180
+            y_groups = {}
+            for w in words:
+                y_key = round(w[1] / 7) * 7
+                y_groups.setdefault(y_key, []).append(w)
+
+            for y_key, g_words in sorted(y_groups.items()):
+                full_line = " ".join([w[4].lower() for w in g_words])
+                if sum(1 for k in ["hsn", "qty", "quantity", "unit price", "price", "rate", "taxable", "s.no", "item code", "description"] if k in full_line) >= 2:
+                    table_header_bottom_y = max(w[3] for w in g_words)
+                    break
+
+            table_bottom_y = page.rect.height - 30
+            for w in words:
+                wt = w[4].lower().strip()
+                if w[1] > (table_header_bottom_y + 25) and any(k in wt for k in ["total", "subtotal", "gst summary", "summary", "words", "amount in words"]):
+                    table_bottom_y = min(table_bottom_y, w[1])
+
+            sno_candidates = []
+            for w in words:
+                val = w[4].strip()
+                if val.isdigit() and 1 <= int(val) <= 99:
+                    if w[0] < 85 and w[1] > (table_header_bottom_y + 2):
+                        if not any(abs(c["center_y"] - ((w[1]+w[3])/2)) < 8 for c in sno_candidates):
+                            sno_candidates.append({
+                                "sno": int(val),
+                                "y0": w[1],
+                                "y1": w[3],
+                                "center_y": (w[1] + w[3]) / 2
+                            })
+            sno_candidates.sort(key=lambda x: x["center_y"])
+
+            for idx, item_anchor in enumerate(sno_candidates):
+                y_top = item_anchor["y0"] - 3
+                y_bottom = (sno_candidates[idx + 1]["y0"] - 2) if (idx + 1 < len(sno_candidates)) else min(item_anchor["y1"] + 90, table_bottom_y)
+                row_words = [w for w in words if y_top <= ((w[1] + w[3]) / 2) <= y_bottom]
+                row_words.sort(key=lambda w: w[0])
+                if not row_words:
+                    continue
+
+                hsn_w = None
+                for w in row_words:
+                    cw = w[4].replace(",", "").strip()
+                    if cw.isdigit() and len(cw) in [6, 7, 8]:
+                        hsn_w = w
+                        break
+                hsn_x0 = hsn_w[0] if hsn_w else 220
+
+                desc_words = [w for w in row_words if 30 <= w[0] < (hsn_x0 - 4) and not w[4].isdigit()]
+                desc_words.sort(key=lambda w: (round(w[1] / 6) * 6, w[0]))
+                raw_desc = " ".join([w[4] for w in desc_words]).strip()
+                if not raw_desc or any(k in raw_desc.lower() for k in ["shipping charge", "cod charge", "private limited"]):
+                    continue
+
+                # Extract SKU code from description (e.g., KMN955, ORDMUPL40, B07..., or leading alphanumeric code)
+                sku_code = ""
+                sku_paren = re.search(r"\(([A-Z0-9\-_]{4,20})\)", raw_desc)
+                sku_prefix = re.match(r"^([A-Z0-9]{4,15})[\-\s]", raw_desc)
+                if sku_paren:
+                    sku_code = sku_paren.group(1)
+                elif sku_prefix:
+                    sku_code = sku_prefix.group(1)
+                else:
+                    sku_code = f"SKU-{len(extracted_skus)+1}"
+
+                # Extract Quantity
+                qty_val = 0
+                if hsn_w:
+                    after_hsn = [w for w in row_words if w[0] > hsn_w[2]]
+                    after_hsn.sort(key=lambda w: w[0])
+                    nums = [float(w[4].replace(",", "")) for w in after_hsn if re.match(r"^\d+(\.\d{1,2})?$", w[4].replace(",", "").strip())]
+                    if nums:
+                        if float(nums[0]).is_integer() and nums[0] >= 1:
+                            qty_val = int(nums[0])
+                        elif len(nums) >= 2 and float(nums[1]).is_integer():
+                            qty_val = int(nums[1])
+                else:
+                    nums = [int(float(w[4].replace(",", ""))) for w in row_words if w[0] > 220 and re.match(r"^\d+$", w[4].strip())]
+                    if nums:
+                        qty_val = nums[0]
+
+                if qty_val > 0:
+                    extracted_skus.append({
+                        "sku": sku_code,
+                        "desc": raw_desc[:110],
+                        "qty": qty_val
+                    })
+
+        doc.close()
+        return {
+            "invoice_no": inv_no,
+            "po_no": po_no,
+            "buyer": buyer_name,
+            "items": extracted_skus
+        }
+
+    def generate_4x6_labels_pdf(inv_no, po_no, buyer_name, box_plan_rows):
+        """Generates a 4x6 inch (288 x 432 pt) multi-page thermal label PDF."""
+        out_doc = fitz.open()
+        total_boxes = len(box_plan_rows)
+
+        code128_cls = barcode.get_barcode_class('code128')
+        b_writer = ImageWriter()
+        b_writer.font_path = None
+
+        def make_barcode_png(txt):
+            try:
+                inst = code128_cls(str(txt).strip(), writer=b_writer)
+                buf = io.BytesIO()
+                inst.write(buf, options={'write_text': False, 'module_width': 0.45, 'module_height': 14.0, 'quiet_zone': 1.5, 'dpi': 200})
+                return buf.getvalue()
+            except Exception:
+                return None
+
+        inv_barcode_bytes = make_barcode_png(inv_no)
+
+        for box_idx, b_row in enumerate(box_plan_rows, 1):
+            # 4 inches = 288 pt, 6 inches = 432 pt
+            page = out_doc.new_page(width=288, height=432)
+
+            # Outer border
+            outer_rect = fitz.Rect(8, 8, 280, 424)
+            page.draw_rect(outer_rect, color=(0, 0, 0), width=1.6)
+
+            # TOP HEADER BAR: Top-Left = Invoice Number | Top-Right = BOX NO - 1/12
+            header_rect = fitz.Rect(8, 8, 280, 56)
+            page.draw_rect(header_rect, color=(0, 0, 0), fill=(0.94, 0.94, 0.94), width=1.2)
+            page.draw_line(fitz.Point(168, 8), fitz.Point(168, 56), color=(0, 0, 0), width=1.2)
+
+            # Top-Left: INVOICE NO
+            page.insert_text((14, 23), "INVOICE NO:", fontsize=7.5, fontname="hebo", color=(0.25, 0.25, 0.25))
+            inv_font_size = 12.5 if len(str(inv_no)) <= 13 else 10.0
+            page.insert_text((14, 43), str(inv_no), fontsize=inv_font_size, fontname="hebo", color=(0, 0, 0))
+
+            # Top-Right: BOX NO - X/Y
+            page.insert_text((174, 23), "BOX NO:", fontsize=7.5, fontname="hebo", color=(0.25, 0.25, 0.25))
+            box_tag = f"{box_idx}/{total_boxes}"
+            box_font_size = 16.0 if len(box_tag) <= 5 else 13.0
+            page.insert_text((174, 45), box_tag, fontsize=box_font_size, fontname="hebo", color=(0, 0, 0))
+
+            # Barcode strip under header
+            if inv_barcode_bytes:
+                page.insert_image(fitz.Rect(24, 64, 264, 102), stream=inv_barcode_bytes, keep_proportion=False)
+            page.draw_line(fitz.Point(8, 110), fitz.Point(280, 110), color=(0, 0, 0), width=1.0)
+
+            # Consignee / Buyer & PO Info
+            page.insert_text((14, 125), f"TO: {buyer_name[:34]}", fontsize=8.5, fontname="hebo", color=(0, 0, 0))
+            if po_no:
+                page.insert_text((14, 139), f"ORDER / PO: {po_no}", fontsize=8.0, fontname="helv", color=(0.15, 0.15, 0.15))
+            page.draw_line(fitz.Point(8, 148), fitz.Point(280, 148), color=(0, 0, 0), width=1.0)
+
+            # SKU & Product Details Section
+            page.insert_text((14, 165), "SKU CODE:", fontsize=8.5, fontname="hebo", color=(0.25, 0.25, 0.25))
+            page.insert_text((14, 187), str(b_row["sku"]), fontsize=15.0, fontname="hebo", color=(0, 0, 0))
+
+            # Wrapped Description
+            desc_rect = fitz.Rect(14, 196, 274, 275)
+            page.insert_textbox(desc_rect, str(b_row["desc"]), fontsize=9.0, fontname="helv", color=(0.1, 0.1, 0.1))
+
+            page.draw_line(fitz.Point(8, 282), fitz.Point(280, 282), color=(0, 0, 0), width=1.2)
+
+            # BOX QUANTITY HIGHLIGHT BOX
+            qty_box = fitz.Rect(16, 292, 272, 368)
+            page.draw_rect(qty_box, color=(0, 0, 0), fill=(0.96, 0.96, 0.96), width=1.4)
+            page.insert_text((24, 312), "BOX QUANTITY (PCS / UNITS):", fontsize=8.5, fontname="hebo", color=(0.2, 0.2, 0.2))
+            page.insert_text((24, 352), f"{b_row['box_qty']} PCS", fontsize=26.0, fontname="hebo", color=(0, 0, 0))
+
+            # Box Type Badge (Full Box vs Loose/Rest Box)
+            b_type = b_row.get("box_type", "STANDARD BOX")
+            page.insert_text((168, 350), b_type, fontsize=8.5, fontname="hebo", color=(0.2, 0.2, 0.2))
+
+            # Footer: Seller & Date
+            page.draw_line(fitz.Point(8, 380), fitz.Point(280, 380), color=(0, 0, 0), width=1.0)
+            page.insert_text((14, 396), "FROM: ROMSONS PRIME PRIVATE LIMITED", fontsize=7.5, fontname="hebo", color=(0, 0, 0))
+            page.insert_text((14, 410), f"WH: {st.session_state.selected_wh}  |  DATE: {datetime.now(IST).strftime('%d-%b-%Y')}", fontsize=7.5, fontname="helv", color=(0.2, 0.2, 0.2))
+
+        pdf_bytes = out_doc.tobytes(deflate=True)
+        out_doc.close()
+        return pdf_bytes
+
+    lbl_pdf = st.file_uploader(
+        "1. Upload Invoice PDF (for 4x6 Box Label Creation)",
+        type=["pdf"],
+        key=f"lbl_inv_pdf_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
+    )
+
+    if lbl_pdf:
+        lbl_pdf.seek(0)
+        parsed_lbl = parse_invoice_for_labels(lbl_pdf.read())
+
+        c_meta1, c_meta2, c_meta3 = st.columns(3)
+        with c_meta1:
+            inv_no_input = st.text_input("Invoice Number (Top-Left on Label)", value=parsed_lbl["invoice_no"], key="lbl_inv_no_edit")
+        with c_meta2:
+            po_no_input = st.text_input("Order / PO No (Optional)", value=parsed_lbl["po_no"], key="lbl_po_no_edit")
+        with c_meta3:
+            buyer_input = st.text_input("Party / Consignee Name", value=parsed_lbl["buyer"], key="lbl_buyer_edit")
+
+        st.markdown("---")
+        st.markdown("### 📦 Configure Box Size & Verify Quantities")
+
+        items_list = parsed_lbl["items"]
+        if not items_list:
+            st.warning("PDF se automatic SKU/Qty detect nahi ho paya. Neeche manual SKU & Qty add karein:")
+            items_list = [{"sku": "SKU-001", "desc": "Product Item", "qty": 3550}]
+
+        all_boxes_plan = []
+        all_skus_matched = True
+
+        for idx, it in enumerate(items_list):
+            st.markdown(f"**Item {idx+1}:** `{it['sku']}` — {it['desc']}")
+            col_q1, col_q2, col_q3, col_q4 = st.columns([1.2, 1.2, 1.2, 1.4])
+
+            with col_q1:
+                inv_qty = st.number_input(
+                    "Invoice Qty",
+                    min_value=1,
+                    value=int(it["qty"]),
+                    step=1,
+                    key=f"lbl_inv_qty_{idx}"
+                )
+            with col_q2:
+                default_bs = 300 if inv_qty >= 300 else inv_qty
+                box_size = st.number_input(
+                    "Box Size (Qty/Box)",
+                    min_value=1,
+                    value=int(default_bs),
+                    step=1,
+                    key=f"lbl_box_size_{idx}"
+                )
+
+            full_boxes = inv_qty // box_size
+            rest_qty = inv_qty % box_size
+
+            with col_q3:
+                manual_full_boxes = st.number_input(
+                    f"Full Boxes (Auto: {full_boxes})",
+                    min_value=0,
+                    value=int(full_boxes),
+                    step=1,
+                    key=f"lbl_full_boxes_{idx}"
+                )
+
+            with col_q4:
+                if rest_qty > 0:
+                    rest_handling = st.selectbox(
+                        f"Rest Qty ({rest_qty} pcs) Option:",
+                        options=[
+                            f"Create 1 Separate Rest Box ({rest_qty} pcs)",
+                            "Do Not Create Rest Box (Hold Loose)",
+                            "Custom Rest Box Qty"
+                        ],
+                        key=f"lbl_rest_opt_{idx}"
+                    )
+                else:
+                    rest_handling = "No Rest Qty"
+                    st.text_input("Rest Qty Status", value="0 (Exact Fit)", disabled=True, key=f"lbl_no_rest_{idx}")
+
+            custom_rest_val = rest_qty
+            if rest_qty > 0 and rest_handling == "Custom Rest Box Qty":
+                custom_rest_val = st.number_input(
+                    "Enter Custom Rest Box Qty:",
+                    min_value=0,
+                    value=int(rest_qty),
+                    step=1,
+                    key=f"lbl_custom_rest_{idx}"
+                )
+
+            # Calculate packed total across boxes for this SKU
+            sku_boxes = []
+            for _ in range(manual_full_boxes):
+                sku_boxes.append({
+                    "sku": it["sku"],
+                    "desc": it["desc"],
+                    "box_qty": int(box_size),
+                    "box_type": "FULL BOX"
+                })
+
+            if rest_qty > 0:
+                if rest_handling.startswith("Create 1 Separate"):
+                    sku_boxes.append({
+                        "sku": it["sku"],
+                        "desc": it["desc"],
+                        "box_qty": int(rest_qty),
+                        "box_type": "REST / LOOSE BOX"
+                    })
+                elif rest_handling == "Custom Rest Box Qty" and custom_rest_val > 0:
+                    sku_boxes.append({
+                        "sku": it["sku"],
+                        "desc": it["desc"],
+                        "box_qty": int(custom_rest_val),
+                        "box_type": "REST / LOOSE BOX"
+                    })
+
+            packed_qty_sum = sum(b["box_qty"] for b in sku_boxes)
+            diff_qty = inv_qty - packed_qty_sum
+
+            if packed_qty_sum == inv_qty:
+                st.success(f"✅ **Matched!** Invoice Qty: **{inv_qty}** == Total Box Qty: **{packed_qty_sum}** ({len(sku_boxes)} Boxes)")
+            else:
+                all_skus_matched = False
+                st.error(f"❌ **Qty Mismatch!** Invoice Qty: **{inv_qty}** | Total Box Qty: **{packed_qty_sum}** (Difference: **{diff_qty}** pcs). Label tabhi create hoga jab dono Qty match hongi.")
+
+            all_boxes_plan.extend(sku_boxes)
+            st.markdown("---")
+
+        total_label_count = len(all_boxes_plan)
+        st.info(f"🏷️ **Total Boxes to Print:** `{total_label_count}` Labels (`1/{total_label_count}` se `{total_label_count}/{total_label_count}` tak)")
+
+        if all_skus_matched and total_label_count > 0:
+            if st.button(f"🖨️ Generate {total_label_count} Labels (4x6 PDF)", type="primary", use_container_width=True):
+                labels_pdf_bytes = generate_4x6_labels_pdf(inv_no_input, po_no_input, buyer_input, all_boxes_plan)
+                clean_inv_fname = re.sub(r"[^A-Za-z0-9\-_]", "", str(inv_no_input))
+                st.session_state["generated_4x6_labels"] = {
+                    "bytes": labels_pdf_bytes,
+                    "filename": f"4x6_Labels_{clean_inv_fname}_{total_label_count}Boxes.pdf",
+                    "count": total_label_count
+                }
+
+            if st.session_state.get("generated_4x6_labels"):
+                lbl_res = st.session_state["generated_4x6_labels"]
+                st.success(f"🎉 **{lbl_res['count']}** 4x6 Labels ready hain! Top-Left: `{inv_no_input}` | Top-Right: `1/{lbl_res['count']}` ... `{lbl_res['count']}/{lbl_res['count']}`")
+                st.download_button(
+                    label=f"📥 Download 4x6 Labels PDF ({lbl_res['count']} Pages)",
+                    data=lbl_res["bytes"],
+                    file_name=lbl_res["filename"],
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+
+                # Inline 4x6 Label Preview & Direct Print
+                b64_lbl = base64.b64encode(lbl_res["bytes"]).decode("utf-8")
+                lbl_preview_html = f"""
+                <div style="margin-top: 12px; background: #ffffff; padding: 12px; border-radius: 12px; border: 1.5px solid #cbd5e1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: 800; color: #0f172a; font-size: 14px;">🏷️ 4x6 Thermal Label Preview & Direct Print</span>
+                        <button onclick="print4x6Labels()" style="background: #2563eb; color: #ffffff; border: none; padding: 6px 18px; border-radius: 8px; font-weight: 700; cursor: pointer;">
+                            🖨️ Print 4x6 Labels
+                        </button>
+                    </div>
+                    <iframe id="lbl_4x6_frame" src="data:application/pdf;base64,{b64_lbl}" width="100%" height="520px" style="border: 1px solid #e2e8f0; border-radius: 8px;"></iframe>
+                </div>
+                <script>
+                function print4x6Labels() {{
+                    const iframe = document.getElementById('lbl_4x6_frame');
+                    if (iframe) {{
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                    }}
+                }}
+                </script>
+                """
+                components.html(lbl_preview_html, height=580)
+        else:
+            st.button("🖨️ Generate 4x6 Labels (Match Qty First)", disabled=True, use_container_width=True)
+    else:
+        st.info("Upar Invoice PDF upload karein — tool automatically SKU aur Quantity read karke Box-wise 4x6 Labels bana dega.")
 
 # ----------------- MODULE 5: SETTINGS & REPORTS -----------------
 elif st.session_state.active_tab == "CONF":

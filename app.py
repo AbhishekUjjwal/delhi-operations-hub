@@ -20,8 +20,10 @@ def get_current_ist_str():
     return datetime.now(IST).strftime("%d-%b %I:%M %p")
 
 import shutil
+import sqlite3
+import urllib.request
 
-# Multi-location persistent storage across app restarts/reruns
+# Multi-location persistent storage + SQLite binary store so history survives restarts/reruns
 _HOME_DIR = os.path.expanduser("~") if os.access(os.path.expanduser("~"), os.W_OK) else os.getcwd()
 _TMP_DIR = "/tmp" if os.path.isdir("/tmp") and os.access("/tmp", os.W_OK) else _HOME_DIR
 
@@ -32,6 +34,7 @@ LOCAL_STORAGE_DIR = os.path.join(os.getcwd(), ".pan_history")
 METADATA_FILE = os.path.join(STORAGE_DIR, "history_db.json")
 BACKUP_METADATA_FILE = os.path.join(BACKUP_STORAGE_DIR, "history_db.json")
 LOCAL_METADATA_FILE = os.path.join(LOCAL_STORAGE_DIR, "history_db.json")
+SQLITE_DB_FILE = os.path.join(STORAGE_DIR, "history_vault.db")
 
 RETENTION_DAYS = 30  # Auto-delete ONLY after 30 days (or manual delete click)
 
@@ -41,31 +44,138 @@ for _d in [STORAGE_DIR, BACKUP_STORAGE_DIR, LOCAL_STORAGE_DIR]:
     except Exception:
         pass
 
+def _init_sqlite_vault():
+    try:
+        conn = sqlite3.connect(SQLITE_DB_FILE)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS history_records (
+                disk_filename TEXT PRIMARY KEY,
+                meta_json TEXT NOT NULL,
+                pdf_blob BLOB,
+                excel_blob BLOB,
+                json_blob BLOB,
+                created_ts REAL
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+_init_sqlite_vault()
+
+# Optional GitHub Gist Cloud Sync (if GITHUB_TOKEN & GIST_ID are set in st.secrets) so history survives Streamlit Cloud daily container resets
+def _get_cloud_gist_creds():
+    try:
+        token = st.secrets.get("GITHUB_TOKEN", "")
+        gist_id = st.secrets.get("GIST_ID", "")
+        if token and gist_id:
+            return token, gist_id
+    except Exception:
+        pass
+    return None, None
+
+def _pull_from_cloud_gist():
+    token, gist_id = _get_cloud_gist_creds()
+    if not token or not gist_id:
+        return
+    try:
+        req = urllib.request.Request(
+            f"https://api.github.com/gists/{gist_id}",
+            headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        files = payload.get("files", {})
+        if "pan_history_vault.json" in files:
+            vault_data = json.loads(files["pan_history_vault.json"]["content"])
+            for entry in vault_data:
+                dfn = entry.get("disk_filename")
+                if not dfn:
+                    continue
+                target_pdf = os.path.join(STORAGE_DIR, dfn)
+                if not os.path.exists(target_pdf) and entry.get("pdf_b64"):
+                    with open(target_pdf, "wb") as fb:
+                        fb.write(base64.b64decode(entry["pdf_b64"]))
+                efn = entry.get("disk_excel_filename")
+                if efn and not os.path.exists(os.path.join(STORAGE_DIR, efn)) and entry.get("excel_b64"):
+                    with open(os.path.join(STORAGE_DIR, efn), "wb") as fe:
+                        fe.write(base64.b64decode(entry["excel_b64"]))
+                jfn = entry.get("disk_json_filename")
+                if jfn and not os.path.exists(os.path.join(STORAGE_DIR, jfn)) and entry.get("json_b64"):
+                    with open(os.path.join(STORAGE_DIR, jfn), "wb") as fj:
+                        fj.write(base64.b64decode(entry["json_b64"]))
+            meta_only = [{k: v for k, v in e.items() if not k.endswith("_b64")} for e in vault_data]
+            with open(METADATA_FILE, "w", encoding="utf-8") as mf:
+                json.dump(meta_only, mf, indent=2)
+    except Exception:
+        pass
+
+def _push_to_cloud_gist(meta_list):
+    token, gist_id = _get_cloud_gist_creds()
+    if not token or not gist_id:
+        return
+    try:
+        export_list = []
+        for m in meta_list[-25:]:
+            rec = dict(m)
+            p_path = os.path.join(STORAGE_DIR, m.get("disk_filename", ""))
+            if os.path.exists(p_path):
+                with open(p_path, "rb") as fb:
+                    rec["pdf_b64"] = base64.b64encode(fb.read()).decode("utf-8")
+            e_fn = m.get("disk_excel_filename")
+            if e_fn and os.path.exists(os.path.join(STORAGE_DIR, e_fn)):
+                with open(os.path.join(STORAGE_DIR, e_fn), "rb") as fe:
+                    rec["excel_b64"] = base64.b64encode(fe.read()).decode("utf-8")
+            j_fn = m.get("disk_json_filename")
+            if j_fn and os.path.exists(os.path.join(STORAGE_DIR, j_fn)):
+                with open(os.path.join(STORAGE_DIR, j_fn), "rb") as fj:
+                    rec["json_b64"] = base64.b64encode(fj.read()).decode("utf-8")
+            export_list.append(rec)
+        body = json.dumps({"files": {"pan_history_vault.json": {"content": json.dumps(export_list)}}}).encode("utf-8")
+        req = urllib.request.Request(
+            f"https://api.github.com/gists/{gist_id}",
+            data=body,
+            method="PATCH",
+            headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json", "Content-Type": "application/json"}
+        )
+        urllib.request.urlopen(req, timeout=8)
+    except Exception:
+        pass
+
 def _sync_history_stores():
-    """Keep primary, local, and /tmp backup history stores synchronized."""
+    """Keep SQLite vault, primary, local, and /tmp backup history stores synchronized."""
     candidates = [
         (METADATA_FILE, STORAGE_DIR),
         (LOCAL_METADATA_FILE, LOCAL_STORAGE_DIR),
         (BACKUP_METADATA_FILE, BACKUP_STORAGE_DIR),
     ]
-    best_meta_path = None
-    best_records = []
-    for mpath, _ in candidates:
-        if os.path.exists(mpath):
-            try:
-                with open(mpath, "r", encoding="utf-8") as f:
-                    recs = json.load(f)
-                if isinstance(recs, list) and len(recs) >= len(best_records):
-                    best_records = recs
-                    best_meta_path = mpath
-            except Exception:
-                pass
-
-    if not best_records:
-        return
-
-    # Merge any unique records across stores by disk_filename
     merged_by_key = {}
+
+    # 1. Load from SQLite vault first
+    try:
+        conn = sqlite3.connect(SQLITE_DB_FILE)
+        rows = conn.execute("SELECT disk_filename, meta_json, pdf_blob, excel_blob, json_blob FROM history_records").fetchall()
+        conn.close()
+        for dfn, mjson, pblob, eblob, jblob in rows:
+            rec = json.loads(mjson)
+            merged_by_key[dfn] = rec
+            for sdir in [STORAGE_DIR, LOCAL_STORAGE_DIR, BACKUP_STORAGE_DIR]:
+                if pblob and not os.path.exists(os.path.join(sdir, dfn)):
+                    with open(os.path.join(sdir, dfn), "wb") as fb:
+                        fb.write(pblob)
+                efn = rec.get("disk_excel_filename")
+                if efn and eblob and not os.path.exists(os.path.join(sdir, efn)):
+                    with open(os.path.join(sdir, efn), "wb") as fe:
+                        fe.write(eblob)
+                jfn = rec.get("disk_json_filename")
+                if jfn and jblob and not os.path.exists(os.path.join(sdir, jfn)):
+                    with open(os.path.join(sdir, jfn), "wb") as fj:
+                        fj.write(jblob)
+    except Exception:
+        pass
+
+    # 2. Merge any JSON records across directories
     for mpath, _ in candidates:
         if os.path.exists(mpath):
             try:
@@ -77,6 +187,10 @@ def _sync_history_stores():
                         merged_by_key[k] = r
             except Exception:
                 pass
+
+    if not merged_by_key:
+        _pull_from_cloud_gist()
+        return
 
     merged_list = list(merged_by_key.values())
     for mpath, sdir in candidates:
@@ -118,15 +232,23 @@ def load_disk_history():
             # Delete ONLY when older than 30 days
             if created_ts < cutoff_ts:
                 cleaned_up = True
-                for f_key in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
-                    fname = m.get(f_key)
-                    if fname:
-                        fpath = os.path.join(STORAGE_DIR, fname)
-                        if os.path.exists(fpath):
-                            try:
-                                os.remove(fpath)
-                            except Exception:
-                                pass
+                for sdir in [STORAGE_DIR, LOCAL_STORAGE_DIR, BACKUP_STORAGE_DIR]:
+                    for f_key in ["disk_filename", "disk_excel_filename", "disk_json_filename"]:
+                        fname = m.get(f_key)
+                        if fname:
+                            fpath = os.path.join(sdir, fname)
+                            if os.path.exists(fpath):
+                                try:
+                                    os.remove(fpath)
+                                except Exception:
+                                    pass
+                try:
+                    conn = sqlite3.connect(SQLITE_DB_FILE)
+                    conn.execute("DELETE FROM history_records WHERE disk_filename = ?", (m.get("disk_filename"),))
+                    conn.commit()
+                    conn.close()
+                except Exception:
+                    pass
                 continue
 
             pdf_path = os.path.join(STORAGE_DIR, m.get("disk_filename", ""))
@@ -252,7 +374,25 @@ def save_item_to_disk_history(item):
     current_meta.append(meta_record)
     with open(METADATA_FILE, "w", encoding="utf-8") as f:
         json.dump(current_meta, f, indent=2)
+    try:
+        conn = sqlite3.connect(SQLITE_DB_FILE)
+        conn.execute(
+            "INSERT OR REPLACE INTO history_records (disk_filename, meta_json, pdf_blob, excel_blob, json_blob, created_ts) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                disk_fname,
+                json.dumps(meta_record),
+                item.get("data"),
+                item.get("excel_data"),
+                item.get("json_data"),
+                current_ts
+            )
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
     _sync_history_stores()
+    _push_to_cloud_gist(current_meta)
     item["_saved_to_history"] = True
 
 def save_batch_to_disk_history(batch_items):
@@ -287,8 +427,24 @@ def clear_disk_history(wh_filter=None, mod_filter=None):
             else:
                 remaining_meta.append(m)
 
-        with open(METADATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(remaining_meta, f, indent=2)
+        for mpath, sdir in [(METADATA_FILE, STORAGE_DIR), (LOCAL_METADATA_FILE, LOCAL_STORAGE_DIR), (BACKUP_METADATA_FILE, BACKUP_STORAGE_DIR)]:
+            try:
+                with open(mpath, "w", encoding="utf-8") as f:
+                    json.dump(remaining_meta, f, indent=2)
+            except Exception:
+                pass
+        try:
+            keep_keys = {m.get("disk_filename") for m in remaining_meta}
+            conn = sqlite3.connect(SQLITE_DB_FILE)
+            all_keys = [r[0] for r in conn.execute("SELECT disk_filename FROM history_records").fetchall()]
+            for k in all_keys:
+                if k not in keep_keys:
+                    conn.execute("DELETE FROM history_records WHERE disk_filename = ?", (k,))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+        _push_to_cloud_gist(remaining_meta)
     except Exception:
         pass
 
@@ -314,8 +470,24 @@ def delete_single_disk_history_item(disk_filename):
             else:
                 remaining_meta.append(m)
 
-        with open(METADATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(remaining_meta, f, indent=2)
+        for mpath, sdir in [(METADATA_FILE, STORAGE_DIR), (LOCAL_METADATA_FILE, LOCAL_STORAGE_DIR), (BACKUP_METADATA_FILE, BACKUP_STORAGE_DIR)]:
+            try:
+                with open(mpath, "w", encoding="utf-8") as f:
+                    json.dump(remaining_meta, f, indent=2)
+            except Exception:
+                pass
+        try:
+            keep_keys = {m.get("disk_filename") for m in remaining_meta}
+            conn = sqlite3.connect(SQLITE_DB_FILE)
+            all_keys = [r[0] for r in conn.execute("SELECT disk_filename FROM history_records").fetchall()]
+            for k in all_keys:
+                if k not in keep_keys:
+                    conn.execute("DELETE FROM history_records WHERE disk_filename = ?", (k,))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+        _push_to_cloud_gist(remaining_meta)
     except Exception:
         pass
 
@@ -777,11 +949,11 @@ with st.sidebar:
         amz_cnt, amz_val = compute_dedup_module_stats(amz_recs)
 
         st.markdown(
-            f"<div style='background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;'>"
+            f"<div style='background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.28); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;'>"
             f"<div style='font-size: 11.5px; color: #94a3b8; font-weight: 700;'>📦 Total Invoices</div>"
-            f"<div style='font-size: 20px; font-weight: 900; color: #f8fafc; margin-bottom: 6px;'>{amz_cnt} Inv</div>"
-            f"<div style='font-size: 11.5px; color: #94a3b8; font-weight: 700;'>💰 Full Order Value</div>"
-            f"<div style='font-size: 18px; font-weight: 900; color: #34d399; word-break: break-word;'>₹{amz_val:,.2f}</div>"
+            f"<div style='font-size: 21px; font-weight: 900; margin-bottom: 6px;'>{amz_cnt} Inv</div>"
+            f"<div style='font-size: 11.5px; color: #94a3b8; font-weight: 700;'>💰 Order Value</div>"
+            f"<div style='font-size: 19px; font-weight: 900; color: #10b981; white-space: nowrap;'>₹{amz_val:,.2f}</div>"
             f"</div>",
             unsafe_allow_html=True
         )
@@ -791,18 +963,22 @@ with st.sidebar:
             "Order Value (₹)": [amz_val]
         }).set_index("Channel")
         st.bar_chart(chart_df, height=135, use_container_width=True)
-        st.caption(f"Unique Amazon Invoices: **{amz_cnt}** | Full Total Value: **₹{amz_val:,.2f}**")
+        st.caption(f"Unique Amazon Invoices: **{amz_cnt}** | Total Value: **₹{amz_val:,.2f}**")
 
     elif current_active_tab in ["BLNK", "BLNK_PO"]:
         st.markdown("📊 **Blinkit Upload Analytics**")
         blnk_recs = [r for r in loc_records if r.get("module") in ["BLNK", "BLNK_PO"]]
         blnk_cnt, blnk_val = compute_dedup_module_stats(blnk_recs)
 
-        m_col1, m_col2 = st.columns(2)
-        with m_col1:
-            st.metric("⚡ Total Invoices", f"{blnk_cnt} Inv")
-        with m_col2:
-            st.metric("💰 Total Value", f"₹{blnk_val:,.0f}")
+        st.markdown(
+            f"<div style='background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.28); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;'>"
+            f"<div style='font-size: 11.5px; color: #94a3b8; font-weight: 700;'>⚡ Total Invoices</div>"
+            f"<div style='font-size: 21px; font-weight: 900; margin-bottom: 6px;'>{blnk_cnt} Inv</div>"
+            f"<div style='font-size: 11.5px; color: #94a3b8; font-weight: 700;'>💰 Total Value</div>"
+            f"<div style='font-size: 19px; font-weight: 900; color: #10b981; white-space: nowrap;'>₹{blnk_val:,.2f}</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
 
         chart_df = pd.DataFrame({
             "Channel": ["Blinkit Invoices"],
@@ -816,11 +992,15 @@ with st.sidebar:
         amz_cnt, amz_val = compute_dedup_module_stats([r for r in loc_records if r.get("module") == "AMZ"])
         blnk_cnt, blnk_val = compute_dedup_module_stats([r for r in loc_records if r.get("module") in ["BLNK", "BLNK_PO"]])
 
-        m_col1, m_col2 = st.columns(2)
-        with m_col1:
-            st.metric("⚡ Blinkit", f"{blnk_cnt} Inv", delta=f"₹{blnk_val:,.0f}")
-        with m_col2:
-            st.metric("📦 Amazon", f"{amz_cnt} Inv", delta=f"₹{amz_val:,.0f}")
+        st.markdown(
+            f"<div style='background: rgba(148,163,184,0.08); border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;'>"
+            f"<div style='font-size: 11.5px; color: #94a3b8; font-weight: 700;'>⚡ Blinkit ({blnk_cnt} Inv)</div>"
+            f"<div style='font-size: 17px; font-weight: 900; color: #10b981; margin-bottom: 6px;'>₹{blnk_val:,.2f}</div>"
+            f"<div style='font-size: 11.5px; color: #94a3b8; font-weight: 700;'>📦 Amazon ({amz_cnt} Inv)</div>"
+            f"<div style='font-size: 17px; font-weight: 900; color: #38bdf8;'>₹{amz_val:,.2f}</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
 
         chart_df = pd.DataFrame({
             "Category": ["Blinkit", "Amazon"],
@@ -977,6 +1157,60 @@ elif st.session_state.show_history:
             return None, 0
         except Exception:
             return None, 0
+
+    with st.expander("💾 History Backup & Cloud Sync (Streamlit Cloud Reboot Protection)", expanded=False):
+        bk_c1, bk_c2 = st.columns(2)
+        with bk_c1:
+            all_h_for_bk = load_disk_history()
+            if all_h_for_bk:
+                bk_zip = io.BytesIO()
+                with zipfile.ZipFile(bk_zip, "w", compression=zipfile.ZIP_DEFLATED) as bzf:
+                    meta_clean = []
+                    for rec in all_h_for_bk:
+                        m_item = {k: v for k, v in rec.items() if k not in ["data", "excel_data", "json_data"]}
+                        meta_clean.append(m_item)
+                        if rec.get("data") and rec.get("disk_filename"):
+                            bzf.writestr(rec["disk_filename"], rec["data"])
+                        if rec.get("excel_data") and rec.get("disk_excel_filename"):
+                            bzf.writestr(rec["disk_excel_filename"], rec["excel_data"])
+                        if rec.get("json_data") and rec.get("disk_json_filename"):
+                            bzf.writestr(rec["disk_json_filename"], rec["json_data"])
+                    bzf.writestr("history_db.json", json.dumps(meta_clean, indent=2))
+                st.download_button(
+                    "📥 Download History Backup (.zip)",
+                    data=bk_zip.getvalue(),
+                    file_name=f"PAN_Hub_History_Backup_{datetime.now(IST).strftime('%d-%b-%Y')}.zip",
+                    mime="application/zip",
+                    use_container_width=True
+                )
+            else:
+                st.caption("No history records to export yet.")
+        with bk_c2:
+            restored_zip = st.file_uploader("📤 Restore History Backup (.zip)", type=["zip"], key="restore_hist_zip")
+            if restored_zip:
+                try:
+                    with zipfile.ZipFile(restored_zip, "r") as rzf:
+                        if "history_db.json" in rzf.namelist():
+                            r_meta = json.loads(rzf.read("history_db.json").decode("utf-8"))
+                            for name in rzf.namelist():
+                                if name != "history_db.json":
+                                    with open(os.path.join(STORAGE_DIR, name), "wb") as out_f:
+                                        out_f.write(rzf.read(name))
+                            existing_m = []
+                            if os.path.exists(METADATA_FILE):
+                                with open(METADATA_FILE, "r", encoding="utf-8") as mf:
+                                    existing_m = json.load(mf)
+                            seen_dfn = {x.get("disk_filename") for x in existing_m}
+                            for rm in r_meta:
+                                if rm.get("disk_filename") not in seen_dfn:
+                                    existing_m.append(rm)
+                            with open(METADATA_FILE, "w", encoding="utf-8") as mf:
+                                json.dump(existing_m, mf, indent=2)
+                            _sync_history_stores()
+                            st.success("✅ History restored! Refreshing...")
+                            st.rerun()
+                except Exception as ex:
+                    st.error(f"Restore failed: {ex}")
 
     if not loc_history:
         st.info("No files in history.")
@@ -2560,7 +2794,7 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
     <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; border-top: none; font-size: 11px; margin-top: -1px;">
         <tr>
             <td style="width: 60%; padding: 6px; vertical-align: top; border-right: 1px solid #000; font-size: 10px; color: #444;">
-                * Official verification format. e-Invoice generated via PAN Operations Portal.
+- Official verification format. e-Invoice generated via PAN Operations Portal.
             </td>
             <td style="width: 40%; padding: 6px; vertical-align: top;">
                 <table style="width: 100%; line-height: 1.6;">
@@ -2810,7 +3044,7 @@ elif st.session_state.active_tab == "LBL":
 elif st.session_state.active_tab == "CONF":
     st.subheader("⚙️ System Operations & Units Configuration")
     st.markdown(f"""
-    - **Active Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`
-    - **Default Barcode Type:** Code128 (High DPI Crisp Vector)
-    - **Engine Status:** Online & Healthy
+- **Active Location:** `{LOCATION_DISPLAY_MAP.get(st.session_state.selected_wh, st.session_state.selected_wh)}`
+- **Default Barcode Type:** Code128 (High DPI Crisp Vector)
+- **Engine Status:** Online & Healthy
     """)

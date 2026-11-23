@@ -3037,8 +3037,8 @@ table.items th {{ background-color: #f3f4f6; border-right: 1px solid #000; borde
 
 # ----------------- MODULE 4: LABEL EDITOR -----------------
 elif st.session_state.active_tab == "LBL":
-    st.subheader("🏷️ 4x6 Shipping & Box-Wise Product Label Generator")
-    st.caption("Configure Dedicated Box Splits per SKU, Pack Remaining in Mixed Boxes, Verify Exact Qty Match & Print 4x6 Thermal Labels.")
+    st.subheader("🏷️ 4x6 Shipping & Box-Wise Product Label Generator (Single & Bulk)")
+    st.caption("Upload Single or Bulk Invoice PDFs — Configure Dedicated Box Splits per SKU, Pack Remaining in Mixed Boxes, Verify Exact Qty Match & Download/Print 4x6 Thermal Labels.")
 
     def parse_invoice_for_labels(pdf_bytes):
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -3177,7 +3177,6 @@ elif st.session_state.active_tab == "LBL":
                 if not raw_desc or any(k in raw_desc.lower() for k in ["shipping charge", "cod charge", "private limited"]):
                     continue
 
-                # Clean UOM / HSN noise from description
                 clean_title = re.sub(r"\bUOM\s*[-–]?\s*[A-Z]+\b", "", raw_desc, flags=re.I).strip()
 
                 sku_code = ""
@@ -3252,20 +3251,17 @@ elif st.session_state.active_tab == "LBL":
         barcode_img_bytes = make_barcode_png(barcode_target_val)
 
         for box_idx, b_row in enumerate(box_plan_rows, 1):
-            # 4 x 6 inches = 288 x 432 pt
             page = out_doc.new_page(width=288, height=432)
-
-            # Outer heavy black border
             page.draw_rect(fitz.Rect(6, 6, 282, 426), color=(0, 0, 0), width=1.8)
 
-            # --- ROW 1: TOP HEADER (BLINKIT / CHANNEL on Left | BOX 1 OF 7 on Right) ---
+            # ROW 1: TOP HEADER (BLINKIT / CHANNEL on Left | BOX 1 OF 7 on Right)
             page.insert_text((12, 26), str(meta_info["header_tag"]).upper(), fontsize=15.0, fontname="hebo", color=(0, 0, 0))
             box_label_str = f"BOX {box_idx} OF {total_boxes}"
             box_x = 276 - (len(box_label_str) * 8.4)
             page.insert_text((max(150, box_x), 26), box_label_str, fontsize=14.5, fontname="hebo", color=(0, 0, 0))
             page.draw_line(fitz.Point(6, 33), fitz.Point(282, 33), color=(0, 0, 0), width=1.3)
 
-            # --- ROW 2: ORDER ID / PO NO (Left) & INVOICE NO (Right) + BARCODE ---
+            # ROW 2: ORDER ID / PO NO (Left) & INVOICE NO (Right) + BARCODE
             page.insert_text((12, 44), "ORDER ID / PO NO:", fontsize=7.2, fontname="hebo", color=(0.15, 0.15, 0.15))
             page.insert_text((12, 57), str(meta_info["po_no"] or "-"), fontsize=11.0, fontname="hebo", color=(0, 0, 0))
 
@@ -3275,14 +3271,13 @@ elif st.session_state.active_tab == "LBL":
 
             if barcode_img_bytes:
                 page.insert_image(fitz.Rect(28, 63, 260, 96), stream=barcode_img_bytes, keep_proportion=False)
-                # Centered barcode human-readable text
                 b_txt = str(barcode_target_val)
                 b_txt_x = 144 - (len(b_txt) * 2.6)
                 page.insert_text((max(28, b_txt_x), 106), b_txt, fontsize=8.8, fontname="hebo", color=(0, 0, 0))
 
             page.draw_line(fitz.Point(6, 112), fitz.Point(282, 112), color=(0, 0, 0), width=1.3)
 
-            # --- ROW 3: SHIP TO (CONSIGNEE / DESTINATION) ---
+            # ROW 3: SHIP TO (CONSIGNEE / DESTINATION)
             page.insert_text((12, 123), "SHIP TO (CONSIGNEE / DESTINATION):", fontsize=7.2, fontname="hebo", color=(0.2, 0.2, 0.2))
             page.insert_text((12, 136), str(meta_info["ship_to_name"])[:42], fontsize=10.5, fontname="hebo", color=(0, 0, 0))
 
@@ -3298,10 +3293,9 @@ elif st.session_state.active_tab == "LBL":
                 lineheight=1.18
             )
 
-            # Thin separator line between Ship To and Ship From
             page.draw_line(fitz.Point(12, 202), fitz.Point(276, 202), color=(0.65, 0.65, 0.65), width=0.8)
 
-            # --- ROW 4: SHIP FROM (SELLER) ---
+            # ROW 4: SHIP FROM (SELLER)
             page.insert_text((12, 214), "SHIP FROM (SELLER):", fontsize=7.2, fontname="hebo", color=(0.2, 0.2, 0.2))
             page.insert_text((12, 226), str(meta_info["seller_name"]), fontsize=9.5, fontname="hebo", color=(0, 0, 0))
             page.insert_textbox(
@@ -3315,7 +3309,7 @@ elif st.session_state.active_tab == "LBL":
 
             page.draw_line(fitz.Point(6, 265), fitz.Point(282, 265), color=(0, 0, 0), width=1.4)
 
-            # --- ROW 5: SKU CODE & ITEM CODE INNER BOX ---
+            # ROW 5: SKU CODE & ITEM CODE INNER BOX
             sku_box_rect = fitz.Rect(11, 271, 277, 326)
             page.draw_rect(sku_box_rect, color=(0.3, 0.3, 0.3), width=0.9)
 
@@ -3338,7 +3332,7 @@ elif st.session_state.active_tab == "LBL":
                     color=(0.15, 0.15, 0.15)
                 )
 
-            # --- ROW 6: LARGE CENTERED BOX QUANTITY BOX ---
+            # ROW 6: LARGE CENTERED BOX QUANTITY BOX
             qty_box_rect = fitz.Rect(11, 333, 277, 394)
             page.draw_rect(qty_box_rect, color=(0, 0, 0), width=1.4)
 
@@ -3358,358 +3352,476 @@ elif st.session_state.active_tab == "LBL":
         out_doc.close()
         return pdf_bytes
 
-    lbl_pdf = st.file_uploader(
-        "1. Upload Invoice PDF (for 4x6 Box Label Creation)",
+    lbl_pdfs = st.file_uploader(
+        "1. Upload Invoice PDF(s) — Single ya Bulk (Multiple Files Allowed)",
         type=["pdf"],
+        accept_multiple_files=True,
         key=f"lbl_inv_pdf_{st.session_state.selected_wh}_{st.session_state.uploader_key}"
     )
 
-    if lbl_pdf:
-        file_sig = f"{lbl_pdf.name}_{lbl_pdf.size}"
-        if st.session_state.get("lbl_parsed_sig") != file_sig:
-            lbl_pdf.seek(0)
-            parsed_data = parse_invoice_for_labels(lbl_pdf.read())
-            if not parsed_data["items"]:
-                parsed_data["items"] = [{"sku": "KMCN9525", "item_code": "KMCN9525", "desc": "Kare Mask Child N95 Respirators, 1 Pc/Pack", "qty": 900}]
-            st.session_state["lbl_parsed_data"] = parsed_data
-            st.session_state["lbl_parsed_sig"] = file_sig
-            # Reset split tiers & mixed boxes for new file
-            for idx, it in enumerate(parsed_data["items"]):
-                q = int(it["qty"])
-                def_bs = 300 if q >= 300 else q
-                st.session_state[f"lbl_tiers_{idx}"] = [{"per_box": def_bs, "num_boxes": q // def_bs}]
-            st.session_state["lbl_mixed_boxes"] = []
-            st.session_state["generated_4x6_labels"] = None
+    if lbl_pdfs:
+        # BULK MODE: Multiple PDFs uploaded -> Batch Box-Wise Label Generator
+        if len(lbl_pdfs) > 1:
+            st.info(f"📚 **Bulk Mode Active:** `{len(lbl_pdfs)}` Invoice PDFs uploaded.")
+            b_col1, b_col2, b_col3 = st.columns([1.2, 1.3, 1.5])
+            with b_col1:
+                bulk_box_size = st.number_input("Default Box Size (Qty / Box)", min_value=1, value=300, step=1, key="lbl_bulk_bs")
+            with b_col2:
+                bulk_loose_mode = st.selectbox(
+                    "Remaining / Loose Qty Rule:",
+                    options=[
+                        "Dedicated Loose Box per SKU (Separate Box)",
+                        "Hold Loose Qty (Full Boxes Only)"
+                    ],
+                    key="lbl_bulk_loose_mode"
+                )
+            with b_col3:
+                st.write("")
+                st.write("")
+                run_bulk_lbl = st.button("🚀 Generate Bulk 4x6 Labels (All Invoices)", type="primary", use_container_width=True)
 
-        parsed_lbl = st.session_state["lbl_parsed_data"]
-
-        # Header Metadata Editor
-        with st.expander("📝 Edit Label Header & Consignee Details (Order ID, Invoice No, Ship To)", expanded=True):
-            h_c1, h_c2, h_c3 = st.columns([1.0, 1.3, 1.3])
-            with h_c1:
-                hdr_tag_in = st.text_input("Channel / Header Tag", value=parsed_lbl["header_tag"], key="lbl_hdr_tag")
-            with h_c2:
-                po_no_in = st.text_input("ORDER ID / PO NO (Barcode)", value=parsed_lbl["po_no"], key="lbl_po_no")
-            with h_c3:
-                inv_no_in = st.text_input("INVOICE NO", value=parsed_lbl["invoice_no"], key="lbl_inv_no")
-
-            a_c1, a_c2 = st.columns([1.4, 2.2])
-            with a_c1:
-                ship_name_in = st.text_input("SHIP TO (Consignee Name)", value=parsed_lbl["ship_to_name"], key="lbl_ship_name")
-                ship_gst_in = st.text_input("Consignee GSTIN", value=parsed_lbl["ship_to_gstin"], key="lbl_ship_gst")
-            with a_c2:
-                ship_addr_in = st.text_area("SHIP TO (Full Address)", value=parsed_lbl["ship_to_addr"], height=95, key="lbl_ship_addr")
-
-        st.markdown("---")
-
-        # Top Action Bar matching Screenshot 2 ("Fill Box Quantities & Box Configuration")
-        top_cfg_l, top_cfg_r1, top_cfg_r2 = st.columns([2.4, 1.3, 1.3])
-        with top_cfg_l:
-            st.markdown("### 📦 Fill Box Quantities & Box Configuration")
-            st.caption("Configure dedicated boxes for single items, or pack multiple items in one mixed box.")
-
-        items_list = parsed_lbl["items"]
-        if "lbl_mixed_boxes" not in st.session_state:
-            st.session_state["lbl_mixed_boxes"] = []
-
-        # Helper to compute current packed per SKU (dedicated + mixed)
-        def get_sku_packed_breakdown():
-            breakdown = {}
-            for idx, it in enumerate(items_list):
-                tiers = st.session_state.get(f"lbl_tiers_{idx}", [])
-                ded_qty = sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers)
-                ded_boxes = sum(int(t["num_boxes"]) for t in tiers)
-                breakdown[idx] = {"ded_qty": ded_qty, "ded_boxes": ded_boxes, "mix_qty": 0}
-            for mb in st.session_state.get("lbl_mixed_boxes", []):
-                for m_it in mb.get("items", []):
-                    s_idx = m_it["sku_idx"]
-                    if s_idx in breakdown:
-                        breakdown[s_idx]["mix_qty"] += int(m_it["qty"])
-            return breakdown
-
-        cur_breakdown = get_sku_packed_breakdown()
-        total_short_all = sum(
-            max(0, int(items_list[i]["qty"]) - (cur_breakdown[i]["ded_qty"] + cur_breakdown[i]["mix_qty"]))
-            for i in range(len(items_list))
-        )
-
-        with top_cfg_r1:
-            if total_short_all > 0:
-                if st.button(f"✨ Pack Remaining ({total_short_all}) in Mixed Box", use_container_width=True):
-                    rem_items = []
-                    for i, it in enumerate(items_list):
-                        rem_q = int(it["qty"]) - (cur_breakdown[i]["ded_qty"] + cur_breakdown[i]["mix_qty"])
-                        if rem_q > 0:
-                            rem_items.append({
-                                "sku_idx": i,
-                                "sku": it["sku"],
-                                "desc": it["desc"],
-                                "qty": rem_q
+            if run_bulk_lbl:
+                bulk_results = []
+                master_zip_buf = io.BytesIO()
+                with zipfile.ZipFile(master_zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as mzf:
+                    for p_file in lbl_pdfs:
+                        p_file.seek(0)
+                        p_meta = parse_invoice_for_labels(p_file.read())
+                        p_boxes = []
+                        for it in p_meta["items"]:
+                            q = int(it["qty"])
+                            fb = q // int(bulk_box_size)
+                            rem = q % int(bulk_box_size)
+                            for _ in range(fb):
+                                p_boxes.append({
+                                    "sku": it["sku"],
+                                    "item_code": it.get("item_code", it["sku"]),
+                                    "desc": it["desc"],
+                                    "box_qty": int(bulk_box_size),
+                                    "box_type": "FULL BOX",
+                                    "is_mixed": False
+                                })
+                            if rem > 0 and bulk_loose_mode.startswith("Dedicated Loose Box"):
+                                p_boxes.append({
+                                    "sku": it["sku"],
+                                    "item_code": it.get("item_code", it["sku"]),
+                                    "desc": it["desc"],
+                                    "box_qty": int(rem),
+                                    "box_type": "DEDICATED LOOSE BOX",
+                                    "is_mixed": False
+                                })
+                        if not p_boxes and p_meta["items"]:
+                            it0 = p_meta["items"][0]
+                            p_boxes.append({
+                                "sku": it0["sku"],
+                                "item_code": it0.get("item_code", it0["sku"]),
+                                "desc": it0["desc"],
+                                "box_qty": int(it0["qty"]),
+                                "box_type": "FULL BOX",
+                                "is_mixed": False
                             })
-                    if rem_items:
-                        st.session_state["lbl_mixed_boxes"].append({"items": rem_items})
-                        st.rerun()
-            else:
-                st.button("✨ All Qty Packed", disabled=True, use_container_width=True)
 
-        with top_cfg_r2:
-            if st.button("➕ Add Mixed Box (Multiple Items)", use_container_width=True):
-                default_mix = [{"sku_idx": i, "sku": it["sku"], "desc": it["desc"], "qty": 0} for i, it in enumerate(items_list)]
-                st.session_state["lbl_mixed_boxes"].append({"items": default_mix})
-                st.rerun()
+                        pdf_out = generate_4x6_labels_pdf(p_meta, p_boxes)
+                        clean_inv = re.sub(r"[^A-Za-z0-9\-_]", "", str(p_meta["invoice_no"]).strip()) or "Invoice"
+                        b_cnt = len(p_boxes)
+                        b_word = "Box" if b_cnt == 1 else "Boxes"
+                        fname = f"{clean_inv}_{b_cnt}_{b_word}.pdf"
+                        mzf.writestr(fname, pdf_out)
 
-        st.markdown(f"**SINGLE-ITEM BOX SPLITS (DEDICATED BOXES PER SKU)** — `{len(items_list)} Item(s) in Invoice`")
-
-        all_boxes_plan = []
-        all_skus_matched = True
-
-        for idx, it in enumerate(items_list):
-            if f"lbl_tiers_{idx}" not in st.session_state:
-                q = int(it["qty"])
-                def_bs = 300 if q >= 300 else q
-                st.session_state[f"lbl_tiers_{idx}"] = [{"per_box": def_bs, "num_boxes": q // def_bs}]
-
-            tiers = st.session_state[f"lbl_tiers_{idx}"]
-            inv_qty = int(it["qty"])
-            mix_q_for_sku = cur_breakdown[idx]["mix_qty"]
-
-            with st.container(border=True):
-                hdr_c1, hdr_c2, hdr_c3 = st.columns([2.2, 1.3, 1.3])
-                with hdr_c1:
-                    sku_edit = st.text_input("SKU", value=it["sku"], key=f"sku_name_{idx}")
-                    it["sku"] = sku_edit
-                with hdr_c2:
-                    icode_edit = st.text_input("ITEM CODE", value=it.get("item_code", it["sku"]), key=f"icode_name_{idx}")
-                    it["item_code"] = icode_edit
-                with hdr_c3:
-                    inv_qty_edit = st.number_input("Total Invoice Qty", min_value=1, value=inv_qty, step=1, key=f"inv_q_edit_{idx}")
-                    it["qty"] = inv_qty_edit
-                    inv_qty = inv_qty_edit
-
-                title_edit = st.text_input("Title / Description", value=it["desc"], key=f"desc_edit_{idx}")
-                it["desc"] = title_edit
-
-                # Calculate current sum before rendering action link
-                ded_sum_now = sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers)
-                total_packed_now = ded_sum_now + mix_q_for_sku
-                short_now = inv_qty - total_packed_now
-
-                sub_l, sub_r = st.columns([2.5, 1.5])
-                with sub_l:
-                    st.markdown("**Dedicated Box Splits:**")
-                with sub_r:
-                    if short_now > 0:
-                        if st.button(f"➕ Add Remaining ({short_now}) in 1 Dedicated Box", key=f"add_rem_ded_{idx}", use_container_width=True):
-                            tiers.append({"per_box": int(short_now), "num_boxes": 1, "is_loose": True})
-                            st.session_state[f"lbl_tiers_{idx}"] = tiers
-                            st.rerun()
-
-                # Render each split tier row (#1 Per Box Qty x Number of Boxes = Total Qty)
-                tiers_to_remove = []
-                for t_idx, tier in enumerate(tiers):
-                    tc1, tc2, tc3, tc4, tc5 = st.columns([0.4, 1.3, 1.3, 1.4, 0.4])
-                    with tc1:
-                        st.markdown(f"<div style='padding-top:28px; font-weight:700;'>#{t_idx+1}</div>", unsafe_allow_html=True)
-                    with tc2:
-                        pb = st.number_input(
-                            "Per Box Qty",
-                            min_value=1,
-                            value=int(tier["per_box"]),
-                            step=1,
-                            key=f"pb_{idx}_{t_idx}"
-                        )
-                        tier["per_box"] = pb
-                    with tc3:
-                        nb = st.number_input(
-                            "Number of Boxes",
-                            min_value=0,
-                            value=int(tier["num_boxes"]),
-                            step=1,
-                            key=f"nb_{idx}_{t_idx}"
-                        )
-                        tier["num_boxes"] = nb
-                    with tc4:
-                        row_q = pb * nb
-                        tag_txt = " (Loose Box)" if tier.get("is_loose") else ""
-                        st.markdown(
-                            f"<div style='padding-top:28px; font-weight:700; text-align:right;'>= {row_q} Qty ({nb} Boxes){tag_txt}</div>",
-                            unsafe_allow_html=True
-                        )
-                    with tc5:
-                        if len(tiers) > 1:
-                            st.write("")
-                            if st.button("✖", key=f"del_tier_{idx}_{t_idx}", help="Remove split tier"):
-                                tiers_to_remove.append(t_idx)
-
-                if tiers_to_remove:
-                    for r_i in sorted(tiers_to_remove, reverse=True):
-                        tiers.pop(r_i)
-                    st.session_state[f"lbl_tiers_{idx}"] = tiers
-                    st.rerun()
-
-                if st.button("➕ Add Another Split Tier", key=f"add_tier_{idx}"):
-                    rem_for_new = max(1, inv_qty - (sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers) + mix_q_for_sku))
-                    tiers.append({"per_box": rem_for_new, "num_boxes": 1, "is_loose": True})
-                    st.session_state[f"lbl_tiers_{idx}"] = tiers
-                    st.rerun()
-
-                # Final verification status for this SKU
-                final_ded_qty = sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers)
-                final_tot_qty = final_ded_qty + mix_q_for_sku
-                final_diff = final_tot_qty - inv_qty
-
-                if final_tot_qty == inv_qty:
-                    st.success(f"✅ **Matched ({final_tot_qty}/{inv_qty})** — Dedicated: {final_ded_qty} | Mixed: {mix_q_for_sku}")
-                elif final_tot_qty < inv_qty:
-                    all_skus_matched = False
-                    st.warning(f"⚠️ **Short {final_diff} ({final_tot_qty}/{inv_qty})** — Remaining {abs(final_diff)} pcs ko Dedicated Loose Box ya Mixed Box mein add karein.")
-                else:
-                    all_skus_matched = False
-                    st.error(f"❌ **Excess +{final_diff} ({final_tot_qty}/{inv_qty})** — Box quantity Invoice Qty se zyada hai.")
-
-                # Append dedicated boxes to overall plan
-                for tier in tiers:
-                    for _ in range(int(tier["num_boxes"])):
-                        all_boxes_plan.append({
-                            "sku": it["sku"],
-                            "item_code": it.get("item_code", it["sku"]),
-                            "desc": it["desc"],
-                            "box_qty": int(tier["per_box"]),
-                            "box_type": "DEDICATED LOOSE BOX" if tier.get("is_loose") else "FULL BOX",
-                            "is_mixed": False
+                        save_item_to_disk_history({
+                            "original_name": p_file.name,
+                            "file_name": fname,
+                            "data": pdf_out,
+                            "pages": b_cnt,
+                            "stamped": b_cnt,
+                            "location": st.session_state.selected_wh,
+                            "module": "LBL",
+                            "buyer": p_meta["ship_to_name"],
+                            "total_value": 0.0,
+                            "invoice_entries": [{
+                                "uid": clean_inv.lower(),
+                                "inv_no": p_meta["invoice_no"],
+                                "value": 0.0
+                            }]
                         })
 
-        # Render Mixed Boxes Section if any mixed boxes exist
-        mixed_boxes = st.session_state.get("lbl_mixed_boxes", [])
-        if mixed_boxes:
-            st.markdown("### 📦 Mixed Boxes (Multiple Items in 1 Box)")
-            mix_to_del = []
-            for m_idx, mb in enumerate(mixed_boxes):
-                with st.container(border=True):
-                    mc1, mc2 = st.columns([4, 1])
-                    with mc1:
-                        st.markdown(f"**Mixed Box #{m_idx+1}**")
-                    with mc2:
-                        if st.button("🗑️ Remove Box", key=f"del_mix_{m_idx}", use_container_width=True):
-                            mix_to_del.append(m_idx)
-
-                    active_mix_items = []
-                    for i, it in enumerate(items_list):
-                        existing_entry = next((x for x in mb["items"] if x["sku_idx"] == i), None)
-                        init_q = int(existing_entry["qty"]) if existing_entry else 0
-                        mq = st.number_input(
-                            f"{it['sku']} — {it['desc'][:55]} (Qty in Mixed Box #{m_idx+1})",
-                            min_value=0,
-                            value=init_q,
-                            step=1,
-                            key=f"mix_q_{m_idx}_{i}"
-                        )
-                        if existing_entry:
-                            existing_entry["qty"] = mq
-                        else:
-                            mb["items"].append({"sku_idx": i, "sku": it["sku"], "desc": it["desc"], "qty": mq})
-                        if mq > 0:
-                            active_mix_items.append({"sku": it["sku"], "desc": it["desc"], "qty": mq})
-
-                    tot_mix_pcs = sum(x["qty"] for x in active_mix_items)
-                    if tot_mix_pcs > 0:
-                        all_boxes_plan.append({
-                            "sku": "MIXED",
-                            "item_code": "MIXED",
-                            "desc": "Multiple SKUs",
-                            "box_qty": tot_mix_pcs,
-                            "box_type": "MIXED BOX",
-                            "is_mixed": True,
-                            "mixed_items": active_mix_items
+                        bulk_results.append({
+                            "invoice_no": p_meta["invoice_no"],
+                            "filename": fname,
+                            "boxes": b_cnt,
+                            "bytes": pdf_out
                         })
 
-            if mix_to_del:
-                for d_i in sorted(mix_to_del, reverse=True):
-                    mixed_boxes.pop(d_i)
-                st.session_state["lbl_mixed_boxes"] = mixed_boxes
-                st.rerun()
-
-        st.markdown("---")
-        total_label_count = len(all_boxes_plan)
-        st.info(f"🏷️ **Total Boxes Ready for Print:** `{total_label_count}` Labels (`BOX 1 OF {total_label_count}` se `BOX {total_label_count} OF {total_label_count}` tak)")
-
-        if all_skus_matched and total_label_count > 0:
-            if st.button(f"🖨️ Generate {total_label_count} Labels (4x6 PDF)", type="primary", use_container_width=True):
-                meta_for_pdf = {
-                    "header_tag": hdr_tag_in,
-                    "invoice_no": inv_no_in,
-                    "po_no": po_no_in,
-                    "ship_to_name": ship_name_in,
-                    "ship_to_addr": ship_addr_in,
-                    "ship_to_gstin": ship_gst_in,
-                    "seller_name": parsed_lbl["seller_name"],
-                    "seller_addr": parsed_lbl["seller_addr"]
-                }
-                labels_pdf_bytes = generate_4x6_labels_pdf(meta_for_pdf, all_boxes_plan)
-                clean_inv_fname = re.sub(r"[^A-Za-z0-9\-_]", "", str(inv_no_in).strip()) or "Invoice"
-                box_suffix = "Box" if total_label_count == 1 else "Boxes"
-                final_lbl_filename = f"{clean_inv_fname}_{total_label_count}_{box_suffix}.pdf"
-
-                st.session_state["generated_4x6_labels"] = {
-                    "bytes": labels_pdf_bytes,
-                    "filename": final_lbl_filename,
-                    "count": total_label_count
+                st.session_state["lbl_bulk_generated"] = {
+                    "items": bulk_results,
+                    "zip_bytes": master_zip_buf.getvalue(),
+                    "zip_name": f"All_4x6_Box_Labels_{len(bulk_results)}_Invoices.zip"
                 }
 
-                save_item_to_disk_history({
-                    "original_name": lbl_pdf.name,
-                    "file_name": final_lbl_filename,
-                    "data": labels_pdf_bytes,
-                    "pages": total_label_count,
-                    "stamped": total_label_count,
-                    "location": st.session_state.selected_wh,
-                    "module": "LBL",
-                    "buyer": ship_name_in,
-                    "total_value": 0.0,
-                    "invoice_entries": [{
-                        "uid": clean_inv_fname.lower(),
-                        "inv_no": str(inv_no_in),
-                        "value": 0.0
-                    }]
-                })
-
-            if st.session_state.get("generated_4x6_labels"):
-                lbl_res = st.session_state["generated_4x6_labels"]
-                st.success(f"🎉 **{lbl_res['count']}** 4x6 Labels ready hain! File: `{lbl_res['filename']}` | Top-Right: `BOX 1 OF {lbl_res['count']}` ... `BOX {lbl_res['count']} OF {lbl_res['count']}`")
+            if st.session_state.get("lbl_bulk_generated"):
+                b_gen = st.session_state["lbl_bulk_generated"]
+                st.success(f"✅ Generated 4x6 Labels for **{len(b_gen['items'])}** Invoices!")
                 st.download_button(
-                    label=f"📥 Download {lbl_res['filename']} ({lbl_res['count']} Pages)",
-                    data=lbl_res["bytes"],
-                    file_name=lbl_res["filename"],
-                    mime="application/pdf",
+                    label=f"📦 Download All Invoice Label PDFs ({b_gen['zip_name']})",
+                    data=b_gen["zip_bytes"],
+                    file_name=b_gen["zip_name"],
+                    mime="application/zip",
                     use_container_width=True
                 )
+                st.write("---")
+                for r_item in b_gen["items"]:
+                    rc1, rc2 = st.columns([3, 1])
+                    with rc1:
+                        st.write(f"🏷️ **{r_item['filename']}** — Invoice: `{r_item['invoice_no']}` | Total Boxes: `{r_item['boxes']}`")
+                    with rc2:
+                        st.download_button(
+                            label="📥 Download PDF",
+                            data=r_item["bytes"],
+                            file_name=r_item["filename"],
+                            mime="application/pdf",
+                            key=f"dl_bulk_lbl_{r_item['filename']}",
+                            use_container_width=True
+                        )
 
-                b64_lbl = base64.b64encode(lbl_res["bytes"]).decode("utf-8")
-                lbl_preview_html = f"""
-                <div style="margin-top: 12px; background: #ffffff; padding: 12px; border-radius: 12px; border: 1.5px solid #cbd5e1;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="font-weight: 800; color: #0f172a; font-size: 14px;">🏷️ 4x6 Thermal Label Preview & Direct Print</span>
-                        <button onclick="print4x6Labels()" style="background: #2563eb; color: #ffffff; border: none; padding: 6px 18px; border-radius: 8px; font-weight: 700; cursor: pointer;">
-                            🖨️ Print 4x6 Labels
-                        </button>
-                    </div>
-                    <iframe id="lbl_4x6_frame" src="data:application/pdf;base64,{b64_lbl}" width="100%" height="560px" style="border: 1px solid #e2e8f0; border-radius: 8px;"></iframe>
-                </div>
-                <script>
-                function print4x6Labels() {{
-                    const iframe = document.getElementById('lbl_4x6_frame');
-                    if (iframe) {{
-                        iframe.contentWindow.focus();
-                        iframe.contentWindow.print();
-                    }}
-                }}
-                </script>
-                """
-                components.html(lbl_preview_html, height=620)
+        # SINGLE FILE MODE: Detailed per-SKU dedicated splits, loose box & mixed box configuration
         else:
-            st.button("🖨️ Generate 4x6 Labels (Match All SKU Quantities First)", disabled=True, use_container_width=True)
+            single_pdf = lbl_pdfs[0]
+            file_sig = f"{single_pdf.name}_{single_pdf.size}"
+            if st.session_state.get("lbl_parsed_sig") != file_sig:
+                single_pdf.seek(0)
+                parsed_data = parse_invoice_for_labels(single_pdf.read())
+                if not parsed_data["items"]:
+                    parsed_data["items"] = [{"sku": "KMCN9525", "item_code": "KMCN9525", "desc": "Kare Mask Child N95 Respirators, 1 Pc/Pack", "qty": 900}]
+                st.session_state["lbl_parsed_data"] = parsed_data
+                st.session_state["lbl_parsed_sig"] = file_sig
+                for idx, it in enumerate(parsed_data["items"]):
+                    q = int(it["qty"])
+                    def_bs = 300 if q >= 300 else q
+                    st.session_state[f"lbl_tiers_{idx}"] = [{"per_box": def_bs, "num_boxes": q // def_bs}]
+                st.session_state["lbl_mixed_boxes"] = []
+                st.session_state["generated_4x6_labels"] = None
+
+            parsed_lbl = st.session_state["lbl_parsed_data"]
+
+            with st.expander("📝 Edit Label Header & Consignee Details (Order ID, Invoice No, Ship To)", expanded=True):
+                h_c1, h_c2, h_c3 = st.columns([1.0, 1.3, 1.3])
+                with h_c1:
+                    hdr_tag_in = st.text_input("Channel / Header Tag", value=parsed_lbl["header_tag"], key="lbl_hdr_tag")
+                with h_c2:
+                    po_no_in = st.text_input("ORDER ID / PO NO (Barcode)", value=parsed_lbl["po_no"], key="lbl_po_no")
+                with h_c3:
+                    inv_no_in = st.text_input("INVOICE NO", value=parsed_lbl["invoice_no"], key="lbl_inv_no")
+
+                a_c1, a_c2 = st.columns([1.4, 2.2])
+                with a_c1:
+                    ship_name_in = st.text_input("SHIP TO (Consignee Name)", value=parsed_lbl["ship_to_name"], key="lbl_ship_name")
+                    ship_gst_in = st.text_input("Consignee GSTIN", value=parsed_lbl["ship_to_gstin"], key="lbl_ship_gst")
+                with a_c2:
+                    ship_addr_in = st.text_area("SHIP TO (Full Address)", value=parsed_lbl["ship_to_addr"], height=95, key="lbl_ship_addr")
+
+            st.markdown("---")
+
+            top_cfg_l, top_cfg_r1, top_cfg_r2 = st.columns([2.4, 1.3, 1.3])
+            with top_cfg_l:
+                st.markdown("### 📦 Fill Box Quantities & Box Configuration")
+                st.caption("Configure dedicated boxes for single items, or pack multiple items in one mixed box.")
+
+            items_list = parsed_lbl["items"]
+            if "lbl_mixed_boxes" not in st.session_state:
+                st.session_state["lbl_mixed_boxes"] = []
+
+            def get_sku_packed_breakdown():
+                breakdown = {}
+                for idx, it in enumerate(items_list):
+                    tiers = st.session_state.get(f"lbl_tiers_{idx}", [])
+                    ded_qty = sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers)
+                    ded_boxes = sum(int(t["num_boxes"]) for t in tiers)
+                    breakdown[idx] = {"ded_qty": ded_qty, "ded_boxes": ded_boxes, "mix_qty": 0}
+                for mb in st.session_state.get("lbl_mixed_boxes", []):
+                    for m_it in mb.get("items", []):
+                        s_idx = m_it["sku_idx"]
+                        if s_idx in breakdown:
+                            breakdown[s_idx]["mix_qty"] += int(m_it["qty"])
+                return breakdown
+
+            cur_breakdown = get_sku_packed_breakdown()
+            total_short_all = sum(
+                max(0, int(items_list[i]["qty"]) - (cur_breakdown[i]["ded_qty"] + cur_breakdown[i]["mix_qty"]))
+                for i in range(len(items_list))
+            )
+
+            with top_cfg_r1:
+                if total_short_all > 0:
+                    if st.button(f"✨ Pack Remaining ({total_short_all}) in Mixed Box", use_container_width=True):
+                        rem_items = []
+                        for i, it in enumerate(items_list):
+                            rem_q = int(it["qty"]) - (cur_breakdown[i]["ded_qty"] + cur_breakdown[i]["mix_qty"])
+                            if rem_q > 0:
+                                rem_items.append({
+                                    "sku_idx": i,
+                                    "sku": it["sku"],
+                                    "desc": it["desc"],
+                                    "qty": rem_q
+                                })
+                        if rem_items:
+                            st.session_state["lbl_mixed_boxes"].append({"items": rem_items})
+                            st.rerun()
+                else:
+                    st.button("✨ All Qty Packed", disabled=True, use_container_width=True)
+
+            with top_cfg_r2:
+                if st.button("➕ Add Mixed Box (Multiple Items)", use_container_width=True):
+                    default_mix = [{"sku_idx": i, "sku": it["sku"], "desc": it["desc"], "qty": 0} for i, it in enumerate(items_list)]
+                    st.session_state["lbl_mixed_boxes"].append({"items": default_mix})
+                    st.rerun()
+
+            st.markdown(f"**SINGLE-ITEM BOX SPLITS (DEDICATED BOXES PER SKU)** — `{len(items_list)} Item(s) in Invoice`")
+
+            all_boxes_plan = []
+            all_skus_matched = True
+
+            for idx, it in enumerate(items_list):
+                if f"lbl_tiers_{idx}" not in st.session_state:
+                    q = int(it["qty"])
+                    def_bs = 300 if q >= 300 else q
+                    st.session_state[f"lbl_tiers_{idx}"] = [{"per_box": def_bs, "num_boxes": q // def_bs}]
+
+                tiers = st.session_state[f"lbl_tiers_{idx}"]
+                inv_qty = int(it["qty"])
+                mix_q_for_sku = cur_breakdown[idx]["mix_qty"]
+
+                with st.container(border=True):
+                    hdr_c1, hdr_c2, hdr_c3 = st.columns([2.2, 1.3, 1.3])
+                    with hdr_c1:
+                        sku_edit = st.text_input("SKU", value=it["sku"], key=f"sku_name_{idx}")
+                        it["sku"] = sku_edit
+                    with hdr_c2:
+                        icode_edit = st.text_input("ITEM CODE", value=it.get("item_code", it["sku"]), key=f"icode_name_{idx}")
+                        it["item_code"] = icode_edit
+                    with hdr_c3:
+                        inv_qty_edit = st.number_input("Total Invoice Qty", min_value=1, value=inv_qty, step=1, key=f"inv_q_edit_{idx}")
+                        it["qty"] = inv_qty_edit
+                        inv_qty = inv_qty_edit
+
+                    title_edit = st.text_input("Title / Description", value=it["desc"], key=f"desc_edit_{idx}")
+                    it["desc"] = title_edit
+
+                    ded_sum_now = sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers)
+                    total_packed_now = ded_sum_now + mix_q_for_sku
+                    short_now = inv_qty - total_packed_now
+
+                    sub_l, sub_r = st.columns([2.5, 1.5])
+                    with sub_l:
+                        st.markdown("**Dedicated Box Splits:**")
+                    with sub_r:
+                        if short_now > 0:
+                            if st.button(f"➕ Add Remaining ({short_now}) in 1 Dedicated Box", key=f"add_rem_ded_{idx}", use_container_width=True):
+                                tiers.append({"per_box": int(short_now), "num_boxes": 1, "is_loose": True})
+                                st.session_state[f"lbl_tiers_{idx}"] = tiers
+                                st.rerun()
+
+                    tiers_to_remove = []
+                    for t_idx, tier in enumerate(tiers):
+                        tc1, tc2, tc3, tc4, tc5 = st.columns([0.4, 1.3, 1.3, 1.4, 0.4])
+                        with tc1:
+                            st.markdown(f"<div style='padding-top:28px; font-weight:700;'>#{t_idx+1}</div>", unsafe_allow_html=True)
+                        with tc2:
+                            pb = st.number_input(
+                                "Per Box Qty",
+                                min_value=1,
+                                value=int(tier["per_box"]),
+                                step=1,
+                                key=f"pb_{idx}_{t_idx}"
+                            )
+                            tier["per_box"] = pb
+                        with tc3:
+                            nb = st.number_input(
+                                "Number of Boxes",
+                                min_value=0,
+                                value=int(tier["num_boxes"]),
+                                step=1,
+                                key=f"nb_{idx}_{t_idx}"
+                            )
+                            tier["num_boxes"] = nb
+                        with tc4:
+                            row_q = pb * nb
+                            tag_txt = " (Loose Box)" if tier.get("is_loose") else ""
+                            st.markdown(
+                                f"<div style='padding-top:28px; font-weight:700; text-align:right;'>= {row_q} Qty ({nb} Boxes){tag_txt}</div>",
+                                unsafe_allow_html=True
+                            )
+                        with tc5:
+                            if len(tiers) > 1:
+                                st.write("")
+                                if st.button("✖", key=f"del_tier_{idx}_{t_idx}", help="Remove split tier"):
+                                    tiers_to_remove.append(t_idx)
+
+                    if tiers_to_remove:
+                        for r_i in sorted(tiers_to_remove, reverse=True):
+                            tiers.pop(r_i)
+                        st.session_state[f"lbl_tiers_{idx}"] = tiers
+                        st.rerun()
+
+                    if st.button("➕ Add Another Split Tier", key=f"add_tier_{idx}"):
+                        rem_for_new = max(1, inv_qty - (sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers) + mix_q_for_sku))
+                        tiers.append({"per_box": rem_for_new, "num_boxes": 1, "is_loose": True})
+                        st.session_state[f"lbl_tiers_{idx}"] = tiers
+                        st.rerun()
+
+                    final_ded_qty = sum(int(t["per_box"]) * int(t["num_boxes"]) for t in tiers)
+                    final_tot_qty = final_ded_qty + mix_q_for_sku
+                    final_diff = final_tot_qty - inv_qty
+
+                    if final_tot_qty == inv_qty:
+                        st.success(f"✅ **Matched ({final_tot_qty}/{inv_qty})** — Dedicated: {final_ded_qty} | Mixed: {mix_q_for_sku}")
+                    elif final_tot_qty < inv_qty:
+                        all_skus_matched = False
+                        st.warning(f"⚠️ **Short {final_diff} ({final_tot_qty}/{inv_qty})** — Remaining {abs(final_diff)} pcs ko Dedicated Loose Box ya Mixed Box mein add karein.")
+                    else:
+                        all_skus_matched = False
+                        st.error(f"❌ **Excess +{final_diff} ({final_tot_qty}/{inv_qty})** — Box quantity Invoice Qty se zyada hai.")
+
+                    for tier in tiers:
+                        for _ in range(int(tier["num_boxes"])):
+                            all_boxes_plan.append({
+                                "sku": it["sku"],
+                                "item_code": it.get("item_code", it["sku"]),
+                                "desc": it["desc"],
+                                "box_qty": int(tier["per_box"]),
+                                "box_type": "DEDICATED LOOSE BOX" if tier.get("is_loose") else "FULL BOX",
+                                "is_mixed": False
+                            })
+
+            mixed_boxes = st.session_state.get("lbl_mixed_boxes", [])
+            if mixed_boxes:
+                st.markdown("### 📦 Mixed Boxes (Multiple Items in 1 Box)")
+                mix_to_del = []
+                for m_idx, mb in enumerate(mixed_boxes):
+                    with st.container(border=True):
+                        mc1, mc2 = st.columns([4, 1])
+                        with mc1:
+                            st.markdown(f"**Mixed Box #{m_idx+1}**")
+                        with mc2:
+                            if st.button("🗑️ Remove Box", key=f"del_mix_{m_idx}", use_container_width=True):
+                                mix_to_del.append(m_idx)
+
+                        active_mix_items = []
+                        for i, it in enumerate(items_list):
+                            existing_entry = next((x for x in mb["items"] if x["sku_idx"] == i), None)
+                            init_q = int(existing_entry["qty"]) if existing_entry else 0
+                            mq = st.number_input(
+                                f"{it['sku']} — {it['desc'][:55]} (Qty in Mixed Box #{m_idx+1})",
+                                min_value=0,
+                                value=init_q,
+                                step=1,
+                                key=f"mix_q_{m_idx}_{i}"
+                            )
+                            if existing_entry:
+                                existing_entry["qty"] = mq
+                            else:
+                                mb["items"].append({"sku_idx": i, "sku": it["sku"], "desc": it["desc"], "qty": mq})
+                            if mq > 0:
+                                active_mix_items.append({"sku": it["sku"], "desc": it["desc"], "qty": mq})
+
+                        tot_mix_pcs = sum(x["qty"] for x in active_mix_items)
+                        if tot_mix_pcs > 0:
+                            all_boxes_plan.append({
+                                "sku": "MIXED",
+                                "item_code": "MIXED",
+                                "desc": "Multiple SKUs",
+                                "box_qty": tot_mix_pcs,
+                                "box_type": "MIXED BOX",
+                                "is_mixed": True,
+                                "mixed_items": active_mix_items
+                            })
+
+                if mix_to_del:
+                    for d_i in sorted(mix_to_del, reverse=True):
+                        mixed_boxes.pop(d_i)
+                    st.session_state["lbl_mixed_boxes"] = mixed_boxes
+                    st.rerun()
+
+            st.markdown("---")
+            total_label_count = len(all_boxes_plan)
+            st.info(f"🏷️ **Total Boxes Ready for Print:** `{total_label_count}` Labels (`BOX 1 OF {total_label_count}` se `BOX {total_label_count} OF {total_label_count}` tak)")
+
+            if all_skus_matched and total_label_count > 0:
+                if st.button(f"🖨️ Generate {total_label_count} Labels (4x6 PDF)", type="primary", use_container_width=True):
+                    meta_for_pdf = {
+                        "header_tag": hdr_tag_in,
+                        "invoice_no": inv_no_in,
+                        "po_no": po_no_in,
+                        "ship_to_name": ship_name_in,
+                        "ship_to_addr": ship_addr_in,
+                        "ship_to_gstin": ship_gst_in,
+                        "seller_name": parsed_lbl["seller_name"],
+                        "seller_addr": parsed_lbl["seller_addr"]
+                    }
+                    labels_pdf_bytes = generate_4x6_labels_pdf(meta_for_pdf, all_boxes_plan)
+                    clean_inv_fname = re.sub(r"[^A-Za-z0-9\-_]", "", str(inv_no_in).strip()) or "Invoice"
+                    box_suffix = "Box" if total_label_count == 1 else "Boxes"
+                    final_lbl_filename = f"{clean_inv_fname}_{total_label_count}_{box_suffix}.pdf"
+
+                    save_item_to_disk_history({
+                        "original_name": single_pdf.name,
+                        "file_name": final_lbl_filename,
+                        "data": labels_pdf_bytes,
+                        "pages": total_label_count,
+                        "stamped": total_label_count,
+                        "location": st.session_state.selected_wh,
+                        "module": "LBL",
+                        "buyer": ship_name_in,
+                        "total_value": 0.0,
+                        "invoice_entries": [{
+                            "uid": clean_inv_fname.lower(),
+                            "inv_no": str(inv_no_in),
+                            "value": 0.0
+                        }]
+                    })
+
+                    st.session_state["generated_4x6_labels"] = {
+                        "bytes": labels_pdf_bytes,
+                        "filename": final_lbl_filename,
+                        "count": total_label_count
+                    }
+
+                if st.session_state.get("generated_4x6_labels"):
+                    lbl_res = st.session_state["generated_4x6_labels"]
+                    st.success(f"🎉 **{lbl_res['count']}** 4x6 Labels ready hain! File Name: `{lbl_res['filename']}`")
+                    st.download_button(
+                        label=f"📥 Download {lbl_res['filename']} ({lbl_res['count']} Pages)",
+                        data=lbl_res["bytes"],
+                        file_name=lbl_res["filename"],
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+
+                    b64_lbl = base64.b64encode(lbl_res["bytes"]).decode("utf-8")
+                    lbl_preview_html = f"""
+                    <div style="margin-top: 12px; background: #ffffff; padding: 12px; border-radius: 12px; border: 1.5px solid #cbd5e1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-weight: 800; color: #0f172a; font-size: 14px;">🏷️ 4x6 Thermal Label Preview & Direct Print</span>
+                            <button onclick="print4x6Labels()" style="background: #2563eb; color: #ffffff; border: none; padding: 6px 18px; border-radius: 8px; font-weight: 700; cursor: pointer;">
+                                🖨️ Print 4x6 Labels
+                            </button>
+                        </div>
+                        <iframe id="lbl_4x6_frame" src="data:application/pdf;base64,{b64_lbl}" width="100%" height="560px" style="border: 1px solid #e2e8f0; border-radius: 8px;"></iframe>
+                    </div>
+                    <script>
+                    function print4x6Labels() {{
+                        const iframe = document.getElementById('lbl_4x6_frame');
+                        if (iframe) {{
+                            iframe.contentWindow.focus();
+                            iframe.contentWindow.print();
+                        }}
+                    }}
+                    </script>
+                    """
+                    components.html(lbl_preview_html, height=620)
+            else:
+                st.button("🖨️ Generate 4x6 Labels (Match All SKU Quantities First)", disabled=True, use_container_width=True)
     else:
-        st.info("Upar Invoice PDF upload karein — tool automatically SKU, Item Code, Order ID, Ship To Address, aur Quantity read karke 4x6 Labels bana dega.")
+        st.info("Upar single ya multiple Invoice PDFs upload karein — tool automatically SKU, Item Code, Order ID, Ship To Address, aur Quantity read karke 4x6 Labels bana dega.")
 
 # ----------------- MODULE 5: SETTINGS & REPORTS -----------------
 elif st.session_state.active_tab == "CONF":
